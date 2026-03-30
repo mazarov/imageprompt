@@ -1,0 +1,192 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+  text-wrap: balance;
+  letter-spacing: -0.025em;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+  50% { box-shadow: 0 0 20px 2px rgba(99, 102, 241, 0.08); }
+}
+
+@layer utilities {
+  .text-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 200ms ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .animate-slide-up-sheet {
+    animation: slideUpSheet 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .animate-pulse-glow {
+    animation: pulseGlow 3s ease-in-out infinite;
+  }
+
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Listing card image skeleton — bar sweep (class on element in ListingCardPhotoSkeleton) */
+  .listing-card-shimmer-bar {
+    animation: listing-shimmer 1.35s ease-in-out infinite;
+  }
+
+  @keyframes listing-shimmer {
+    0% {
+      transform: translateX(-120%) skewX(-14deg);
+    }
+    100% {
+      transform: translateX(320%) skewX(-14deg);
+    }
+  }
+
+  .safe-area-pb {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+}
+
+/**
+ * Listing grid cards: hide metadata chrome until hover/focus-within on fine-pointer devices.
+ * Touch / coarse pointer: chrome stays hidden (actions on /p/[slug]).
+ */
+@layer components {
+  .listing-card-chrome {
+    pointer-events: none;
+  }
+
+  /** Badges, «БЫЛО», bottom title/preview gradient — slower fade/slide. */
+  .listing-card-chrome-ambient {
+    opacity: 0;
+  }
+
+  /**
+   * Fast opacity (~55ms): metrics + reactions, photo arrows, frame counter,
+   * «Скопировать» — no lag vs slow ambient layer.
+   */
+  .listing-card-chrome-actions-fast,
+  .listing-card-chrome-controls-fast {
+    opacity: 0;
+  }
+
+  /**
+   * Clicks must reach the card Link when chrome is hidden; children with
+   * pointer-events:auto would still hit-test if only the parent had none.
+   */
+  .listing-card-chrome-target {
+    pointer-events: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .listing-card-chrome-ambient {
+      transform: translateY(8px);
+      transition:
+        opacity 260ms cubic-bezier(0.4, 0, 0.2, 1),
+        transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .listing-card-chrome-actions-fast,
+    .listing-card-chrome-controls-fast {
+      transition: opacity 55ms ease-out;
+    }
+
+    .group:hover .listing-card-chrome-ambient,
+    .group:focus-within .listing-card-chrome-ambient {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .group:hover .listing-card-chrome-actions-fast,
+    .group:focus-within .listing-card-chrome-actions-fast,
+    .group:hover .listing-card-chrome-controls-fast,
+    .group:focus-within .listing-card-chrome-controls-fast {
+      opacity: 1;
+    }
+
+    .group:hover .listing-card-chrome .listing-card-chrome-target,
+    .group:focus-within .listing-card-chrome .listing-card-chrome-target {
+      pointer-events: auto;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .listing-card-chrome-ambient {
+        transform: none;
+        transition: opacity 120ms ease-out;
+      }
+
+      .listing-card-chrome-actions-fast,
+      .listing-card-chrome-controls-fast {
+        transition: opacity 90ms ease-out;
+      }
+
+      .group:hover .listing-card-chrome-ambient,
+      .group:focus-within .listing-card-chrome-ambient {
+        transform: none;
+      }
+    }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    @media (prefers-reduced-motion: no-preference) {
+      .listing-card-photo-hover {
+        transform-origin: center;
+        transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .group:hover .listing-card-photo-hover,
+      .group:focus-within .listing-card-photo-hover {
+        transform: scale(1.03);
+      }
+    }
+  }
+}

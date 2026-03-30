@@ -1,0 +1,7 @@
+{
+  "name": "",
+  "short_name": "",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
