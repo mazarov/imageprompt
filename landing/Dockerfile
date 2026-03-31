@@ -1,8 +1,6 @@
-# Build context must be the landing app directory (Dockhost / typical CI):
-#   docker build -f landing/Dockerfile landing/
-# From repo root (same stages, copies `landing/`):
+# Контекст сборки — каталог landing/ (не корень монорепо).
 #   docker build -f landing/Dockerfile ./landing
-# Если CI ищет только Dockerfile в корне репо — см. Dockerfile в корне монорепо.
+# В корне репозитория: симлинк Dockerfile → этот файл (Dockhost: контекст landing, Dockerfile Dockerfile).
 #
 # STV web bundle: sources in landing/stv-web-sidepanel/ (mirror of extension/sidepanel).
 # After editing extension/sidepanel: from landing/ run npm run sync:stv-sidepanel and commit.
