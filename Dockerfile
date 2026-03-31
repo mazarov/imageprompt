@@ -1,23 +1,18 @@
-# Build context must be the landing app directory (Dockhost / typical CI):
-#   docker build -f landing/Dockerfile landing/
-# From repo root (same stages, copies `landing/`):
-#   docker build -f landing/Dockerfile ./landing
-# Если CI ищет только Dockerfile в корне репо — см. Dockerfile в корне монорепо.
-#
-# STV web bundle: sources in landing/stv-web-sidepanel/ (mirror of extension/sidepanel).
-# After editing extension/sidepanel: from landing/ run npm run sync:stv-sidepanel and commit.
+# Сборка из корня репозитория (Dockhost и др., когда контекст = `.`, путь = `Dockerfile`).
+# Эквивалент: docker build -f landing/Dockerfile ./landing
+# Каноничная копия логики: landing/Dockerfile — при изменениях синхронизируйте оба файла.
 #
 FROM node:20-alpine AS base
 
 FROM base AS deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY landing/package.json landing/package-lock.json* ./
 RUN npm ci
 
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY landing/ .
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG SUPABASE_SUPABASE_PUBLIC_URL
 ARG SUPABASE_SERVICE_ROLE_KEY
