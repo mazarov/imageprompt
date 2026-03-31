@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { CARD_OVERLAY_ACTION_PILL } from "@/lib/card-overlay-action-pill";
 
 type Props = {
@@ -15,6 +16,7 @@ export function FavoriteButton({
   onToggle,
   variant = "surface",
 }: Props) {
+  const t = useTranslations("Bookmark");
   const isOverlay = variant === "overlay" || variant === "overlay-lg";
   const isLg = variant === "overlay-lg";
   const size = isLg ? 22 : isOverlay ? 14 : 20;
@@ -35,8 +37,8 @@ export function FavoriteButton({
                 : "text-zinc-300 hover:text-amber-500"
             }`
       }`}
-      title={isFavorited ? "Убрать из избранного" : "В избранное"}
-      aria-label={isFavorited ? "Убрать из избранного" : "В избранное"}
+      title={isFavorited ? t("removeTitle") : t("addTitle")}
+      aria-label={isFavorited ? t("removeAria") : t("addAria")}
     >
       <BookmarkIcon size={size} filled={isFavorited} className="block shrink-0" />
     </button>

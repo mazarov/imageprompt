@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import type { PromptCardFull } from "@/lib/supabase";
 import { useCardInteractions } from "@/context/CardInteractionsContext";
@@ -25,12 +26,13 @@ type Props = {
 };
 
 export function GroupedCard({ cards, debug = false, priorityLoad = false }: Props) {
+  const t = useTranslations("Cards");
   const sorted = [...cards].sort((a, b) => a.cardSplitIndex - b.cardSplitIndex);
   const [activeCardIdx, setActiveCardIdx] = useState(0);
   const activeCard = sorted[activeCardIdx];
   const { reactions, toggleReaction } = useCardInteractions();
 
-  const title = activeCard.title_ru || activeCard.title_en || "Без названия";
+  const title = activeCard.title_ru || activeCard.title_en || t("untitled");
   const expandedTitle = splitCardTitle(title);
   const allPrompts = sorted.flatMap((c) => c.promptTexts);
   const groupBeforeUrl = sorted.find((c) => c.beforePhotoUrl)?.beforePhotoUrl ?? null;
@@ -90,13 +92,17 @@ export function GroupedCard({ cards, debug = false, priorityLoad = false }: Prop
   const totalPhotos = sorted.reduce((s, c) => s + c.photoCount, 0);
   const totalPrompts = sorted.reduce((s, c) => s + c.promptCount, 0);
   const hasEnOnly = !activeCard.hasRuPrompt && activeCard.promptTexts.length > 0;
-  const ruLabel = activeCard.hasRuPrompt ? "RU: есть" : hasEnOnly ? "EN only" : "нет промпта";
+  const ruLabel = activeCard.hasRuPrompt
+    ? t("promptRuYes")
+    : hasEnOnly
+      ? t("enOnly")
+      : t("noPrompt");
   const ruColor = activeCard.hasRuPrompt ? "bg-emerald-600" : hasEnOnly ? "bg-amber-500" : "bg-red-500";
   const scoreColor = activeCard.seoReadinessScore >= 60 ? "bg-emerald-600" : activeCard.seoReadinessScore >= 40 ? "bg-blue-500" : "bg-zinc-500";
 
   const articleEl = (
       <article
-        className={`relative z-10 isolate overflow-hidden rounded-2xl transition-all duration-200 group-hover:shadow-xl group-hover:shadow-zinc-900/10 group-hover:-translate-y-0.5 group-hover:-translate-x-0.5 ${activeSlug ? "cursor-pointer" : ""}`}
+        className={`relative z-10 isolate overflow-hidden rounded-2xl ring-1 ring-white/[0.06] transition-all duration-200 group-hover:shadow-xl group-hover:shadow-indigo-950/40 group-hover:-translate-y-0.5 group-hover:-translate-x-0.5 ${activeSlug ? "cursor-pointer" : ""}`}
       >
         {debug && (
           <div className="absolute inset-x-0 top-0 z-30 pointer-events-none">
@@ -113,13 +119,15 @@ export function GroupedCard({ cards, debug = false, priorityLoad = false }: Prop
                 <span className={`rounded-full ${scoreColor} px-1.5 py-px text-[9px] text-white font-medium`}>score: {activeCard.seoReadinessScore}</span>
                 <span className={`rounded-full ${ruColor} px-1.5 py-px text-[9px] text-white font-medium`}>{ruLabel}</span>
                 {groupBeforeUrl && (
-                  <span className="rounded-full bg-teal-600 px-1.5 py-px text-[9px] text-white font-medium">было</span>
+                  <span className="rounded-full bg-teal-600 px-1.5 py-px text-[9px] text-white font-medium">
+                    {t("beforeBadge")}
+                  </span>
                 )}
               </div>
             </div>
           </div>
         )}
-        <div className="relative w-full overflow-hidden rounded-2xl bg-zinc-200 aspect-[3/4]">
+        <div className="relative w-full overflow-hidden rounded-2xl bg-zinc-800 aspect-[3/4]">
           {currentPhotoUrl ? (
             <Image
               src={currentPhotoUrl}
@@ -132,7 +140,9 @@ export function GroupedCard({ cards, debug = false, priorityLoad = false }: Prop
               className={mainPhotoClass}
             />
           ) : (
-            <div className="flex h-full items-center justify-center bg-zinc-100 text-zinc-400 text-sm">Нет фото</div>
+            <div className="flex h-full items-center justify-center bg-zinc-800 text-zinc-500 text-sm">
+              {t("noPhoto")}
+            </div>
           )}
 
           {activeSlug && (
@@ -159,7 +169,9 @@ export function GroupedCard({ cards, debug = false, priorityLoad = false }: Prop
                       sizes={SIZES_CARD_GRID}
                       quality={CARD_IMAGE_LISTING_NEXT_QUALITY}
                     />
-                    <div className="absolute inset-x-0 bottom-0 text-[8px] text-white font-bold text-center py-0.5 bg-gradient-to-t from-black/70 to-transparent tracking-wider">БЫЛО</div>
+                    <div className="absolute inset-x-0 bottom-0 text-[8px] text-white font-bold text-center py-0.5 bg-gradient-to-t from-black/70 to-transparent tracking-wider">
+                      {t("beforeBadge")}
+                    </div>
                   </div>
                 </div>
               )}
@@ -182,7 +194,10 @@ export function GroupedCard({ cards, debug = false, priorityLoad = false }: Prop
               {sorted.length > 1 && (
                 <button
                   type="button"
-                  aria-label={`Переключить вариант карточки: ${activeCardIdx + 1} из ${sorted.length}`}
+                  aria-label={t("variantAria", {
+                    current: activeCardIdx + 1,
+                    total: sorted.length,
+                  })}
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -195,7 +210,7 @@ export function GroupedCard({ cards, debug = false, priorityLoad = false }: Prop
               )}
               <button
                 type="button"
-                aria-label="Предыдущее фото"
+                aria-label={t("prevPhoto")}
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
@@ -212,7 +227,7 @@ export function GroupedCard({ cards, debug = false, priorityLoad = false }: Prop
               </button>
               <button
                 type="button"
-                aria-label="Следующее фото"
+                aria-label={t("nextPhoto")}
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
@@ -235,7 +250,7 @@ export function GroupedCard({ cards, debug = false, priorityLoad = false }: Prop
                 <div className="absolute inset-x-0 bottom-0 z-[1] px-3.5 pb-3.5">
                   <button type="button" onClick={(e) => { e.stopPropagation(); e.preventDefault(); setExpanded(true); }}
                     className={`${OVERLAY_BUTTON_APPEARANCE_RESET} listing-card-chrome-target w-full rounded-full bg-white/15 backdrop-blur-md border border-white/10 px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-[11px] font-semibold text-white transition-all hover:bg-white/25 active:scale-[0.98] truncate`}
-                  >Скопировать</button>
+                  >{t("copy")}</button>
                 </div>
               )}
             </div>
@@ -264,7 +279,7 @@ export function GroupedCard({ cards, debug = false, priorityLoad = false }: Prop
                 </h3>
                 <button
                   type="button"
-                  aria-label="Закрыть"
+                  aria-label={t("close")}
                   onClick={(e) => { e.stopPropagation(); e.preventDefault(); setExpanded(false); }}
                   className={`${OVERLAY_BUTTON_UA_RESET} flex-shrink-0 rounded-full bg-white/15 p-1.5 text-white/70 transition-colors hover:bg-white/25 hover:text-white`}
                 ><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden><path d="M18 6L6 18M6 6l12 12"/></svg></button>
@@ -276,8 +291,8 @@ export function GroupedCard({ cards, debug = false, priorityLoad = false }: Prop
                 <p className="mb-3 shrink-0 text-[11px] leading-relaxed text-white/50">{expandedTitle.rest}</p>
               ) : null}
               <button type="button" onClick={handleCopy}
-                className={`${OVERLAY_BUTTON_UA_RESET} w-full shrink-0 rounded-xl bg-white px-3 py-2.5 text-xs font-semibold text-zinc-900 transition-all hover:bg-zinc-100 active:scale-[0.98]`}
-              >{copied ? "Промпт скопирован" : "Скопировать промт"}</button>
+                className={`${OVERLAY_BUTTON_UA_RESET} w-full shrink-0 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-semibold text-white transition-all hover:bg-indigo-500 active:scale-[0.98]`}
+              >{copied ? t("promptCopied") : t("copyPrompt")}</button>
             </div>
           )}
         </div>
@@ -286,7 +301,7 @@ export function GroupedCard({ cards, debug = false, priorityLoad = false }: Prop
 
   return (
     <div className="group relative pb-2 pr-2">
-      <div className="absolute top-3 left-3 right-0 bottom-0 rounded-2xl bg-zinc-300 overflow-hidden rotate-[2deg] shadow-md transition-transform duration-300 group-hover:rotate-[4deg] group-hover:translate-x-1 group-hover:translate-y-1">
+      <div className="absolute top-3 left-3 right-0 bottom-0 rounded-2xl bg-zinc-800 overflow-hidden rotate-[2deg] shadow-md shadow-black/40 transition-transform duration-300 group-hover:rotate-[4deg] group-hover:translate-x-1 group-hover:translate-y-1">
         {secondPhoto && (
           <Image
             src={secondPhoto}

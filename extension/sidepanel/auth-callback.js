@@ -7,7 +7,7 @@ async function main() {
     await exchangeOAuthInThisTab();
     if (msg) msg.textContent = "Done. You can close this tab.";
     try {
-      chrome.runtime.sendMessage({ type: "PROMPTSHOT_AUTH_DONE" });
+      chrome.runtime.sendMessage({ type: "IMAGEPROMPT_AUTH_DONE" });
     } catch {
       /* ignore */
     }

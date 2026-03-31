@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { CARD_OVERLAY_ACTION_PILL } from "@/lib/card-overlay-action-pill";
 
 type Props = {
@@ -22,6 +23,7 @@ export function ReactionButtons({
   variant = "surface",
   stacked = false,
 }: Props) {
+  const t = useTranslations("Reactions");
   const isOverlay = variant === "overlay" || variant === "overlay-lg";
   const isLg = variant === "overlay-lg";
 
@@ -45,19 +47,19 @@ export function ReactionButtons({
   const likeAria =
     userReaction === "like"
       ? likesCount > 0
-        ? `Снять лайк, сейчас ${likesCount}`
-        : "Снять лайк"
+        ? t("likeRemoveCount", { count: likesCount })
+        : t("likeRemove")
       : likesCount > 0
-        ? `Лайк, ${likesCount}`
-        : "Лайк";
+        ? t("likeWithCount", { count: likesCount })
+        : t("like");
   const dislikeAria =
     userReaction === "dislike"
       ? dislikesCount > 0
-        ? `Снять дизлайк, сейчас ${dislikesCount}`
-        : "Снять дизлайк"
+        ? t("dislikeRemoveCount", { count: dislikesCount })
+        : t("dislikeRemove")
       : dislikesCount > 0
-        ? `Дизлайк, ${dislikesCount}`
-        : "Дизлайк";
+        ? t("dislikeWithCount", { count: dislikesCount })
+        : t("dislike");
 
   return (
     <div

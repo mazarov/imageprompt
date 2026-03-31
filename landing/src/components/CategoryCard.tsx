@@ -1,4 +1,7 @@
-import Link from "next/link";
+"use client";
+
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import {
   CARD_IMAGE_NEXT_QUALITY,
@@ -14,14 +17,6 @@ type Props = {
   priority?: boolean;
 };
 
-function pluralPrompts(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${n} промт`;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${n} промта`;
-  return `${n} промтов`;
-}
-
 export function CategoryCard({
   label,
   href,
@@ -30,6 +25,8 @@ export function CategoryCard({
   secondPhotoUrl,
   priority = false,
 }: Props) {
+  const tCard = useTranslations("Cards");
+  const tCat = useTranslations("Catalog");
   const hasStack = !!secondPhotoUrl;
 
   return (
@@ -37,7 +34,7 @@ export function CategoryCard({
       <div className={`relative ${hasStack ? "pb-2 pr-2" : ""}`}>
         {/* Back card */}
         {hasStack && (
-          <div className="absolute top-3 left-3 right-0 bottom-0 rounded-2xl bg-zinc-300 overflow-hidden rotate-[2deg] shadow-md transition-transform duration-300 group-hover:rotate-[4deg] group-hover:translate-x-1 group-hover:translate-y-1">
+          <div className="absolute top-3 left-3 right-0 bottom-0 rounded-2xl bg-zinc-800 overflow-hidden rotate-[2deg] shadow-md shadow-black/40 transition-transform duration-300 group-hover:rotate-[4deg] group-hover:translate-x-1 group-hover:translate-y-1">
             <Image
               src={secondPhotoUrl}
               alt=""
@@ -50,12 +47,12 @@ export function CategoryCard({
         )}
 
         {/* Front card */}
-        <div className="relative z-10 overflow-hidden rounded-2xl transition-all duration-200 group-hover:shadow-xl group-hover:shadow-zinc-900/10 group-hover:-translate-y-0.5">
-          <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-zinc-200">
+        <div className="relative z-10 overflow-hidden rounded-2xl ring-1 ring-white/[0.06] transition-all duration-200 group-hover:shadow-xl group-hover:shadow-indigo-950/40 group-hover:-translate-y-0.5">
+          <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-zinc-800">
             {photoUrl ? (
               <Image
                 src={photoUrl}
-                alt={`Промт для фото — ${label}`}
+                alt={tCat("photoPromptAlt", { label })}
                 fill
                 className="object-cover"
                 sizes={SIZES_CARD_GRID}
@@ -63,7 +60,7 @@ export function CategoryCard({
                 priority={priority}
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-zinc-400 text-sm">
+              <div className="flex h-full items-center justify-center text-zinc-500 text-sm">
                 {label}
               </div>
             )}
@@ -78,7 +75,9 @@ export function CategoryCard({
 
       {/* Count badge */}
       <div className="mt-2 flex items-center gap-1.5">
-        <span className="text-xs text-zinc-500">{pluralPrompts(totalCount)}</span>
+        <span className="text-xs text-zinc-500 group-hover:text-zinc-400">
+          {tCard("promptCount", { count: totalCount })}
+        </span>
       </div>
     </Link>
   );

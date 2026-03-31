@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import type { PromptCardFull } from "@/lib/supabase";
 import { FilterableGrid } from "./CardFilters";
 import { ListingGridLoadingSkeleton } from "./ListingGridLoadingSkeleton";
@@ -30,6 +31,7 @@ export function InfiniteGrid({
   rpcParams,
   strictMode = false,
 }: Props) {
+  const t = useTranslations("Cards");
   const [cards, setCards] = useState(initialCards);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(() =>
@@ -101,18 +103,11 @@ export function InfiniteGrid({
     // caused extra layout/observer churn during scroll.
   }, [loadMore]);
 
-  const countText = useMemo(() => {
-    const n = totalCount;
-    if (n === 1) return "1 промпт";
-    if (n >= 2 && n <= 4) return `${n} промпта`;
-    return `${n} промптов`;
-  }, [totalCount]);
-
   return (
     <>
       <div className="mt-4 mb-8 flex items-center gap-3">
-        <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-sm tabular-nums text-zinc-600">
-          {countText}
+        <span className="inline-flex items-center rounded-full border border-white/[0.08] bg-zinc-900/70 px-3 py-1 text-sm tabular-nums text-zinc-400">
+          {t("promptCount", { count: totalCount })}
         </span>
       </div>
 

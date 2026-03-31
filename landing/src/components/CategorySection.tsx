@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { CategoryCard } from "./CategoryCard";
 
 export type CategoryItemDisplayData = {
@@ -26,6 +27,7 @@ type Props = {
 const COLLAPSED_LIMIT = 10;
 
 export function CategorySection({ title, items, isFirstSection = false }: Props) {
+  const t = useTranslations("Catalog");
   const [expanded, setExpanded] = useState(false);
 
   const visible = items.filter((i) => i.data.total_count > 0);
@@ -37,7 +39,7 @@ export function CategorySection({ title, items, isFirstSection = false }: Props)
 
   return (
     <section className="mt-12">
-      <h2 className="text-xl font-bold text-zinc-900">{title}</h2>
+      <h2 className="text-xl font-bold text-zinc-50">{title}</h2>
 
       <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5">
         {shown.map((item, i) => (
@@ -69,9 +71,9 @@ export function CategorySection({ title, items, isFirstSection = false }: Props)
           <button
             type="button"
             onClick={() => setExpanded(true)}
-            className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-600 transition-colors hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
+            className="rounded-lg border border-white/[0.1] bg-zinc-900/50 px-4 py-2 text-sm text-zinc-300 transition-colors hover:border-white/[0.14] hover:bg-zinc-800 hover:text-zinc-50"
           >
-            Показать все ({visible.length})
+            {t("showAllCount", { count: visible.length })}
           </button>
         </div>
       )}

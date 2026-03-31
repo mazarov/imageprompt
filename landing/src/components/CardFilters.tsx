@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useTranslations } from "next-intl";
 import type { PromptCardFull } from "@/lib/supabase";
 import { TAG_REGISTRY } from "@/lib/tag-registry";
 import { PromptCard } from "./PromptCard";
@@ -41,6 +42,7 @@ export function FilterableGrid({
   cards,
   lcpPriorityCount = LISTING_LCP_PRIORITY_GRID_ITEMS,
 }: Props) {
+  const td = useTranslations("DebugGrid");
   const debugCtx = useDebug();
   const debugMode = debugCtx?.debugOpen ?? false;
   const panelOpen = debugCtx?.panelOpen ?? false;
@@ -199,10 +201,14 @@ export function FilterableGrid({
   }
 
   const statsText = isIdMode
-    ? (searching ? "Поиск..." : `${filtered.length} найдено`)
+    ? (searching ? td("searching") : td("foundCount", { count: filtered.length }))
     : isFilterMode
-      ? (filterSearching ? "Поиск..." : `${filtered.length} найдено`)
-      : `${gridItems.length} (${groupCount} групп) из ${cards.length}`;
+      ? (filterSearching ? td("searching") : td("foundCount", { count: filtered.length }))
+      : td("statsListing", {
+          shown: gridItems.length,
+          groups: groupCount,
+          total: cards.length,
+        });
 
   const cardIds = useMemo(
     () => filtered.map((c) => c.id),
@@ -217,12 +223,14 @@ export function FilterableGrid({
         <div className="flex items-center justify-center py-24">
           <div className="flex items-center gap-3 text-zinc-400">
             <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-20" /><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
-            Поиск по базе...
+            {td("searchingDb")}
           </div>
         </div>
       ) : gridItems.length === 0 ? (
         <div className="py-24 text-center">
-          <p className="text-zinc-400">{isIdMode || isFilterMode ? "Карточки не найдены." : "Нет карточек по выбранным фильтрам."}</p>
+          <p className="text-zinc-400">
+            {isIdMode || isFilterMode ? td("emptyId") : td("emptyFilter")}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
@@ -252,12 +260,12 @@ export function FilterableGrid({
       {debugMode && panelOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={() => debugCtx?.setPanelOpen(false)} />
-          <div className="fixed bottom-20 right-6 z-50 w-[340px] max-h-[calc(100vh-120px)] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl shadow-zinc-900/20">
+          <div className="fixed bottom-20 right-6 z-50 w-[340px] max-h-[calc(100vh-120px)] overflow-y-auto rounded-2xl border border-white/[0.1] bg-zinc-900 p-5 shadow-2xl shadow-black/50">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-sm font-semibold text-zinc-900">Фильтры</span>
+              <span className="text-sm font-semibold text-zinc-50">{td("panelTitle")}</span>
               <div className="flex items-center gap-2">
-                <span className="text-xs tabular-nums text-zinc-400">{statsText}</span>
-                <button type="button" onClick={() => debugCtx?.setPanelOpen(false)} className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors">
+                <span className="text-xs tabular-nums text-zinc-500">{statsText}</span>
+                <button type="button" onClick={() => debugCtx?.setPanelOpen(false)} className="rounded-full p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -266,10 +274,10 @@ export function FilterableGrid({
             <div className="space-y-4">
               {/* ID search */}
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">ID (поиск по базе)</label>
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">{td("idLabel")}</label>
                 <div className="relative">
                   <input type="text" value={idSearch} onChange={(e) => setIdSearch(e.target.value)} placeholder="f8ada5bf-3100..."
-                    className={`w-full rounded-xl border bg-zinc-50 px-3 py-2 text-sm font-mono placeholder:text-zinc-300 transition-colors ${isIdMode ? "border-indigo-400 bg-indigo-50 text-indigo-800" : "border-zinc-200 text-zinc-700"}`}
+                    className={`w-full rounded-xl border px-3 py-2 text-sm font-mono transition-colors placeholder:text-zinc-500 ${isIdMode ? "border-indigo-500/50 bg-indigo-950/50 text-indigo-200" : "border-white/[0.1] bg-zinc-950/60 text-zinc-200"}`}
                   />
                   {searching && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">...</span>}
                 </div>
@@ -277,68 +285,68 @@ export function FilterableGrid({
 
               {/* Warnings */}
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">Warnings</label>
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">{td("warningsLabel")}</label>
                 <select value={filters.hasWarnings} onChange={(e) => setFilters((f) => ({ ...f, hasWarnings: e.target.value as Filters["hasWarnings"] }))} disabled={isIdMode}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 disabled:opacity-40"
-                ><option value="all">Все</option><option value="yes">С warnings</option><option value="no">Без warnings</option></select>
+                  className="w-full rounded-xl border border-white/[0.1] bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 disabled:opacity-40"
+                ><option value="all">{td("optAll")}</option><option value="yes">{td("optWithWarnings")}</option><option value="no">{td("optNoWarnings")}</option></select>
               </div>
 
               {/* Score */}
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">Score</label>
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">{td("scoreLabel")}</label>
                 <div className="flex items-center gap-2">
                   <input type="number" min={0} max={100} step={20} value={filters.scoreMin} onChange={(e) => setFilters((f) => ({ ...f, scoreMin: Number(e.target.value) }))} disabled={isIdMode}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 disabled:opacity-40" />
-                  <span className="text-zinc-300 flex-shrink-0">—</span>
+                    className="w-full rounded-xl border border-white/[0.1] bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 disabled:opacity-40" />
+                  <span className="text-zinc-600 flex-shrink-0">—</span>
                   <input type="number" min={0} max={100} step={20} value={filters.scoreMax} onChange={(e) => setFilters((f) => ({ ...f, scoreMax: Number(e.target.value) }))} disabled={isIdMode}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 disabled:opacity-40" />
+                    className="w-full rounded-xl border border-white/[0.1] bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 disabled:opacity-40" />
                 </div>
               </div>
 
               {/* RU prompt */}
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">Промт RU</label>
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">{td("promptRuLabel")}</label>
                 <select value={filters.hasRuPrompt} onChange={(e) => setFilters((f) => ({ ...f, hasRuPrompt: e.target.value as Filters["hasRuPrompt"] }))} disabled={isIdMode}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 disabled:opacity-40"
-                ><option value="all">Все</option><option value="yes">Есть</option><option value="no">Нет</option></select>
+                  className="w-full rounded-xl border border-white/[0.1] bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 disabled:opacity-40"
+                ><option value="all">{td("optAll")}</option><option value="yes">{td("optYes")}</option><option value="no">{td("optNo")}</option></select>
               </div>
 
               {/* Tag */}
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">Тег</label>
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">{td("tagLabel")}</label>
                 <select value={filters.selectedTag} onChange={(e) => setFilters((f) => ({ ...f, selectedTag: e.target.value }))} disabled={isIdMode}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 disabled:opacity-40"
-                ><option value="">Все теги</option>{allTags.map((tag) => (<option key={tag} value={tag}>{tag}</option>))}</select>
+                  className="w-full rounded-xl border border-white/[0.1] bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 disabled:opacity-40"
+                ><option value="">{td("allTags")}</option>{allTags.map((tag) => (<option key={tag} value={tag}>{tag}</option>))}</select>
               </div>
 
               {/* Было */}
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">Было</label>
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">{td("beforeLabel")}</label>
                 <button
                   type="button"
                   onClick={() => setFilters((f) => ({ ...f, hasBefore: f.hasBefore === "yes" ? "all" : "yes" }))}
                   disabled={isIdMode}
                   className={`w-full rounded-xl border px-3 py-2 text-sm font-medium transition-all disabled:opacity-40 ${
                     filters.hasBefore === "yes"
-                      ? "border-amber-400 bg-amber-500 text-white"
-                      : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100"
+                      ? "border-amber-400 bg-amber-600 text-white"
+                      : "border-white/[0.1] bg-zinc-950/60 text-zinc-300 hover:bg-zinc-800"
                   }`}
                 >
-                  {filters.hasBefore === "yes" ? "Только с «было»" : "Показать с «было»"}
+                  {filters.hasBefore === "yes" ? td("beforeOnly") : td("beforeShow")}
                 </button>
               </div>
 
               {/* Dataset */}
               {datasets.length > 0 && (
                 <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">Датасет</label>
+                  <label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 block mb-1.5">{td("datasetLabel")}</label>
                   <select
                     value={filters.dataset}
                     onChange={(e) => setFilters((f) => ({ ...f, dataset: e.target.value }))}
                     disabled={isIdMode}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 disabled:opacity-40"
+                    className="w-full rounded-xl border border-white/[0.1] bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 disabled:opacity-40"
                   >
-                    <option value="">Все датасеты</option>
+                    <option value="">{td("allDatasets")}</option>
                     {datasets.map((d) => (
                       <option key={d} value={d}>{d}</option>
                     ))}
@@ -349,8 +357,8 @@ export function FilterableGrid({
               {/* Reset */}
               <div className="pt-1">
                 <button type="button" onClick={handleReset}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
-                >Сбросить</button>
+                  className="w-full rounded-xl border border-white/[0.1] bg-zinc-950/60 px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+                >{td("reset")}</button>
               </div>
             </div>
           </div>

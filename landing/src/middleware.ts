@@ -1,6 +1,10 @@
+import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
+import { routing } from "./i18n/routing";
 
-const OLD_SLUG_RE = /^\/p\/([^/]+)\/?$/;
+const intlMiddleware = createMiddleware(routing);
+
+const OLD_SLUG_RE = /^\/(?:ru\/)?p\/([^/]+)\/?$/;
 const DEFAULT_ALLOWED_METHODS = "GET, POST, OPTIONS";
 const DEFAULT_ALLOWED_HEADERS = "Content-Type, Authorization";
 
@@ -60,21 +64,23 @@ export async function middleware(request: NextRequest) {
     return applyCorsHeaders(request, NextResponse.next({ request }));
   }
 
-  // 301 redirect for any legacy card slug present in redirect map.
-  // Needed for mass title/slug regeneration where old slugs can also contain short-id.
-  const slugMatch = OLD_SLUG_RE.exec(request.nextUrl.pathname);
+  const pathname = request.nextUrl.pathname;
+  const slugMatch = OLD_SLUG_RE.exec(pathname);
   if (slugMatch) {
     const slug = slugMatch[1];
     const newSlug = await resolveSlugRedirect(slug);
     if (newSlug) {
-      return NextResponse.redirect(new URL(`/p/${newSlug}`, request.url), 301);
+      const isRu = pathname.startsWith("/ru/");
+      const prefix = isRu ? "/ru" : "";
+      return NextResponse.redirect(new URL(`${prefix}/p/${newSlug}`, request.url), 301);
     }
   }
-  return NextResponse.next({ request });
+
+  return intlMiddleware(request);
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api|_next|_vercel|embed|auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|webmanifest)).*)",
   ],
 };

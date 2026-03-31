@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const STORAGE_PREFIX = "promptshot_view_";
+const STORAGE_PREFIX = "imageprompt_view_";
 
 type ApiOk = { ok: true; viewCount: number };
 type ApiErr = { ok: false; error?: string };

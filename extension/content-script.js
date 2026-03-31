@@ -19,19 +19,19 @@ const COMPACT_IMG_WIDTH = 280;
  */
 const OVERLAY_I18N = {
   en: {
-    line: "Steal this vibe",
-    short: "Steal vibe",
-    aria: "Steal this vibe with Prompt To Image — send this image to the extension side panel",
+    line: "image to prompt",
+    short: "Prompt",
+    aria: "image to prompt — send this image to the extension side panel",
   },
   de: {
-    line: "Stil übernehmen",
-    short: "Stil",
-    aria: "Stil mit Prompt To Image übernehmen — Bild an die Erweiterung senden",
+    line: "image to prompt",
+    short: "Prompt",
+    aria: "image to prompt — dieses Bild an die Erweiterung senden",
   },
   ru: {
-    line: "Снять стиль с фото",
-    short: "Снять стиль",
-    aria: "Снять стиль с фото в Prompt To Image — отправить изображение в расширение",
+    line: "image to prompt",
+    short: "Промпт",
+    aria: "image to prompt — отправить это изображение в расширение",
     reload_hint:
       "Расширение обновилось или перезагрузилось — обновите страницу (F5 или Cmd+R), затем снова наведите на фото.",
   },
@@ -323,7 +323,7 @@ function getOrCreateButton() {
     line.className = "stv-ob-line";
     const brand = document.createElement("span");
     brand.className = "stv-ob-brand";
-    brand.textContent = "PromptShot";
+    brand.textContent = "ImagePrompt";
     textWrap.append(line, brand);
     inner.append(mark, textWrap);
     overlayBtn.append(inner);

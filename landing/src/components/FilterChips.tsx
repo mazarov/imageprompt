@@ -1,6 +1,8 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import type { TagEntry } from "@/lib/tag-registry";
+import { tagDisplayLabel } from "@/lib/tag-label";
 
 type Props = {
   tags: TagEntry[];
@@ -19,15 +21,22 @@ export function FilterChips({
   onSelect,
   searchQuery = "",
   onSearchChange,
-  searchPlaceholder = "Найти...",
+  searchPlaceholder,
   countBySlug,
 }: Props) {
+  const locale = useLocale();
+  const t = useTranslations("Filters");
+  const q = searchQuery.trim().toLowerCase();
   const filtered = searchQuery.trim()
-    ? tags.filter(
-        (t) =>
-          t.labelRu.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.slug.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? tags.filter((tag) => {
+        const main = tagDisplayLabel(tag, locale).toLowerCase();
+        return (
+          main.includes(q) ||
+          tag.labelRu.toLowerCase().includes(q) ||
+          tag.labelEn.toLowerCase().includes(q) ||
+          tag.slug.toLowerCase().includes(q)
+        );
+      })
     : tags;
 
   const displayTags = filtered.slice(0, 50);
@@ -39,8 +48,8 @@ export function FilterChips({
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={searchPlaceholder}
-          className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 placeholder:text-zinc-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-100"
+          placeholder={searchPlaceholder ?? t("findPlaceholder")}
+          className="w-full rounded-lg border border-white/[0.1] bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-indigo-500/40 focus:outline-none focus:ring-1 focus:ring-indigo-500/25"
           readOnly
         />
       )}
@@ -50,15 +59,16 @@ export function FilterChips({
           onClick={() => onSelect(null)}
           className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
             !selectedSlug
-              ? "bg-zinc-900 text-white"
-              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+              ? "bg-indigo-600 text-white"
+              : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
           }`}
         >
-          Все
+          {t("all")}
         </button>
         {displayTags.map((tag) => {
           const count = countBySlug?.[tag.slug];
-          const label = count != null ? `${tag.labelRu} (${count})` : tag.labelRu;
+          const base = tagDisplayLabel(tag, locale);
+          const label = count != null ? `${base} (${count})` : base;
           return (
             <button
               key={tag.slug}
@@ -66,8 +76,8 @@ export function FilterChips({
               onClick={() => onSelect(selectedSlug === tag.slug ? null : tag.slug)}
               className={`rounded-full px-3 py-1.5 text-sm transition-colors whitespace-nowrap ${
                 selectedSlug === tag.slug
-                  ? "bg-zinc-900 text-white"
-                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
               }`}
             >
               {label}

@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
-import type { User } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
 type AuthContextType = {
   user: User | null;
@@ -41,6 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const supabase = createSupabaseBrowser();
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
 
     async function initAuth() {
       const url = new URL(window.location.href);
@@ -76,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user ?? null);
       setLoading(false);
       if (session?.user) setShowAuthModal(false);
@@ -87,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const supabase = createSupabaseBrowser();
-    await supabase.auth.signOut();
+    if (supabase) await supabase.auth.signOut();
     setUser(null);
   }, []);
 

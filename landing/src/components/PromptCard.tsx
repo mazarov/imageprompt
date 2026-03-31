@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import type { PromptCardFull } from "@/lib/supabase";
 import { ReactionButtons } from "./ReactionButtons";
@@ -27,8 +28,13 @@ type Props = {
 };
 
 function DebugOverlay({ card }: { card: PromptCardFull }) {
+  const t = useTranslations("Cards");
   const hasEnOnly = !card.hasRuPrompt && card.promptTexts.length > 0;
-  const ruLabel = card.hasRuPrompt ? "RU: есть" : hasEnOnly ? "EN only" : "нет промпта";
+  const ruLabel = card.hasRuPrompt
+    ? t("promptRuYes")
+    : hasEnOnly
+      ? t("enOnly")
+      : t("noPrompt");
   const ruColor = card.hasRuPrompt ? "bg-emerald-600" : hasEnOnly ? "bg-amber-500" : "bg-red-500";
   const scoreColor = card.seoReadinessScore >= 60 ? "bg-emerald-600" : card.seoReadinessScore >= 40 ? "bg-blue-500" : "bg-zinc-500";
 
@@ -47,7 +53,9 @@ function DebugOverlay({ card }: { card: PromptCardFull }) {
           <span className={`rounded-full ${scoreColor} px-1.5 py-px text-[9px] text-white font-medium`}>score: {card.seoReadinessScore}</span>
           <span className={`rounded-full ${ruColor} px-1.5 py-px text-[9px] text-white font-medium`}>{ruLabel}</span>
           {card.beforePhotoUrl && (
-            <span className="rounded-full bg-teal-600 px-1.5 py-px text-[9px] text-white font-medium">было</span>
+            <span className="rounded-full bg-teal-600 px-1.5 py-px text-[9px] text-white font-medium">
+              {t("beforeBadge")}
+            </span>
           )}
         </div>
       </div>
@@ -57,7 +65,8 @@ function DebugOverlay({ card }: { card: PromptCardFull }) {
 
 export function PromptCard({ card, debug = false, priorityLoad = false }: Props) {
   const { reactions, favorites, toggleReaction, toggleFavorite } = useCardInteractions();
-  const title = card.title_ru || card.title_en || "Без названия";
+  const t = useTranslations("Cards");
+  const title = card.title_ru || card.title_en || t("untitled");
   const expandedTitle = splitCardTitle(title);
 
   const [photoIndex, setPhotoIndex] = useState(0);
@@ -106,10 +115,10 @@ export function PromptCard({ card, debug = false, priorityLoad = false }: Props)
 
   return (
     <article
-      className={`group relative isolate overflow-hidden rounded-2xl transition-all duration-200 hover:shadow-xl hover:shadow-zinc-900/10 hover:-translate-y-0.5 ${card.slug ? "cursor-pointer" : ""}`}
+      className={`group relative isolate overflow-hidden rounded-2xl ring-1 ring-white/[0.06] transition-all duration-200 hover:shadow-xl hover:shadow-indigo-950/40 hover:-translate-y-0.5 ${card.slug ? "cursor-pointer" : ""}`}
     >
       {debug && <DebugOverlay card={card} />}
-      <div className="relative w-full overflow-hidden rounded-2xl bg-zinc-200 aspect-[3/4]">
+      <div className="relative w-full overflow-hidden rounded-2xl bg-zinc-800 aspect-[3/4]">
         {currentPhoto ? (
           <Image
             src={currentPhoto}
@@ -122,8 +131,8 @@ export function PromptCard({ card, debug = false, priorityLoad = false }: Props)
             className={mainPhotoClass}
           />
         ) : (
-          <div className="flex h-full items-center justify-center bg-zinc-100 text-zinc-400 text-sm">
-            Нет фото
+          <div className="flex h-full items-center justify-center bg-zinc-800 text-zinc-500 text-sm">
+            {t("noPhoto")}
           </div>
         )}
 
@@ -152,7 +161,7 @@ export function PromptCard({ card, debug = false, priorityLoad = false }: Props)
                     quality={CARD_IMAGE_LISTING_NEXT_QUALITY}
                   />
                   <div className="absolute inset-x-0 bottom-0 text-[8px] text-white font-bold text-center py-0.5 bg-gradient-to-t from-black/70 to-transparent tracking-wider">
-                    БЫЛО
+                    {t("beforeBadge")}
                   </div>
                 </div>
               </div>
@@ -167,7 +176,7 @@ export function PromptCard({ card, debug = false, priorityLoad = false }: Props)
               )}
               {card.isPublished === false && (
                 <div className="rounded-full bg-amber-500/90 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-white shadow">
-                  Черновик
+                  {t("draft")}
                 </div>
               )}
             </div>
@@ -197,7 +206,7 @@ export function PromptCard({ card, debug = false, priorityLoad = false }: Props)
                   type="button"
                   onClick={prevPhoto}
                   className={`${OVERLAY_BUTTON_UA_RESET} listing-card-chrome-target absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white backdrop-blur-md transition-colors hover:bg-black/60 active:scale-90`}
-                  aria-label="Предыдущее фото"
+                  aria-label={t("prevPhoto")}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden><path d="M15 18l-6-6 6-6"/></svg>
                 </button>
@@ -205,7 +214,7 @@ export function PromptCard({ card, debug = false, priorityLoad = false }: Props)
                   type="button"
                   onClick={nextPhoto}
                   className={`${OVERLAY_BUTTON_UA_RESET} listing-card-chrome-target absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white backdrop-blur-md transition-colors hover:bg-black/60 active:scale-90`}
-                  aria-label="Следующее фото"
+                  aria-label={t("nextPhoto")}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden><path d="M9 18l6-6-6-6"/></svg>
                 </button>
@@ -225,7 +234,7 @@ export function PromptCard({ card, debug = false, priorityLoad = false }: Props)
                   onClick={(e) => { e.stopPropagation(); e.preventDefault(); setExpanded(true); }}
                   className={`${OVERLAY_BUTTON_APPEARANCE_RESET} listing-card-chrome-target w-full rounded-full border border-white/10 bg-white/15 px-2 py-1.5 text-[10px] font-semibold text-white backdrop-blur-md transition-all hover:bg-white/25 active:scale-[0.98] sm:px-3 sm:py-2 sm:text-[11px] truncate`}
                 >
-                  Скопировать
+                  {t("copy")}
                 </button>
               </div>
             )}
@@ -261,7 +270,7 @@ export function PromptCard({ card, debug = false, priorityLoad = false }: Props)
               </h3>
               <button
                 type="button"
-                aria-label="Закрыть"
+                aria-label={t("close")}
                 onClick={(e) => { e.stopPropagation(); e.preventDefault(); setExpanded(false); }}
                 className={`${OVERLAY_BUTTON_UA_RESET} flex-shrink-0 rounded-full bg-white/15 p-1.5 text-white/70 transition-colors hover:bg-white/25 hover:text-white`}
               >
@@ -279,9 +288,9 @@ export function PromptCard({ card, debug = false, priorityLoad = false }: Props)
             <button
               type="button"
               onClick={handleCopy}
-              className={`${OVERLAY_BUTTON_UA_RESET} w-full shrink-0 rounded-xl bg-white px-3 py-2.5 text-xs font-semibold text-zinc-900 transition-all hover:bg-zinc-100 active:scale-[0.98]`}
+              className={`${OVERLAY_BUTTON_UA_RESET} w-full shrink-0 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-semibold text-white transition-all hover:bg-indigo-500 active:scale-[0.98]`}
             >
-              {copied ? "Промпт скопирован" : "Скопировать промт"}
+              {copied ? t("promptCopied") : t("copyPrompt")}
             </button>
           </div>
         )}

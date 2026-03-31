@@ -23,7 +23,7 @@ function chromeLocalStorageAdapter() {
 export function getStoredApiOrigin() {
   return new Promise((resolve) => {
     chrome.storage.local.get(["stv_api_origin"], (r) => {
-      resolve(typeof r.stv_api_origin === "string" && r.stv_api_origin ? r.stv_api_origin : "https://promptshot.ru");
+      resolve(typeof r.stv_api_origin === "string" && r.stv_api_origin ? r.stv_api_origin : "https://imageprompt.tools");
     });
   });
 }
@@ -32,7 +32,7 @@ export function getStoredApiOrigin() {
  * @param {string} apiOrigin
  */
 export async function createSupabaseForExtension(apiOrigin) {
-  const origin = String(apiOrigin || "").replace(/\/+$/, "") || "https://promptshot.ru";
+  const origin = String(apiOrigin || "").replace(/\/+$/, "") || "https://imageprompt.tools";
   const cfgRes = await fetch(`${origin}/api/public-config`);
   if (!cfgRes.ok) {
     throw new Error(`public-config failed: ${cfgRes.status}`);

@@ -1,6 +1,6 @@
 # imageprompt
 
-Next.js лендинг PromptShot / STV (**`landing/`**) и Chrome-расширение Steal This Vibe (**`extension/`**). Вынесено из монорепо **aiphoto** (вариант A, см. `docs/requirements/30-03-variant-a-landing-extension-new-repo.md`).
+Next.js лендинг **imageprompt.tools** (STV / ImagePrompt, **`landing/`**) и Chrome-расширение Steal This Vibe (**`extension/`**). Вынесено из монорепо **aiphoto** (вариант A, см. `docs/requirements/30-03-variant-a-landing-extension-new-repo.md`).
 
 **Репозиторий GitHub:** [github.com/azarovmaxim/imageprompt](https://github.com/azarovmaxim/imageprompt) — если репозиторий ещё пустой, создай его на GitHub, затем:
 

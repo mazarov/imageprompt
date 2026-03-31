@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
 import { getAllTagPaths, findTagBySlug, type Dimension } from "@/lib/tag-registry";
 import { getPublishedCardsForSitemap, getIndexableTagCombos } from "@/lib/supabase";
+import { isSupabaseServerConfigured } from "@/lib/supabase";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://promptshot.ru");
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://imageprompt.tools");
 
 const DIMENSION_PRIORITY: Dimension[] = [
   "audience_tag",
@@ -42,6 +43,23 @@ function comboToPath(
   return `${base}/${secondaryLastSeg}`;
 }
 
+/** Duplicate entries with `/ru` prefix for localized routes (default locale has no prefix). */
+function withRuAlternates(entries: MetadataRoute.Sitemap): MetadataRoute.Sitemap {
+  const ru: MetadataRoute.Sitemap = [];
+  for (const e of entries) {
+    try {
+      const u = new URL(e.url);
+      if (u.pathname.startsWith("/ru")) continue;
+      const ruPath = u.pathname === "/" ? "/ru" : `/ru${u.pathname}`;
+      u.pathname = ruPath;
+      ru.push({ ...e, url: u.toString() });
+    } catch {
+      /* ignore bad URLs */
+    }
+  }
+  return [...entries, ...ru];
+}
+
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -53,37 +71,64 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9,
   }));
 
-  const combos = await getIndexableTagCombos(6, "ru");
-  const l2Urls: MetadataRoute.Sitemap = [];
-  for (const c of combos) {
-    const path = comboToPath(c.dim1, c.slug1, c.dim2, c.slug2);
-    if (path) {
-      l2Urls.push({
-        url: `${BASE_URL}/${path}`,
-        lastModified: new Date(),
-        changeFrequency: "weekly" as const,
+  let l2Urls: MetadataRoute.Sitemap = [];
+  let cardUrls: MetadataRoute.Sitemap = [];
+
+  if (isSupabaseServerConfigured()) {
+    try {
+      const combos = await getIndexableTagCombos(6, "ru");
+      for (const c of combos) {
+        const path = comboToPath(c.dim1, c.slug1, c.dim2, c.slug2);
+        if (path) {
+          l2Urls.push({
+            url: `${BASE_URL}/${path}`,
+            lastModified: new Date(),
+            changeFrequency: "weekly" as const,
+            priority: 0.7,
+          });
+        }
+      }
+      const cards = await getPublishedCardsForSitemap();
+      cardUrls = cards.map(({ slug, updated_at }) => ({
+        url: `${BASE_URL}/p/${slug}`,
+        lastModified: new Date(updated_at),
+        changeFrequency: "monthly" as const,
         priority: 0.7,
-      });
+      }));
+    } catch (err) {
+      console.warn("[sitemap] skipped DB-backed URLs:", err);
     }
   }
 
-  const cards = await getPublishedCardsForSitemap();
-  const cardUrls: MetadataRoute.Sitemap = cards.map(({ slug, updated_at }) => ({
-    url: `${BASE_URL}/p/${slug}`,
-    lastModified: new Date(updated_at),
-    changeFrequency: "monthly" as const,
-    priority: 0.7,
-  }));
-
-  return [
+  const core: MetadataRoute.Sitemap = [
     {
       url: BASE_URL,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 1,
     },
+    {
+      url: `${BASE_URL}/extension-stv`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.95,
+    },
+    {
+      url: `${BASE_URL}/extension-stv/pricing`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.85,
+    },
+    {
+      url: `${BASE_URL}/blog/ai-image-prompt-examples`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.75,
+    },
     ...tagUrls,
     ...l2Urls,
     ...cardUrls,
   ];
+
+  return withRuAlternates(core);
 }

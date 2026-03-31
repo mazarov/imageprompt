@@ -1,17 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { getTagsByDimension, findTagBySlug, type Dimension } from "@/lib/tag-registry";
 import { FilterChips } from "./FilterChips";
 import type { FilterState } from "@/hooks/useListingFilters";
 import type { PromptCardFull } from "@/lib/supabase";
-
-const DIMENSION_UI_LABELS: Record<string, string> = {
-  audience_tag: "Кто на фото",
-  style_tag: "Стиль",
-  occasion_tag: "Событие",
-  object_tag: "Сцена",
-};
 
 const DIMENSION_ORDER: (keyof FilterState)[] = ["audience", "style", "occasion", "object"];
 const DIM_TO_DIMENSION: Record<keyof FilterState, Dimension> = {
@@ -65,6 +59,10 @@ export function FilterPanel({
   rpcParams,
   cardsForCounts,
 }: Props) {
+  const locale = useLocale();
+  const tFilters = useTranslations("Filters");
+  const tDim = useTranslations("Dimensions");
+  const tCommon = useTranslations("Common");
   const [draft, setDraft] = useState<FilterState>(filters);
   const [objectSearch, setObjectSearch] = useState("");
   const [apiCounts, setApiCounts] = useState<FilterCountRow[]>([]);
@@ -85,14 +83,14 @@ export function FilterPanel({
       for (const [k, v] of Object.entries(rpcParams)) {
         if (v) sp.set(k, v);
       }
-      sp.set("site_lang", "ru");
+      sp.set("site_lang", locale === "en" ? "en" : "ru");
       const res = await fetch(`/api/filter-counts?${sp.toString()}`);
       const data = (await res.json()) as FilterCountRow[];
       setApiCounts(data);
     } catch {
       setApiCounts([]);
     }
-  }, [rpcParams]);
+  }, [rpcParams, locale]);
 
   useEffect(() => {
     fetchCounts();
@@ -127,22 +125,22 @@ export function FilterPanel({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/20"
+        className="fixed inset-0 z-40 bg-black/50"
         onClick={onClose}
         aria-hidden
       />
       <div
-        className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-md max-h-[70vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white shadow-2xl animate-scale-in origin-bottom-right sm:bottom-6 sm:right-6"
+        className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-md max-h-[70vh] overflow-y-auto rounded-2xl border border-white/[0.1] bg-zinc-900 shadow-2xl shadow-black/50 animate-scale-in origin-bottom-right sm:bottom-6 sm:right-6"
         role="dialog"
-        aria-label="Фильтры"
+        aria-label={tFilters("ariaPanel")}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-100 bg-white px-4 py-3">
-          <h2 className="text-base font-semibold text-zinc-900">Фильтры</h2>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.08] bg-zinc-900 px-4 py-3">
+          <h2 className="text-base font-semibold text-zinc-50">{tFilters("panelTitle")}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
-            aria-label="Закрыть"
+            className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+            aria-label={tCommon("close")}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 6L6 18M6 6l12 12" />
@@ -153,7 +151,7 @@ export function FilterPanel({
         <div className="space-y-6 p-4">
           {dimsToShow.map((key) => {
             const dim = DIM_TO_DIMENSION[key];
-            const label = DIMENSION_UI_LABELS[dim] ?? dim;
+            const label = tDim(dim);
             const { tags, countBySlug } = getTagsWithCounts(dim);
             const selectedSlug = draft[key];
             const selectedTag = selectedSlug ? findTagBySlug(dim, selectedSlug) : null;
@@ -164,7 +162,7 @@ export function FilterPanel({
 
             return (
               <div key={key}>
-                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-400">
                   {label}
                 </p>
                 <FilterChips
@@ -173,7 +171,7 @@ export function FilterPanel({
                   onSelect={(slug) => setDraft((p) => ({ ...p, [key]: slug }))}
                   searchQuery={key === "object" ? objectSearch : undefined}
                   onSearchChange={key === "object" ? setObjectSearch : undefined}
-                  searchPlaceholder="Найти сцену..."
+                  searchPlaceholder={tFilters("findScene")}
                   countBySlug={Object.keys(countBySlug).length > 0 ? countBySlug : undefined}
                 />
               </div>
@@ -181,16 +179,16 @@ export function FilterPanel({
           })}
         </div>
 
-        <div className="sticky bottom-0 flex gap-2 border-t border-zinc-100 bg-white p-4">
+        <div className="sticky bottom-0 flex gap-2 border-t border-white/[0.08] bg-zinc-900 p-4">
           <button
             type="button"
             onClick={() => {
               onApply({ audience: null, style: null, occasion: null, object: null });
               onClose();
             }}
-            className="flex-1 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+            className="flex-1 rounded-xl border border-white/[0.12] px-4 py-2.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800"
           >
-            Сбросить
+            {tFilters("reset")}
           </button>
           <button
             type="button"
@@ -198,9 +196,9 @@ export function FilterPanel({
               onApply(draft);
               onClose();
             }}
-            className="flex-1 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-zinc-800"
+            className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
           >
-            Применить
+            {tFilters("apply")}
           </button>
         </div>
       </div>

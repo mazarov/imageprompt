@@ -849,7 +849,7 @@ function buildRunHistoryCardHtml(run, idx) {
 }
 
 async function downloadHistoryResultByUrl(url, baseName) {
-  const safeName = String(baseName || `promptshot-${Date.now()}`).replace(/[^a-zA-Z0-9._-]+/g, "_");
+  const safeName = String(baseName || `imageprompt-${Date.now()}`).replace(/[^a-zA-Z0-9._-]+/g, "_");
   const extGuess = (() => {
     try {
       const p = new URL(url).pathname.toLowerCase();
@@ -1316,7 +1316,7 @@ function referenceImageSrcForUi() {
 }
 
 /**
- * Apply vibe from session storage (first open or subsequent "Steal this vibe" while panel stays open).
+ * Apply vibe from session storage (first open or subsequent overlay click while panel stays open).
  */
 async function applyPendingVibeFromStorage(vibe) {
   const url = vibe?.imageUrl;
@@ -2248,7 +2248,7 @@ function renderAuthRequired() {
         <div class="stv-brand">
           <span class="stv-brand-mark" aria-hidden="true">${STV_MARK_STAR_SVG}</span>
           <div class="stv-brand-text">
-            <span class="stv-brand-name">Prompt To Image</span>
+            <span class="stv-brand-name">image to prompt</span>
             <span class="stv-brand-sub">${escapeHtml(t("brand_sub"))}</span>
           </div>
         </div>
@@ -2821,7 +2821,7 @@ function renderMain() {
           <div class="stv-brand">
             <span class="stv-brand-mark" aria-hidden="true">${STV_MARK_STAR_SVG}</span>
             <div class="stv-brand-text">
-              <span class="stv-brand-name">Prompt To Image</span>
+              <span class="stv-brand-name">image to prompt</span>
               <span class="stv-brand-sub">${escapeHtml(t("brand_sub"))}</span>
             </div>
           </div>
@@ -3201,7 +3201,7 @@ export async function boot() {
       void applyPendingVibeFromStorage(msg.vibe);
       return;
     }
-    if (msg?.type === "PROMPTSHOT_AUTH_DONE") {
+    if (msg?.type === "IMAGEPROMPT_AUTH_DONE") {
       void (async () => {
         await refreshAccessTokenFromSupabase();
         await checkAuth();
@@ -3212,7 +3212,7 @@ export async function boot() {
   });
 
   /* When side panel is already open, boot() won't run again — background still writes session.
-     onChanged picks up every new "Steal this vibe" click. */
+     onChanged picks up every new overlay click. */
   rt().platform.storage.session.onChanged?.((changes, areaName) => {
     if (areaName !== "session") return;
     const ch = changes[SESSION_VIBE_KEY];

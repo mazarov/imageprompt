@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 function ChromeMark({ className }: { className?: string }) {
   return (
     <svg className={className} width="14" height="14" viewBox="0 0 48 48" aria-hidden>
@@ -11,13 +13,14 @@ function ChromeMark({ className }: { className?: string }) {
   );
 }
 
-export function ExtensionStvChromeBadge({ className }: { className?: string }) {
+export async function ExtensionStvChromeBadge({ className }: { className?: string }) {
+  const t = await getTranslations("Marketing");
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.06] px-2.5 py-1 text-xs font-medium text-zinc-300 ${className ?? ""}`}
     >
       <ChromeMark className="shrink-0" />
-      Chrome extension
+      {t("chromeBadge")}
     </span>
   );
 }

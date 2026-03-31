@@ -7,14 +7,14 @@
 export function ListingCardPhotoSkeleton({ overlay = false }: { overlay?: boolean }) {
   return (
     <div
-      className={`pointer-events-none absolute inset-x-0 top-0 overflow-hidden rounded-t-2xl bg-zinc-300/45 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] [bottom:32%] ${overlay ? "z-[3]" : "z-[1]"}`}
+      className={`pointer-events-none absolute inset-x-0 top-0 overflow-hidden rounded-t-2xl bg-zinc-700/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] [bottom:32%] ${overlay ? "z-[3]" : "z-[1]"}`}
       aria-hidden
     >
       <div
-        className="absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(255,255,255,0.48),transparent_50%),linear-gradient(165deg,rgba(255,255,255,0.2)_0%,transparent_50%,rgba(0,0,0,0.03)_100%)]"
+        className="absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(255,255,255,0.12),transparent_50%),linear-gradient(165deg,rgba(255,255,255,0.06)_0%,transparent_50%,rgba(0,0,0,0.15)_100%)]"
         aria-hidden
       />
-      <div className="listing-card-shimmer-bar absolute inset-y-0 -left-1/2 w-[65%] skew-x-[-12deg] bg-gradient-to-r from-transparent via-white/28 to-transparent" />
+      <div className="listing-card-shimmer-bar absolute inset-y-0 -left-1/2 w-[65%] skew-x-[-12deg] bg-gradient-to-r from-transparent via-white/12 to-transparent" />
     </div>
   );
 }

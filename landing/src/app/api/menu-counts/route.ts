@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServer } from "@/lib/supabase";
+import { createSupabaseServer, isSupabaseServerConfigured } from "@/lib/supabase";
 import { findTagBySlug, type Dimension } from "@/lib/tag-registry";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (!isSupabaseServerConfigured()) {
+    return NextResponse.json({});
+  }
   try {
     const supabase = createSupabaseServer();
     const { data, error } = await supabase

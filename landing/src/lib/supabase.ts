@@ -10,6 +10,11 @@ const supabaseUrl =
   process.env.SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
+/** Server-side Supabase (service role). False until URL + service key are set (e.g. `landing/.env.local`). */
+export function isSupabaseServerConfigured(): boolean {
+  return Boolean(supabaseUrl && supabaseServiceKey);
+}
+
 export function createSupabaseServer() {
   if (!supabaseUrl || !supabaseServiceKey) {
     throw new Error("Missing SUPABASE env vars for server");
@@ -281,6 +286,9 @@ export type HomepageSectionItemWithUrls = {
 export async function fetchHomepageSections(
   siteLang = "ru"
 ): Promise<HomepageSectionItemWithUrls[]> {
+  if (!isSupabaseServerConfigured()) {
+    return [];
+  }
   const supabase = createSupabaseServer();
   const { data, error } = await supabase.rpc("get_homepage_sections", {
     p_site_lang: siteLang,

@@ -31,7 +31,7 @@ export function OverlayButtonMock({
   return (
     <div
       role="img"
-      aria-label={`Extension overlay: ${headline} — PromptShot`}
+      aria-label={`Extension overlay: ${headline} — ImagePrompt`}
       className={
         "pointer-events-none min-h-[46px] select-none rounded-[12px] border border-white/10 bg-[rgba(24,24,27,0.94)] text-left text-[#fafafa] shadow-[0_0_0_1px_rgba(99,102,241,0.22),0_1px_0_rgba(255,255,255,0.06)_inset,0_8px_28px_rgba(0,0,0,0.45),0_4px_16px_rgba(99,102,241,0.18)] " +
         (className ?? "")
@@ -55,7 +55,7 @@ export function OverlayButtonMock({
           >
             {headline}
           </span>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[#a1a1aa]">PromptShot</span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[#a1a1aa]">ImagePrompt</span>
         </div>
       </div>
     </div>

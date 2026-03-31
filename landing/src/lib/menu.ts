@@ -1,4 +1,7 @@
-import { TAG_REGISTRY, DIMENSION_LABELS, findTagByUrlPath, type TagEntry, type Dimension } from "./tag-registry";
+import { createTranslator } from "next-intl";
+import { TAG_REGISTRY, findTagByUrlPath, type TagEntry, type Dimension } from "./tag-registry";
+import enMessages from "../messages/en.json";
+import ruMessages from "../messages/ru.json";
 
 export type MenuItem = {
   label: string;
@@ -39,18 +42,131 @@ export type RouteParams = {
   object_tag?: string;
 };
 
-function tagItem(slug: string): MenuItem {
+function tagItem(slug: string, locale: "en" | "ru"): MenuItem {
   const entry = TAG_REGISTRY.find((t) => t.slug === slug);
   if (!entry) throw new Error(`Tag "${slug}" not found in TAG_REGISTRY`);
-  return { label: entry.labelRu, href: entry.urlPath + "/" };
+  return {
+    label: locale === "en" ? entry.labelEn : entry.labelRu,
+    href: entry.urlPath + "/",
+  };
 }
 
-/**
- * Collect all slugs explicitly placed in curated groups,
- * then append any TAG_REGISTRY tags for that dimension
- * not yet placed into an "Ещё" group.
- */
-function withAutoGroup(section: MenuSection): MenuSection {
+const CURATED_SECTIONS_DATA: {
+  sectionKey: string;
+  dimension: Dimension;
+  groups: { groupKey: string; slugs: string[] }[];
+}[] = [
+  {
+    sectionKey: "people",
+    dimension: "audience_tag",
+    groups: [
+      { groupKey: "basic", slugs: ["devushka", "muzhchina", "para", "vlyublennykh", "semya", "detskie"] },
+      { groupKey: "kids", slugs: ["malchik", "devochka", "podrostok", "malysh"] },
+      {
+        groupKey: "relationships",
+        slugs: ["s_mamoy", "s_parnem", "pokoleniy", "s_papoy", "s_muzhem", "s_dochkoy", "s_synom", "s_sestroy", "s_bratom"],
+      },
+      {
+        groupKey: "extended",
+        slugs: ["s_podrugoy", "s_drugom", "s_babushkoy", "beremennaya", "s_pitomcem"],
+      },
+    ],
+  },
+  {
+    sectionKey: "styles",
+    dimension: "style_tag",
+    groups: [
+      {
+        groupKey: "core",
+        slugs: ["cherno_beloe", "realistichnoe", "portret", "studiynoe", "selfi", "3d", "kollazh"],
+      },
+      {
+        groupKey: "visual",
+        slugs: [
+          "love_is",
+          "gta",
+          "delovoe",
+          "retro",
+          "sovetskoe",
+          "fashion",
+          "neonovoe",
+          "street_style",
+          "glyanec",
+          "victorias_secret",
+        ],
+      },
+      {
+        groupKey: "illustrative",
+        slugs: ["anime", "disney", "polaroid", "otkrytka", "piksar", "barbie", "multyashnoe"],
+      },
+    ],
+  },
+  {
+    sectionKey: "events",
+    dimension: "occasion_tag",
+    groups: [
+      {
+        groupKey: "holidays",
+        slugs: [
+          "den_rozhdeniya",
+          "23_fevralya",
+          "14_fevralya",
+          "8_marta",
+          "maslenica",
+          "svadba",
+          "novyy_god",
+          "rozhdestvo",
+        ],
+      },
+    ],
+  },
+  {
+    sectionKey: "scenes",
+    dimension: "object_tag",
+    groups: [
+      {
+        groupKey: "objects",
+        slugs: [
+          "s_mashinoy",
+          "s_cvetami",
+          "so_znamenitostyu",
+          "s_kotom",
+          "s_sobakoy",
+          "s_tortom",
+          "s_koronoy",
+          "s_bokalom",
+          "s_kofe",
+          "so_svechami",
+          "s_shuboj",
+        ],
+      },
+      {
+        groupKey: "pose",
+        slugs: ["v_forme", "v_kostyume", "v_profil", "v_zerkale", "na_chernom_fone", "v_platye", "v_polnyy_rost", "na_avatarku"],
+      },
+      {
+        groupKey: "place",
+        slugs: [
+          "na_more",
+          "v_lesu",
+          "v_gorah",
+          "zima",
+          "vesna",
+          "na_ulice",
+          "v_mashine",
+          "na_yahte",
+          "v_restorane",
+          "na_kryshe",
+          "v_gorode",
+          "v_pustyne",
+          "pod_vodoy",
+        ],
+      },
+    ],
+  },
+];
+
+function withAutoGroup(section: MenuSection, locale: "en" | "ru", moreLabel: string): MenuSection {
   const placedSlugs = new Set<string>();
   for (const g of section.groups) {
     for (const item of g.items) {
@@ -59,26 +175,69 @@ function withAutoGroup(section: MenuSection): MenuSection {
     }
   }
 
-  const unplaced = TAG_REGISTRY
-    .filter((t) => t.dimension === section.dimension && !placedSlugs.has(t.slug))
-    .map((t) => tagItem(t.slug));
+  const unplaced = TAG_REGISTRY.filter((t) => t.dimension === section.dimension && !placedSlugs.has(t.slug)).map((t) =>
+    tagItem(t.slug, locale),
+  );
 
   if (unplaced.length === 0) return section;
 
   return {
     ...section,
-    groups: [...section.groups, { title: "Ещё", items: unplaced }],
+    groups: [...section.groups, { title: moreLabel, items: unplaced }],
   };
+}
+
+function menuTranslator(locale: "en" | "ru") {
+  const messages = locale === "ru" ? ruMessages : enMessages;
+  return createTranslator({ locale, messages, namespace: "Menu" });
+}
+
+function dimensionsTranslator(locale: "en" | "ru") {
+  const messages = locale === "ru" ? ruMessages : enMessages;
+  return createTranslator({ locale, messages, namespace: "Dimensions" });
+}
+
+export function buildMenuForLocale(locale: "en" | "ru"): MenuSection[] {
+  const tMenu = menuTranslator(locale);
+  const tDim = dimensionsTranslator(locale);
+  const moreLabel = tMenu("more");
+
+  const sections = CURATED_SECTIONS_DATA.map((s) => ({
+    label: tMenu(`section.${s.sectionKey}`),
+    dimension: s.dimension,
+    groups: s.groups.map((g) => ({
+      title: tMenu(`group.${g.groupKey}`),
+      items: g.slugs.map((slug) => tagItem(slug, locale)),
+    })),
+  })).map((s) => withAutoGroup(s, locale, moreLabel));
+
+  const coveredDims = new Set(CURATED_SECTIONS_DATA.map((s) => s.dimension));
+  const ALL_DIMS: Dimension[] = ["audience_tag", "style_tag", "occasion_tag", "object_tag"];
+  for (const dim of ALL_DIMS) {
+    if (coveredDims.has(dim)) continue;
+    const tags = TAG_REGISTRY.filter((t) => t.dimension === dim);
+    if (tags.length === 0) continue;
+    sections.push({
+      label: tDim(dim),
+      dimension: dim,
+      groups: [{ title: tMenu("group.all"), items: tags.map((t) => tagItem(t.slug, locale)) }],
+    });
+  }
+
+  return sections;
+}
+
+/** Стабильные href для sitemap / внутренней логики (пути не зависят от языка). */
+export const MENU: MenuSection[] = buildMenuForLocale("en");
+
+export function getAllMenuHrefs(): string[] {
+  return MENU.flatMap((s) => s.groups.flatMap((g) => g.items.map((i) => i.href)));
 }
 
 export function getRouteParamsForHref(href: string): RouteParams | null {
   const tag = findTagByUrlPath(href);
   if (!tag) return null;
   return { [tag.dimension]: tag.slug } as RouteParams;
-}
-
-export function getAllMenuHrefs(): string[] {
-  return MENU.flatMap((s) => s.groups.flatMap((g) => g.items.map((i) => i.href)));
 }
 
 export function getMenuRouteMap(): { href: string; params: RouteParams }[] {
@@ -92,207 +251,17 @@ export function getMenuRouteMap(): { href: string; params: RouteParams }[] {
 }
 
 export function applyCountsToMenu(
-  counts: Record<string, number>
+  counts: Record<string, number>,
+  locale: "en" | "ru",
 ): MenuSectionWithCounts[] {
-  return MENU.map((section) => ({
+  return buildMenuForLocale(locale).map((section) => ({
     label: section.label,
     href: section.href,
     groups: section.groups.map((group) => ({
-      ...group,
+      title: group.title,
       items: group.items
         .map((item) => ({ ...item, count: counts[item.href] ?? 0 }))
         .sort((a, b) => (b.count ?? 0) - (a.count ?? 0)),
     })),
   }));
 }
-
-const CURATED_SECTIONS: MenuSection[] = [
-  {
-    label: "Люди и отношения",
-    dimension: "audience_tag",
-    groups: [
-      {
-        title: "Базовые",
-        items: [
-          tagItem("devushka"),
-          tagItem("muzhchina"),
-          tagItem("para"),
-          tagItem("vlyublennykh"),
-          tagItem("semya"),
-          tagItem("detskie"),
-        ],
-      },
-      {
-        title: "Дети",
-        items: [
-          tagItem("malchik"),
-          tagItem("devochka"),
-          tagItem("podrostok"),
-          tagItem("malysh"),
-        ],
-      },
-      {
-        title: "Отношения",
-        items: [
-          tagItem("s_mamoy"),
-          tagItem("s_parnem"),
-          tagItem("pokoleniy"),
-          tagItem("s_papoy"),
-          tagItem("s_muzhem"),
-          tagItem("s_dochkoy"),
-          tagItem("s_synom"),
-          tagItem("s_sestroy"),
-          tagItem("s_bratom"),
-        ],
-      },
-      {
-        title: "Расширение",
-        items: [
-          tagItem("s_podrugoy"),
-          tagItem("s_drugom"),
-          tagItem("s_babushkoy"),
-          tagItem("beremennaya"),
-          tagItem("s_pitomcem"),
-        ],
-      },
-    ],
-  },
-  {
-    label: "Стили",
-    dimension: "style_tag",
-    groups: [
-      {
-        title: "Core",
-        items: [
-          tagItem("cherno_beloe"),
-          tagItem("realistichnoe"),
-          tagItem("portret"),
-          tagItem("studiynoe"),
-          tagItem("selfi"),
-          tagItem("3d"),
-          tagItem("kollazh"),
-        ],
-      },
-      {
-        title: "Visual",
-        items: [
-          tagItem("love_is"),
-          tagItem("gta"),
-          tagItem("delovoe"),
-          tagItem("retro"),
-          tagItem("sovetskoe"),
-          tagItem("fashion"),
-          tagItem("neonovoe"),
-          tagItem("street_style"),
-          tagItem("glyanec"),
-          tagItem("victorias_secret"),
-        ],
-      },
-      {
-        title: "Illustrative",
-        items: [
-          tagItem("anime"),
-          tagItem("disney"),
-          tagItem("polaroid"),
-          tagItem("otkrytka"),
-          tagItem("piksar"),
-          tagItem("barbie"),
-          tagItem("multyashnoe"),
-        ],
-      },
-    ],
-  },
-  {
-    label: "События",
-    dimension: "occasion_tag",
-    groups: [
-      {
-        title: "Праздники",
-        items: [
-          tagItem("den_rozhdeniya"),
-          tagItem("23_fevralya"),
-          tagItem("14_fevralya"),
-          tagItem("8_marta"),
-          tagItem("maslenica"),
-          tagItem("svadba"),
-          tagItem("novyy_god"),
-          tagItem("rozhdestvo"),
-        ],
-      },
-    ],
-  },
-  {
-    label: "Сцены и объекты",
-    dimension: "object_tag",
-    groups: [
-      {
-        title: "Объекты",
-        items: [
-          tagItem("s_mashinoy"),
-          tagItem("s_cvetami"),
-          tagItem("so_znamenitostyu"),
-          tagItem("s_kotom"),
-          tagItem("s_sobakoy"),
-          tagItem("s_tortom"),
-          tagItem("s_koronoy"),
-          tagItem("s_bokalom"),
-          tagItem("s_kofe"),
-          tagItem("so_svechami"),
-          tagItem("s_shuboj"),
-        ],
-      },
-      {
-        title: "Образ / поза",
-        items: [
-          tagItem("v_forme"),
-          tagItem("v_kostyume"),
-          tagItem("v_profil"),
-          tagItem("v_zerkale"),
-          tagItem("na_chernom_fone"),
-          tagItem("v_platye"),
-          tagItem("v_polnyy_rost"),
-          tagItem("na_avatarku"),
-        ],
-      },
-      {
-        title: "Место / среда",
-        items: [
-          tagItem("na_more"),
-          tagItem("v_lesu"),
-          tagItem("v_gorah"),
-          tagItem("zima"),
-          tagItem("vesna"),
-          tagItem("na_ulice"),
-          tagItem("v_mashine"),
-          tagItem("na_yahte"),
-          tagItem("v_restorane"),
-          tagItem("na_kryshe"),
-          tagItem("v_gorode"),
-          tagItem("v_pustyne"),
-          tagItem("pod_vodoy"),
-        ],
-      },
-    ],
-  },
-];
-
-function buildMenu(): MenuSection[] {
-  const sections = CURATED_SECTIONS.map(withAutoGroup);
-  const coveredDims = new Set(CURATED_SECTIONS.map((s) => s.dimension));
-
-  const ALL_DIMS: Dimension[] = ["audience_tag", "style_tag", "occasion_tag", "object_tag"];
-  for (const dim of ALL_DIMS) {
-    if (coveredDims.has(dim)) continue;
-    const tags = TAG_REGISTRY.filter((t) => t.dimension === dim);
-    if (tags.length === 0) continue;
-    sections.push({
-      label: DIMENSION_LABELS[dim] || dim,
-      dimension: dim,
-      groups: [{ title: "Все", items: tags.map((t) => tagItem(t.slug)) }],
-    });
-  }
-
-  return sections;
-}
-
-export const MENU: MenuSection[] = buildMenu();

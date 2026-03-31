@@ -113,7 +113,7 @@ function toErrorMeta(err: unknown) {
 }
 
 function toCardUrl(slug: string): string {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://promptshot.ru";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://imageprompt.tools";
   const base = siteUrl.replace(/\/+$/, "");
   return `${base}/p/${slug}`;
 }

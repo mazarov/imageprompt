@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import { useCardViewBeacon } from "@/hooks/useCardViewBeacon";
 import Image from "next/image";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import type { CardPageData } from "@/lib/supabase";
 import { CardInteractionsProvider, useCardInteractions } from "@/context/CardInteractionsContext";
 import { ReactionButtons } from "./ReactionButtons";
@@ -23,9 +24,11 @@ import {
   SIZES_CARD_GRID,
   SIZES_CARD_HERO,
 } from "@/lib/card-image-presets";
+import type { TagEntry as CatalogTagEntry } from "@/lib/tag-registry";
+import { tagDisplayLabel } from "@/lib/tag-label";
 
 type TagEntry = { slug: string; label: string; href: string | null };
-type BreadcrumbTag = { labelRu: string; urlPath: string } | null;
+type BreadcrumbTag = CatalogTagEntry | null;
 
 type Props = {
   data: CardPageData;
@@ -44,7 +47,10 @@ export function CardPageClient({ data, tagEntries, breadcrumbTag }: Props) {
 
 function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
   const router = useRouter();
-  const title = data.title_ru || data.title_en || "Без названия";
+  const locale = useLocale();
+  const t = useTranslations("CardPage");
+  const tc = useTranslations("Cards");
+  const title = data.title_ru || data.title_en || tc("untitled");
   const [publishedLocal, setPublishedLocal] = useState(data.isPublished);
   const [pubSaving, setPubSaving] = useState(false);
   const [pubStatus, setPubStatus] = useState<string | null>(null);
@@ -209,7 +215,7 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
       });
       if (!res.ok) {
         const j = (await res.json()) as { error?: string };
-        setSetBeforeStatus(`Ошибка: ${j.error || res.statusText}`);
+        setSetBeforeStatus(`${t("errorPrefix")} ${j.error || res.statusText}`);
         return;
       }
       const idx = photoIndex;
@@ -221,9 +227,9 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
       setPhotoMeta(photoMeta.filter((_, i) => i !== idx));
       setPhotoDimensions(photoDimensions.filter((_, i) => i !== idx));
       setPhotoIndex(nextIdx);
-      setSetBeforeStatus("Сохранено");
+      setSetBeforeStatus(t("saved"));
     } catch (e) {
-      setSetBeforeStatus(`Ошибка: ${(e as Error).message}`);
+      setSetBeforeStatus(`${t("errorPrefix")} ${(e as Error).message}`);
     } finally {
       setSetBeforeSaving(false);
     }
@@ -231,9 +237,7 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
 
   async function handleDebugDeleteCard() {
     if (
-      !window.confirm(
-        `Удалить карточку из базы без восстановления?\n\nslug:\n${data.slug}`
-      )
+      !window.confirm(t("deleteConfirm", { slug: data.slug }))
     ) {
       return;
     }
@@ -250,13 +254,13 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
       });
       const j = (await res.json()) as { error?: string };
       if (!res.ok) {
-        setDeleteStatus(`Ошибка: ${j.error || res.statusText}`);
+        setDeleteStatus(`${t("errorPrefix")} ${j.error || res.statusText}`);
         return;
       }
       router.push("/");
       router.refresh();
     } catch (e) {
-      setDeleteStatus(`Ошибка: ${(e as Error).message}`);
+      setDeleteStatus(`${t("errorPrefix")} ${(e as Error).message}`);
     } finally {
       setDeleteSaving(false);
     }
@@ -266,29 +270,29 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
     <div className="mx-auto max-w-2xl px-5 py-6 lg:py-10 pb-28">
       {/* Breadcrumb — hidden on mobile */}
       <nav className="mb-6 hidden sm:flex items-center gap-1.5 text-sm text-zinc-500">
-        <Link href="/" className="transition-colors hover:text-zinc-700">
-          Главная
+        <Link href="/" className="transition-colors hover:text-zinc-200">
+          {t("home")}
         </Link>
         <Chevron />
         {breadcrumbTag ? (
           <>
             <Link
               href={breadcrumbTag.urlPath}
-              className="transition-colors hover:text-zinc-700"
+              className="transition-colors hover:text-zinc-200"
             >
-              {breadcrumbTag.labelRu}
+              {tagDisplayLabel(breadcrumbTag, locale)}
             </Link>
             <Chevron />
-            <span className="text-zinc-600 line-clamp-1">{title}</span>
+            <span className="text-zinc-400 line-clamp-1">{title}</span>
           </>
         ) : (
-          <span className="text-zinc-600 line-clamp-1">{title}</span>
+          <span className="text-zinc-400 line-clamp-1">{title}</span>
         )}
       </nav>
 
       {/* Debug panel */}
       {debugMode && (
-        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 font-mono text-xs text-zinc-700 space-y-1.5">
+        <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-950/35 p-4 font-mono text-xs text-zinc-200 space-y-1.5">
           <div className="flex items-center gap-2 mb-2">
             <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">DEBUG</span>
           </div>
@@ -306,7 +310,7 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
               {["audience_tag", "style_tag", "occasion_tag", "object_tag", "doc_task_tag"].map((dim) => {
                 const arr = ((data.seo_tags as Record<string, string[]>)?.[dim] || []);
                 return arr.map((slug: string) => (
-                  <span key={`${dim}:${slug}`} className="rounded-full bg-zinc-200 px-1.5 py-px text-[9px] text-zinc-600">
+                  <span key={`${dim}:${slug}`} className="rounded-full bg-zinc-800 px-1.5 py-px text-[9px] text-zinc-400">
                     {dim.replace("_tag", "")}:{slug}
                   </span>
                 ));
@@ -314,43 +318,50 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
             </div>
           )}
           {beforePhotoUrl && (
-            <div><span className="text-zinc-400">before:</span> <span className="text-teal-600">есть</span></div>
+            <div><span className="text-zinc-400">before:</span> <span className="text-teal-600">{t("debugBeforeYes")}</span></div>
           )}
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-amber-200/80">
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-amber-500/25">
             <button
               type="button"
               onClick={handleDebugSetBefore}
               disabled={setBeforeSaving || photos.length === 0 || !photoMeta[photoIndex]}
               className="rounded-lg bg-amber-200/90 border border-amber-400 px-2.5 py-1.5 text-[11px] font-semibold text-amber-900 transition-colors hover:bg-amber-300/90 disabled:opacity-50"
             >
-              {setBeforeSaving ? "Сохраняю…" : "Сделать «Было»"}
+              {setBeforeSaving ? t("debugSaving") : t("debugSetBefore")}
             </button>
             <span className="text-[10px] text-zinc-500">
-              текущее фото {photos.length ? photoIndex + 1 : 0}/{photos.length}
+              {t("debugPhotoCounter", {
+                current: photos.length ? photoIndex + 1 : 0,
+                total: photos.length,
+              })}
             </span>
             {setBeforeStatus && (
               <span
                 className={`text-[11px] ${
-                  setBeforeStatus.startsWith("Ошибка") ? "text-red-600" : "text-emerald-700"
+                  setBeforeStatus.startsWith(t("errorPrefix"))
+                    ? "text-red-600"
+                    : "text-emerald-700"
                 }`}
               >
                 {setBeforeStatus}
               </span>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-200/80">
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-500/25">
             <button
               type="button"
               onClick={handleDebugDeleteCard}
               disabled={deleteSaving}
               className="rounded-lg bg-red-100 border border-red-300 px-2.5 py-1.5 text-[11px] font-semibold text-red-900 transition-colors hover:bg-red-200/90 disabled:opacity-50"
             >
-              {deleteSaving ? "Удаляю…" : "Удалить карточку"}
+              {deleteSaving ? t("debugDeleting") : t("debugDelete")}
             </button>
             {deleteStatus && (
               <span
                 className={`text-[11px] ${
-                  deleteStatus.startsWith("Ошибка") ? "text-red-600" : "text-emerald-700"
+                  deleteStatus.startsWith(t("errorPrefix"))
+                    ? "text-red-600"
+                    : "text-emerald-700"
                 }`}
               >
                 {deleteStatus}
@@ -362,7 +373,7 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
 
       {/* ── Hero Image with Blur Backdrop ── */}
       {hasPhotos && (
-        <div className="relative overflow-hidden rounded-3xl bg-zinc-100 mb-8">
+        <div className="relative overflow-hidden rounded-3xl bg-zinc-900/50 mb-8">
           {/* Blurred backdrop: CSS only, after hero loads — avoids second `<img>` winning LCP over the card photo */}
           {blurBackdropReady && currentPhoto && (
             <>
@@ -374,7 +385,7 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
                   }}
                 />
               </div>
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-white/15" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-zinc-900/30 via-transparent to-zinc-900/40" />
             </>
           )}
 
@@ -382,7 +393,7 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
           <div className="group relative flex flex-col items-center justify-center gap-4 px-6 py-8 sm:px-10 sm:py-10">
             {currentPhoto ? (
               <div
-                className={`relative w-full max-w-[260px] sm:max-w-[300px] rounded-2xl overflow-hidden bg-zinc-200 shadow-2xl ring-1 ring-black/5${heroFrameFallback ? " aspect-[3/4]" : ""}`}
+                className={`relative w-full max-w-[260px] sm:max-w-[300px] rounded-2xl overflow-hidden bg-zinc-800 shadow-2xl shadow-black/40 ring-1 ring-white/[0.08]${heroFrameFallback ? " aspect-[3/4]" : ""}`}
                 style={heroFrameStyle}
               >
                 <Image
@@ -405,7 +416,7 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
                       type="button"
                       onClick={prevPhoto}
                       className={`${OVERLAY_BUTTON_UA_RESET} absolute left-2 top-1/2 -translate-y-1/2 z-20 rounded-full bg-black/30 p-1.5 text-white opacity-0 backdrop-blur-md transition-all group-hover:opacity-100 hover:bg-black/50 active:scale-90`}
-                      aria-label="Предыдущее фото"
+                      aria-label={tc("prevPhoto")}
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden><path d="M15 18l-6-6 6-6" /></svg>
                     </button>
@@ -413,7 +424,7 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
                       type="button"
                       onClick={nextPhoto}
                       className={`${OVERLAY_BUTTON_UA_RESET} absolute right-2 top-1/2 -translate-y-1/2 z-20 rounded-full bg-black/30 p-1.5 text-white opacity-0 backdrop-blur-md transition-all group-hover:opacity-100 hover:bg-black/50 active:scale-90`}
-                      aria-label="Следующее фото"
+                      aria-label={tc("nextPhoto")}
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden><path d="M9 18l6-6-6-6" /></svg>
                     </button>
@@ -433,7 +444,7 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
                         quality={CARD_IMAGE_NEXT_QUALITY}
                       />
                       <div className="absolute inset-x-0 bottom-0 text-[7px] text-white font-bold text-center py-0.5 bg-gradient-to-t from-black/70 to-transparent tracking-wider">
-                        БЫЛО
+                        {tc("beforeBadge")}
                       </div>
                     </div>
                   </div>
@@ -487,8 +498,8 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
 
               </div>
             ) : (
-              <div className="flex h-48 items-center justify-center text-zinc-400 text-sm">
-                Нет фото
+              <div className="flex h-48 items-center justify-center text-zinc-500 text-sm">
+                {t("noPhoto")}
               </div>
             )}
 
@@ -536,8 +547,8 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
                 type="button"
                 onClick={handleShare}
                 className={`${CARD_OVERLAY_ACTION_PILL} min-w-[2.75rem] text-white/70 transition-colors hover:text-white active:scale-95`}
-                title="Поделиться"
-                aria-label="Поделиться ссылкой на карточку"
+                title={t("shareTitle")}
+                aria-label={t("shareAria")}
               >
                 <ShareIcon className="block shrink-0" size={14} />
               </button>
@@ -547,14 +558,14 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
       )}
 
       {/* ── Title ── */}
-      <h1 className="text-2xl sm:text-3xl font-bold text-center text-zinc-900 leading-tight mb-2">
+      <h1 className="text-2xl sm:text-3xl font-bold text-center text-zinc-50 leading-tight mb-2">
         {title}
       </h1>
 
       {data.authorUserId && (
         <div className="mb-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <div className="flex items-center gap-3">
-            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-zinc-200 ring-2 ring-zinc-100">
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-zinc-800 ring-2 ring-zinc-700">
               {data.authorAvatarUrl ? (
                 <Image
                   src={data.authorAvatarUrl}
@@ -565,17 +576,17 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
                   quality={60}
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-zinc-500">
+                <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-zinc-400">
                   {(data.authorDisplayName || "?").slice(0, 1).toUpperCase()}
                 </div>
               )}
             </div>
             <div className="min-w-0 text-left">
-              <div className="truncate text-sm font-medium text-zinc-800">
-                {data.authorDisplayName || "Автор"}
+              <div className="truncate text-sm font-medium text-zinc-200">
+                {data.authorDisplayName || t("authorFallback")}
               </div>
               {!publishedLocal && data.viewerIsOwner && (
-                <div className="text-xs text-amber-800">Черновик — виден только вам</div>
+                <div className="text-xs text-amber-300/90">{t("draftOwnerOnly")}</div>
               )}
             </div>
           </div>
@@ -585,32 +596,32 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
                 type="button"
                 disabled={pubSaving}
                 onClick={() => handleVisibilityChange(!publishedLocal)}
-                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 disabled:opacity-50"
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
               >
                 {pubSaving
-                  ? "Сохранение…"
+                  ? t("pubSaving")
                   : publishedLocal
-                    ? "Скрыть"
-                    : "Опубликовать"}
+                    ? t("pubHide")
+                    : t("pubPublish")}
               </button>
               {pubStatus && (
-                <span className="text-center text-xs text-red-600 sm:text-left">{pubStatus}</span>
+                <span className="text-center text-xs text-red-400 sm:text-left">{pubStatus}</span>
               )}
             </div>
           )}
         </div>
       )}
 
-      <p className="mb-6 flex items-center justify-center gap-2 text-sm text-zinc-500">
+      <p className="mb-6 flex items-center justify-center gap-2 text-sm text-zinc-400">
         <EyeIcon
-          className={`shrink-0 ${viewCount > 0 ? "text-zinc-500" : "text-zinc-300"}`}
+          className={`shrink-0 ${viewCount > 0 ? "text-zinc-400" : "text-zinc-600"}`}
           size={16}
           aria-hidden
         />
-        <span className={`tabular-nums ${viewCount > 0 ? "text-zinc-600" : "text-zinc-400"}`}>
+        <span className={`tabular-nums ${viewCount > 0 ? "text-zinc-300" : "text-zinc-500"}`}>
           {formatCompactCount(viewCount)}
         </span>
-        <span className="font-normal text-zinc-500">просмотров</span>
+        <span className="font-normal text-zinc-500">{t("views")}</span>
       </p>
 
       {/* ── Prompt Content ── */}
@@ -619,22 +630,22 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
           {data.promptTexts.map((text, i) => (
             <div
               key={i}
-              className="group/prompt relative rounded-2xl bg-zinc-50/80 border border-zinc-100 p-5 sm:p-6"
+              className="group/prompt relative rounded-2xl border border-white/[0.08] bg-zinc-900/40 p-5 sm:p-6"
             >
               {data.promptTexts.length > 1 && (
                 <div className="mb-3 text-[11px] font-medium text-zinc-500 uppercase tracking-wide">
-                  Промпт {i + 1}
+                  {t("promptN", { n: i + 1 })}
                 </div>
               )}
-              <div className="text-sm leading-relaxed text-zinc-700 whitespace-pre-wrap">
+              <div className="text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap">
                 {text}
               </div>
               <button
                 type="button"
                 onClick={() => handleCopySingle(text, i)}
-                className="absolute top-3 right-3 rounded-lg border border-zinc-200 bg-white p-1.5 text-zinc-400 opacity-0 shadow-sm transition-all group-hover/prompt:opacity-100 hover:text-zinc-700 hover:border-zinc-300"
-                title="Скопировать"
-                aria-label={`Скопировать промпт ${i + 1}`}
+                className="absolute top-3 right-3 rounded-lg border border-white/[0.1] bg-zinc-800 p-1.5 text-zinc-500 opacity-0 shadow-sm transition-all group-hover/prompt:opacity-100 hover:border-white/[0.15] hover:text-zinc-200"
+                title={t("copyTitle")}
+                aria-label={t("copyPromptN", { n: i + 1 })}
               >
                 {copiedIdx === i ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
               </button>
@@ -645,8 +656,8 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
 
       {/* ── Subtitle ── */}
       {hasPrompts && (
-        <p className="text-center text-sm text-zinc-500 mb-6 max-w-md mx-auto">
-          Готовый промт для генерации фото с помощью ИИ. Скопируй и используй в нейросети.
+        <p className="text-center text-sm text-zinc-400 mb-6 max-w-md mx-auto">
+          {t("subtitle")}
         </p>
       )}
 
@@ -657,19 +668,17 @@ function CardPageClientInner({ data, tagEntries, breadcrumbTag }: Props) {
             <button
               type="button"
               onClick={handleCopy}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-zinc-800 active:scale-[0.98]"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-950/30 transition-all hover:bg-indigo-500 active:scale-[0.98]"
             >
               {copied ? (
                 <>
                   <CheckIcon size={16} />
-                  Скопировано!
+                  {t("copied")}
                 </>
               ) : (
                 <>
                   <CopyIcon size={16} />
-                  {data.promptTexts.length > 1
-                    ? "Скопировать все промпты"
-                    : "Копировать промпт"}
+                  {data.promptTexts.length > 1 ? t("copyAll") : t("copyOne")}
                 </>
               )}
             </button>
@@ -722,7 +731,7 @@ function Chevron() {
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
-      className="flex-shrink-0 text-zinc-300"
+      className="flex-shrink-0 text-zinc-600"
     >
       <path d="M9 18l6-6-6-6" />
     </svg>

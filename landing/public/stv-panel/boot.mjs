@@ -14156,7 +14156,7 @@ var STRINGS = {
     extract_temp_10: "\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u0432 \u043F\u0440\u0435\u0441\u0435\u0442\u0430\u0445 (1.0)",
     more_actions: "\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F",
     dev_details: "\u0414\u043B\u044F \u0440\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u0447\u0438\u043A\u043E\u0432",
-    dev_doc_hint: "\u0421\u0442\u0440\u0443\u043A\u0442\u0443\u0440\u0430 UI: docs/extension-ui-spec.md \u0432 \u0440\u0435\u043F\u043E\u0437\u0438\u0442\u043E\u0440\u0438\u0438 aiphoto.",
+    dev_doc_hint: "\u0421\u0442\u0440\u0443\u043A\u0442\u0443\u0440\u0430 UI: docs/extension-ui-spec.md \u0432 \u0440\u0435\u043F\u043E\u0437\u0438\u0442\u043E\u0440\u0438\u0438 imageprompt.",
     loading: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430...",
     session_ok: "\u0421\u0435\u0441\u0441\u0438\u044F \u0430\u043A\u0442\u0438\u0432\u043D\u0430",
     session_bad: "\u0422\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044F \u0432\u0445\u043E\u0434",
@@ -14410,7 +14410,7 @@ var STRINGS = {
     extract_temp_10: "Max in presets (1.0)",
     more_actions: "More actions",
     dev_details: "For developers",
-    dev_doc_hint: "UI structure: docs/extension-ui-spec.md in the aiphoto repo.",
+    dev_doc_hint: "UI structure: docs/extension-ui-spec.md in the imageprompt repo.",
     loading: "Loading...",
     session_ok: "Signed in",
     session_bad: "Sign-in required",
@@ -14664,7 +14664,7 @@ var STRINGS = {
     extract_temp_10: "Max. Preset (1.0)",
     more_actions: "Weitere Aktionen",
     dev_details: "F\xFCr Entwickler",
-    dev_doc_hint: "UI-Struktur: docs/extension-ui-spec.md im aiphoto-Repo.",
+    dev_doc_hint: "UI-Struktur: docs/extension-ui-spec.md im imageprompt-Repo.",
     loading: "Laden...",
     session_ok: "Sitzung aktiv",
     session_bad: "Anmeldung n\xF6tig",
@@ -15738,7 +15738,7 @@ function buildRunHistoryCardHtml(run, idx) {
     </article>`;
 }
 async function downloadHistoryResultByUrl(url, baseName) {
-  const safeName = String(baseName || `promptshot-${Date.now()}`).replace(/[^a-zA-Z0-9._-]+/g, "_");
+  const safeName = String(baseName || `imageprompt-${Date.now()}`).replace(/[^a-zA-Z0-9._-]+/g, "_");
   const extGuess = (() => {
     try {
       const p = new URL(url).pathname.toLowerCase();
@@ -17658,7 +17658,7 @@ async function boot() {
       void applyPendingVibeFromStorage(msg.vibe);
       return;
     }
-    if (msg?.type === "PROMPTSHOT_AUTH_DONE") {
+    if (msg?.type === "IMAGEPROMPT_AUTH_DONE") {
       void (async () => {
         await refreshAccessTokenFromSupabase();
         await checkAuth();

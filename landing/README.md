@@ -1,4 +1,4 @@
-# AIPhoto Landing — SEO-лендинг промтов для фото
+# imageprompt.tools — лендинг (Next.js)
 
 Next.js 15, App Router, Tailwind CSS.
 
@@ -8,9 +8,10 @@ Next.js 15, App Router, Tailwind CSS.
 # Установить зависимости (уже сделано)
 npm install
 
-# Скопировать env из корня photo2sticker-bot
-cp ../../.env .env.local
-# Или создать .env.local. Поддерживаются:
+# Секреты: `.env.local` в корне репозитория `imageprompt/` (рядом с `landing/`) — подхватывается из `next.config.ts`.
+# Либо по-прежнему `landing/.env.local`, если положить файл только в `landing/`.
+# Из каталога `landing/`: cp <источник> ../.env.local
+# Поддерживаются:
 # SUPABASE_SUPABASE_PUBLIC_URL или NEXT_PUBLIC_SUPABASE_URL
 # SUPABASE_SERVICE_ROLE_KEY
 
@@ -81,9 +82,9 @@ NEXT_PUBLIC_ENABLE_TRY_THIS_LOOK=true
 Контекст сборки — **каталог `landing/`** (как у Dockhost). Исходники STV для бандла лежат в **`landing/stv-web-sidepanel/`**.
 
 ```bash
-# из корня клона aiphoto/
-docker build -f landing/Dockerfile -t aiphoto-landing landing/
-docker run -p 3001:3001 -e NEXT_PUBLIC_SUPABASE_URL=... -e SUPABASE_SERVICE_ROLE_KEY=... aiphoto-landing
+# из корня клона imageprompt/
+docker build -f landing/Dockerfile -t imageprompt-landing landing/
+docker run -p 3001:3001 -e NEXT_PUBLIC_SUPABASE_URL=... -e SUPABASE_SERVICE_ROLE_KEY=... imageprompt-landing
 ```
 
 Не собирать **`docker build -f landing/Dockerfile .`** из корня репо — в контекст попадёт не тот **`package.json`**.

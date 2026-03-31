@@ -146,3 +146,107 @@ export function getSeoForRoute(route: ResolvedRoute): SeoContent {
     howToSteps: DEFAULT_HOW_TO,
   };
 }
+
+const TAG_ORDER_EN: Dimension[] = [
+  "audience_tag",
+  "style_tag",
+  "occasion_tag",
+  "object_tag",
+  "doc_task_tag",
+];
+
+function labelLowerEn(tag: TagEntry): string {
+  return tag.labelEn.toLowerCase();
+}
+
+function comboDescriptionEn(tags: TagEntry[]): string {
+  return tags.map((t) => labelLowerEn(t)).join(" + ");
+}
+
+function generateIntroEn(tags: TagEntry[]): string {
+  const desc = comboDescriptionEn(tags);
+  return (
+    `A curated set of AI image prompts for “${desc}”. ` +
+    `Pick a card, copy the text for free, paste into Midjourney, Stable Diffusion, Flux, or your favorite model, and iterate.`
+  );
+}
+
+function generateMetaDescriptionEn(tags: TagEntry[]): string {
+  const desc = comboDescriptionEn(tags);
+  return `Ready-to-copy prompts for “${desc}”. Use with Midjourney, Stable Diffusion, Nano Banana, and other image models — free library on ImagePrompt.`;
+}
+
+function generateFaqEn(tags: TagEntry[]): { q: string; a: string }[] {
+  const desc = comboDescriptionEn(tags);
+  return [
+    {
+      q: `How do I create a “${desc}” image with AI?`,
+      a: `Copy a prompt from this page, open your image model, and paste the text. Add a reference photo or run text-to-image, then refine the output.`,
+    },
+    {
+      q: `Which prompts work for “${desc}”?`,
+      a: `This page lists library prompts tagged for “${desc}”. Wording is tuned for common generators; you may still adapt tokens per model.`,
+    },
+    {
+      q: "Are the prompts free to use?",
+      a: "Yes. You can copy and use prompts from this site for personal or commercial workflows, subject to each model’s terms.",
+    },
+  ];
+}
+
+const DEFAULT_HOW_TO_EN = [
+  "Pick a card with a prompt you like and tap Copy prompt.",
+  "Open your image model (Midjourney, SD, DALL·E, Nano Banana, Flux, etc.).",
+  "Paste the text and add your own photo if you want image-to-image.",
+  "Generate, then tweak the prompt if the result needs another pass.",
+];
+
+function generateH1ForPairEn(t1: TagEntry, t2: TagEntry): string {
+  return `Photo prompts: ${labelLowerEn(t1)} — ${labelLowerEn(t2)}`;
+}
+
+/** English programmatic SEO from tag `labelEn` (manual RU entries in seo-content.ts are not reused). */
+function getSeoForRouteEn(route: ResolvedRoute): SeoContent {
+  if (route.level === 1) {
+    const primary = route.primaryTag;
+    return {
+      h1: `Photo prompts: ${primary.labelEn}`,
+      metaTitle: `${primary.labelEn} photo prompts — ImagePrompt`,
+      metaDescription: generateMetaDescriptionEn(route.tags),
+      intro: generateIntroEn(route.tags),
+      faqItems: generateFaqEn(route.tags),
+      howToSteps: DEFAULT_HOW_TO_EN,
+    };
+  }
+
+  const sorted = [...route.tags].sort(
+    (a, b) => TAG_ORDER_EN.indexOf(a.dimension) - TAG_ORDER_EN.indexOf(b.dimension),
+  );
+
+  if (route.level === 2 && sorted.length === 2) {
+    return {
+      h1: generateH1ForPairEn(sorted[0], sorted[1]),
+      metaTitle: `${sorted[0].labelEn} · ${sorted[1].labelEn} — ImagePrompt`,
+      metaDescription: generateMetaDescriptionEn(route.tags),
+      intro: generateIntroEn(route.tags),
+      faqItems: generateFaqEn(route.tags),
+      howToSteps: DEFAULT_HOW_TO_EN,
+    };
+  }
+
+  const desc = comboDescriptionEn(sorted);
+  const titleBits = sorted.map((t) => t.labelEn).join(" · ");
+  return {
+    h1: `Photo prompts: ${desc}`,
+    metaTitle: `${titleBits} — ImagePrompt`,
+    metaDescription: generateMetaDescriptionEn(route.tags),
+    intro: generateIntroEn(route.tags),
+    faqItems: generateFaqEn(route.tags),
+    howToSteps: DEFAULT_HOW_TO_EN,
+  };
+}
+
+export function getSeoForRouteLocalized(route: ResolvedRoute, locale: string): SeoContent {
+  if (locale === "en") return getSeoForRouteEn(route);
+  return getSeoForRoute(route);
+}

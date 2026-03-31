@@ -28,6 +28,7 @@ export function useUserInteractions(): UserInteractions {
 
       newIds.forEach((id) => loadedRef.current.add(id));
       const supabase = createSupabaseBrowser();
+      if (!supabase) return;
 
       Promise.all([
         supabase
@@ -80,6 +81,7 @@ export function useUserInteractions(): UserInteractions {
       }
 
       const supabase = createSupabaseBrowser();
+      if (!supabase) return;
       const current = reactions.get(cardId);
 
       if (current === reaction) {
@@ -122,6 +124,7 @@ export function useUserInteractions(): UserInteractions {
       }
 
       const supabase = createSupabaseBrowser();
+      if (!supabase) return;
       const isFavorited = favorites.has(cardId);
 
       if (isFavorited) {

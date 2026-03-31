@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Steal This Vibe",
-  "version": "0.2.0",
-  "description": "Capture style from any image and generate one look (Prompt To Image). DE/RU UI, Google sign-in in panel.",
+  "name": "image to prompt",
+  "version": "0.2.1",
+  "description": "Turn any image into a ready-to-use AI prompt and generate — RU/EN/DE UI, Google sign-in in the panel.",
   "permissions": ["sidePanel", "activeTab", "storage", "tabs"],
   "host_permissions": [
-    "https://promptshot.ru/*",
+    "https://imageprompt.tools/*",
     "http://localhost:3001/*",
     "https://*.supabase.co/*",
     "https://accounts.google.com/*",
@@ -27,6 +27,6 @@
     "default_path": "sidepanel/index.html"
   },
   "action": {
-    "default_title": "Steal This Vibe"
+    "default_title": "image to prompt"
   }
 }

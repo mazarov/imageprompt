@@ -1,15 +1,16 @@
 import { createBrowserClient } from "@supabase/ssr";
 
-export function createSupabaseBrowser() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+export type SupabaseBrowserClient = ReturnType<typeof createBrowserClient>;
 
-  if (!url || !key) {
-    throw new Error(
-      "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be set. " +
-      "Add them as build args in Dockerfile / Dockhost."
-    );
-  }
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+export function isSupabaseBrowserConfigured(): boolean {
+  return Boolean(url && key);
+}
+
+/** `null` when anon URL/key are missing (local dev without `.env.local`); production builds should set both. */
+export function createSupabaseBrowser(): SupabaseBrowserClient | null {
+  if (!url || !key) return null;
   return createBrowserClient(url, key);
 }

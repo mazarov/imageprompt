@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import { formatCompactCount } from "@/lib/format-view-count";
 import { CARD_OVERLAY_ACTION_PILL } from "@/lib/card-overlay-action-pill";
 
@@ -30,17 +33,19 @@ type Props = {
 
 /** Top-right: view count only. Omitted when `viewCount === 0`. */
 export function CardOverlayMetricsChips({ viewCount }: Props) {
+  const t = useTranslations("CardOverlay");
   if (viewCount <= 0) return null;
 
+  const countStr = formatCompactCount(viewCount);
   return (
     <div className="pointer-events-none flex justify-end">
       <span
         role="img"
         className={VIEWS_CHIP}
-        aria-label={`${formatCompactCount(viewCount)} просмотров`}
+        aria-label={t("viewsAria", { count: countStr })}
       >
         <EyeIcon className="shrink-0 text-white/70" />
-        <span aria-hidden>{formatCompactCount(viewCount)}</span>
+        <span aria-hidden>{countStr}</span>
       </span>
     </div>
   );

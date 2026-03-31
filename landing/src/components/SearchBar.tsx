@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useRouter, usePathname } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { useRouter, usePathname } from "@/i18n/navigation";
 import Image from "next/image";
 import {
   CARD_IMAGE_LISTING_NEXT_QUALITY,
@@ -14,8 +15,11 @@ const DEBOUNCE_MS = 300;
 const MIN_QUERY = 2;
 const PREVIEW_LIMIT = 5;
 
-const POPULAR_QUERIES = [
+const POPULAR_QUERIES_RU = [
   "портрет", "GTA", "аниме", "на море", "с котом", "Love Is", "3D",
+];
+const POPULAR_QUERIES_EN = [
+  "portrait", "GTA", "anime", "at the sea", "with cat", "Love Is", "3D",
 ];
 
 type SearchResult = {
@@ -33,18 +37,20 @@ const SearchIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
 function ResultCard({
   card,
   onClick,
+  untitled,
 }: {
   card: PromptCardFull;
   onClick: () => void;
+  untitled: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3.5 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-zinc-50 active:bg-zinc-100/80"
+      className="flex w-full items-center gap-3.5 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-zinc-800/80 active:bg-zinc-800"
     >
       {card.photoUrls[0] ? (
-        <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-100 ring-1 ring-zinc-900/5">
+        <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800 ring-1 ring-white/10">
           <Image
             src={card.photoUrls[0]}
             alt=""
@@ -55,21 +61,21 @@ function ResultCard({
           />
         </div>
       ) : (
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-300">
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-500">
           <SearchIcon className="h-5 w-5" />
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[14px] font-medium text-zinc-900 leading-tight">
-          {card.title_ru || card.title_en || "Без названия"}
+        <div className="truncate text-[14px] font-medium text-zinc-100 leading-tight">
+          {card.title_ru || card.title_en || untitled}
         </div>
         {card.promptTexts[0] && (
-          <div className="mt-0.5 truncate text-[12px] leading-tight text-zinc-400">
+          <div className="mt-0.5 truncate text-[12px] leading-tight text-zinc-500">
             {card.promptTexts[0].slice(0, 70)}
           </div>
         )}
       </div>
-      <svg className="h-4 w-4 flex-shrink-0 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <svg className="h-4 w-4 flex-shrink-0 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
       </svg>
     </button>
@@ -77,9 +83,12 @@ function ResultCard({
 }
 
 export function SearchBar() {
+  const locale = useLocale();
+  const t = useTranslations("SearchBar");
   const router = useRouter();
   const pathname = usePathname();
   const hideMobileBar = pathname === "/" || pathname.startsWith("/search") || pathname.startsWith("/p/");
+  const popularQueries = useMemo(() => (locale === "ru" ? POPULAR_QUERIES_RU : POPULAR_QUERIES_EN), [locale]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PromptCardFull[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -209,7 +218,7 @@ export function SearchBar() {
   const noResults = showResults && results.length === 0 && hasQuery && !loading;
 
   const spinner = (
-    <span className="block h-4 w-4 animate-spin rounded-full border-[2px] border-zinc-200 border-t-indigo-500" />
+    <span className="block h-4 w-4 animate-spin rounded-full border-[2px] border-zinc-600 border-t-indigo-400" />
   );
 
   return (
@@ -217,7 +226,7 @@ export function SearchBar() {
       {/* ═══════════ Desktop (lg+) ═══════════ */}
       <div ref={desktopRef} className="relative hidden w-full max-w-xl lg:block">
         <div className="relative">
-          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400">
+          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500">
             <SearchIcon />
           </span>
           <input
@@ -227,13 +236,13 @@ export function SearchBar() {
             onChange={(e) => handleChange(e.target.value)}
             onKeyDown={handleKeyDown}
             onFocus={() => hasQuery && results.length > 0 && setShowResults(true)}
-            placeholder="Поиск промтов..."
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50/80 py-2 pl-10 pr-14 text-sm text-zinc-700 placeholder:text-zinc-400 transition-all duration-200 focus:border-indigo-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:shadow-lg focus:shadow-indigo-500/5"
+            placeholder={t("placeholder")}
+            className="w-full rounded-xl border border-white/[0.1] bg-zinc-950/60 py-2 pl-10 pr-14 text-sm text-zinc-100 placeholder:text-zinc-500 transition-all duration-200 focus:border-indigo-500/35 focus:bg-zinc-950/90 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
           />
           {loading ? (
             <span className="absolute right-3 top-1/2 -translate-y-1/2">{spinner}</span>
           ) : (
-            <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md border border-zinc-200 bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+            <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md border border-white/[0.1] bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
               ⌘K
             </kbd>
           )}
@@ -241,23 +250,24 @@ export function SearchBar() {
 
         {/* Desktop dropdown */}
         {showResults && results.length > 0 && (
-          <div className="animate-scale-in absolute left-0 right-0 z-50 mt-2 min-w-[380px] overflow-hidden rounded-2xl border border-zinc-200/60 bg-white shadow-2xl shadow-zinc-900/10">
+          <div className="animate-scale-in absolute left-0 right-0 z-50 mt-2 min-w-[380px] overflow-hidden rounded-2xl border border-white/[0.1] bg-zinc-900/98 shadow-2xl shadow-black/50 backdrop-blur-xl">
             <div className="p-1.5">
               {results.map((card) => (
                 <ResultCard
                   key={card.id}
                   card={card}
+                  untitled={t("untitled")}
                   onClick={() => card.slug && handleCardClick(card.slug)}
                 />
               ))}
             </div>
-            <div className="border-t border-zinc-100">
+            <div className="border-t border-white/[0.08]">
               <button
                 type="button"
                 onClick={navigateToSearch}
-                className="flex w-full items-center justify-center gap-2 px-4 py-3 text-[13px] font-medium text-indigo-600 transition-colors hover:bg-indigo-50/50 active:bg-indigo-50"
+                className="flex w-full items-center justify-center gap-2 px-4 py-3 text-[13px] font-medium text-indigo-400 transition-colors hover:bg-indigo-500/10 active:bg-indigo-500/15"
               >
-                Показать все результаты
+                {t("showAll")}
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                 </svg>
@@ -267,12 +277,12 @@ export function SearchBar() {
         )}
 
         {noResults && (
-          <div className="animate-scale-in absolute left-0 right-0 z-50 mt-2 min-w-[320px] overflow-hidden rounded-2xl border border-zinc-200/60 bg-white p-8 text-center shadow-2xl shadow-zinc-900/10">
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100">
-              <SearchIcon className="h-4 w-4 text-zinc-400" />
+          <div className="animate-scale-in absolute left-0 right-0 z-50 mt-2 min-w-[320px] overflow-hidden rounded-2xl border border-white/[0.1] bg-zinc-900/98 p-8 text-center shadow-2xl shadow-black/50 backdrop-blur-xl">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800">
+              <SearchIcon className="h-4 w-4 text-zinc-500" />
             </div>
-            <div className="text-sm font-medium text-zinc-600">Ничего не найдено</div>
-            <div className="mt-1 text-xs text-zinc-400">Попробуйте другой запрос</div>
+            <div className="text-sm font-medium text-zinc-300">{t("noResults")}</div>
+            <div className="mt-1 text-xs text-zinc-500">{t("noResultsHint")}</div>
           </div>
         )}
       </div>
@@ -285,11 +295,11 @@ export function SearchBar() {
             <button
               type="button"
               onClick={() => setMobileActive(true)}
-              className="fixed bottom-20 left-1/2 z-40 -translate-x-1/2 flex h-12 w-[188px] items-center justify-center gap-2.5 rounded-full bg-zinc-900 px-4 text-white shadow-lg transition-transform active:scale-[0.98] sm:bottom-6 sm:w-[220px] lg:hidden"
-              aria-label="Поиск"
+              className="fixed bottom-20 left-1/2 z-40 -translate-x-1/2 flex h-12 w-[188px] items-center justify-center gap-2.5 rounded-full bg-indigo-600 px-4 text-white shadow-lg shadow-indigo-950/40 transition-transform active:scale-[0.98] sm:bottom-6 sm:w-[220px] lg:hidden"
+              aria-label={t("mobileSearchAria")}
             >
               <SearchIcon className="h-4 w-4 text-white/80" />
-              <span className="truncate text-[13px] font-medium text-white">Найти промпт</span>
+              <span className="truncate text-[13px] font-medium text-white">{t("mobileFindPrompt")}</span>
             </button>
           )}
 
@@ -303,23 +313,24 @@ export function SearchBar() {
               <div className="relative flex flex-1 flex-col justify-end pb-0">
                 {/* Results panel */}
                 {showResults && results.length > 0 && (
-                  <div className="animate-slide-up mx-3 mb-2 max-h-[55vh] overflow-y-auto overscroll-contain rounded-2xl border border-white/60 bg-white shadow-[0_8px_40px_-8px_rgba(0,0,0,0.15)]">
+                  <div className="animate-slide-up mx-3 mb-2 max-h-[55vh] overflow-y-auto overscroll-contain rounded-2xl border border-white/[0.1] bg-zinc-900/98 shadow-[0_8px_40px_-8px_rgba(0,0,0,0.5)] backdrop-blur-xl">
                     <div className="p-1.5">
                       {results.map((card) => (
                         <ResultCard
                           key={card.id}
                           card={card}
+                          untitled={t("untitled")}
                           onClick={() => card.slug && handleCardClick(card.slug)}
                         />
                       ))}
                     </div>
-                    <div className="border-t border-zinc-100">
+                    <div className="border-t border-white/[0.08]">
                       <button
                         type="button"
                         onClick={navigateToSearch}
-                        className="flex w-full items-center justify-center gap-2 px-4 py-3.5 text-[13px] font-medium text-indigo-600 transition-colors active:bg-indigo-50"
+                        className="flex w-full items-center justify-center gap-2 px-4 py-3.5 text-[13px] font-medium text-indigo-400 transition-colors active:bg-indigo-500/15"
                       >
-                        Показать все результаты
+                        {t("showAll")}
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                         </svg>
@@ -330,28 +341,28 @@ export function SearchBar() {
 
                 {/* No results */}
                 {noResults && (
-                  <div className="animate-slide-up mx-3 mb-2 rounded-2xl border border-white/60 bg-white p-8 text-center shadow-[0_8px_40px_-8px_rgba(0,0,0,0.15)]">
-                    <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100">
-                      <SearchIcon className="h-4 w-4 text-zinc-400" />
+                  <div className="animate-slide-up mx-3 mb-2 rounded-2xl border border-white/[0.1] bg-zinc-900/98 p-8 text-center shadow-[0_8px_40px_-8px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+                    <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800">
+                      <SearchIcon className="h-4 w-4 text-zinc-500" />
                     </div>
-                    <div className="text-sm font-medium text-zinc-600">Ничего не найдено</div>
-                    <div className="mt-1 text-xs text-zinc-400">Попробуйте другой запрос</div>
+                    <div className="text-sm font-medium text-zinc-300">{t("noResults")}</div>
+                    <div className="mt-1 text-xs text-zinc-500">{t("noResultsHint")}</div>
                   </div>
                 )}
 
                 {/* Popular searches — shown when no query */}
                 {!hasQuery && !loading && (
-                  <div className="animate-slide-up mx-3 mb-2 rounded-2xl border border-white/60 bg-white p-5 shadow-[0_8px_40px_-8px_rgba(0,0,0,0.15)]">
-                    <div className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-                      Популярные запросы
+                  <div className="animate-slide-up mx-3 mb-2 rounded-2xl border border-white/[0.1] bg-zinc-900/98 p-5 shadow-[0_8px_40px_-8px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+                    <div className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+                      {t("popularQueries")}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {POPULAR_QUERIES.map((q) => (
+                      {popularQueries.map((q) => (
                         <button
                           key={q}
                           type="button"
                           onClick={() => handleQuickSearch(q)}
-                          className="rounded-full border border-zinc-200 bg-zinc-50 px-3.5 py-1.5 text-[13px] font-medium text-zinc-600 transition-colors active:bg-zinc-100 active:border-zinc-300"
+                          className="rounded-full border border-white/[0.1] bg-zinc-950/60 px-3.5 py-1.5 text-[13px] font-medium text-zinc-300 transition-colors active:border-indigo-500/30 active:bg-zinc-800"
                         >
                           {q}
                         </button>
@@ -363,12 +374,12 @@ export function SearchBar() {
 
               {/* Bottom input bar */}
               <div
-                className="animate-slide-up-sheet relative bg-white px-4 pb-4 pt-3"
+                className="animate-slide-up-sheet relative border-t border-white/[0.08] bg-[#09090b] px-4 pb-4 pt-3"
                 style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
               >
                 <div className="flex items-center gap-2.5">
                   <div className="relative flex-1">
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400">
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500">
                       <SearchIcon className="h-[18px] w-[18px]" />
                     </span>
                     <input
@@ -377,11 +388,11 @@ export function SearchBar() {
                       value={query}
                       onChange={(e) => handleChange(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder="Найти промт..."
+                      placeholder={t("mobilePlaceholder")}
                       enterKeyHint="search"
                       autoComplete="off"
                       autoCorrect="off"
-                      className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 py-3 pl-10 pr-4 text-[16px] text-zinc-800 placeholder:text-zinc-400 transition-colors focus:border-indigo-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                      className="w-full rounded-2xl border border-white/[0.1] bg-zinc-950/60 py-3 pl-10 pr-4 text-[16px] text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-indigo-500/35 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     />
                     {loading && (
                       <span className="absolute right-3.5 top-1/2 -translate-y-1/2">{spinner}</span>
@@ -390,7 +401,7 @@ export function SearchBar() {
                   <button
                     type="button"
                     onClick={closeAll}
-                    className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-400 transition-colors active:bg-zinc-200"
+                    className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-400 transition-colors active:bg-zinc-700"
                   >
                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

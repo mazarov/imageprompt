@@ -168,7 +168,7 @@ function normalizeMimeType(contentType: string | null): string {
 async function fetchImageAsInlineData(imageUrl: string): Promise<{ mimeType: string; data: string }> {
   const response = await fetch(imageUrl, {
     headers: {
-      "User-Agent": "PromptShotBot/1.0 (+https://promptshot.ru)",
+      "User-Agent": "ImagePromptBot/1.0 (+https://imageprompt.tools)",
       Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
     },
     signal: AbortSignal.timeout(15000),

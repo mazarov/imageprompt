@@ -1,4 +1,4 @@
-# PromptShot extension — разработка UI
+# imageprompt.tools extension — разработка UI
 
 Краткая карта для правок без полного чтения кода.
 

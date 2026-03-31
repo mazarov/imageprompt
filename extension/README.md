@@ -63,7 +63,7 @@ npm run vendor:extension
 1. Открой `chrome://extensions`
 2. Включи `Developer mode`
 3. Нажми `Load unpacked`
-4. Выбери папку `aiphoto/extension`
+4. Выбери папку `imageprompt/extension`
 5. Закрепи extension и открой любой сайт с изображениями
 
 ## Важно для API и CORS
@@ -92,7 +92,7 @@ CHROME_EXTENSION_ID=<your_extension_id_from_chrome_extensions>
 По умолчанию `stv-core` + `boot-chrome` используют:
 
 ```js
-const API_ORIGIN = localStorage.getItem("stv_api_origin") || "https://promptshot.ru";
+const API_ORIGIN = localStorage.getItem("stv_api_origin") || "https://imageprompt.tools";
 ```
 
 Для локальной разработки (landing на `http://localhost:3001`):
