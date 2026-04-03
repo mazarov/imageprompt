@@ -1,11 +1,10 @@
 import { configureStv } from "./stv-config.js";
 import { createChromePlatform } from "./platform/chrome-platform.js";
-import { createSupabaseForExtension } from "./supabase-extension.js";
 import { boot } from "./stv-core.js";
 
 configureStv({
   platform: createChromePlatform(),
-  createSupabaseClient: createSupabaseForExtension,
+  createSupabaseClient: async () => null,
   getApiOrigin: () => localStorage.getItem("stv_api_origin") || "https://imageprompt.tools"
 });
 

@@ -12,8 +12,10 @@ function rt() {
   return getStvRuntime();
 }
 
-let supabaseClient = null;
 let accessTokenRef = null;
+/** Chrome: app JWT for Bearer (no Supabase session). */
+const APP_JWT_STORAGE_KEY = "ip_app_jwt";
+const PENDING_AUTH_EXCHANGE_KEY = "ip_pending_auth_exchange";
 const POLL_INTERVAL_MS = 2500;
 const POLL_TIMEOUT_MS = 120000;
 const LONG_RUNNING_MS = 45000;
@@ -431,8 +433,8 @@ async function refreshUserPhotosSignedPreviews() {
     state.userPhotosPreviewLoading = false;
     return;
   }
-  if (!accessTokenRef && supabaseClient) {
-    await refreshAccessTokenFromSupabase();
+  if (!accessTokenRef && rt().platform.id === "chrome") {
+    await reloadAppJwtFromStorage();
   }
   if (!accessTokenRef) {
     state.userPhotosPreviewLoading = false;
@@ -493,8 +495,8 @@ async function refreshReferencePhotoSignedPreview() {
     state.referencePhotoPreviewLoading = false;
     return;
   }
-  if (!accessTokenRef && supabaseClient) {
-    await refreshAccessTokenFromSupabase();
+  if (!accessTokenRef && rt().platform.id === "chrome") {
+    await reloadAppJwtFromStorage();
   }
   if (!accessTokenRef) {
     state.referencePhotoPreviewLoading = false;
@@ -1067,47 +1069,105 @@ async function persistState() {
   await storageLocalSet({ [LOCAL_STATE_KEY]: toSerializableState() });
 }
 
-async function initSupabaseAuth() {
+async function reloadAppJwtFromStorage() {
+  if (rt().platform.id !== "chrome") return;
+  try {
+    const r = await rt().platform.storage.local.get(APP_JWT_STORAGE_KEY);
+    const tok = r?.[APP_JWT_STORAGE_KEY];
+    accessTokenRef = typeof tok === "string" && tok ? tok : null;
+  } catch {
+    accessTokenRef = null;
+  }
+}
+
+async function clearAppJwtStorage() {
+  if (rt().platform.id === "chrome") {
+    try {
+      await rt().platform.storage.local.remove(APP_JWT_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+  accessTokenRef = null;
+}
+
+async function initAppAuth() {
   const origin = rt().getApiOrigin();
   await storageLocalSet({ stv_api_origin: origin });
-  supabaseClient = await rt().createSupabaseClient(origin);
-  supabaseClient.auth.onAuthStateChange((_event, session) => {
-    accessTokenRef = session?.access_token ?? null;
-    /* Token can arrive after first paint; signed preview fetch would have no-op'd without Bearer. */
-    if (
-      state.user &&
-      accessTokenRef &&
-      (userPhotosNeedSignedPreviews() || referencePhotoNeedSignedPreview())
-    ) {
-      refreshPersistedPhotoPreviews();
+  await reloadAppJwtFromStorage();
+}
+
+let pendingAuthExchangeInFlight = false;
+
+async function completeExtensionOAuth(code) {
+  if (pendingAuthExchangeInFlight) return;
+  pendingAuthExchangeInFlight = true;
+  try {
+    const origin = rt().getApiOrigin();
+    const res = await fetch(`${origin}/api/auth/extension/exchange`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || typeof data.accessToken !== "string") {
+      throw new Error(data.error || "exchange_failed");
+    }
+    await storageLocalSet({ [APP_JWT_STORAGE_KEY]: data.accessToken });
+    accessTokenRef = data.accessToken;
+    await checkAuth();
+    refreshPersistedPhotoPreviews();
+    render();
+  } catch (err) {
+    state.error = normalizeUiError(err, t("err_oauth_failed"));
+    setToast("error", state.error);
+    render();
+  } finally {
+    pendingAuthExchangeInFlight = false;
+  }
+}
+
+function attachPendingAuthExchangeListener() {
+  if (rt().platform.id !== "chrome" || typeof chrome === "undefined" || !chrome.storage?.onChanged) {
+    return;
+  }
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") return;
+    const ch = changes[PENDING_AUTH_EXCHANGE_KEY];
+    const code = ch?.newValue;
+    if (typeof code !== "string" || !code.trim()) return;
+    chrome.storage.local.remove([PENDING_AUTH_EXCHANGE_KEY, "ip_pending_auth_exchange_at"], () => {});
+    void completeExtensionOAuth(code.trim());
+  });
+  chrome.storage.local.get([PENDING_AUTH_EXCHANGE_KEY], (r) => {
+    const c = r?.[PENDING_AUTH_EXCHANGE_KEY];
+    if (typeof c === "string" && c.trim()) {
+      chrome.storage.local.remove([PENDING_AUTH_EXCHANGE_KEY, "ip_pending_auth_exchange_at"], () => {});
+      void completeExtensionOAuth(c.trim());
     }
   });
-  const { data } = await supabaseClient.auth.getSession();
-  accessTokenRef = data.session?.access_token ?? null;
 }
 
 async function refreshAccessTokenFromSupabase() {
-  if (!supabaseClient) return;
-  try {
-    const { data } = await supabaseClient.auth.getSession();
-    accessTokenRef = data.session?.access_token ?? null;
-  } catch {
-    /* ignore */
-  }
+  await reloadAppJwtFromStorage();
 }
 
 async function startGoogleSignIn() {
   try {
-    if (!supabaseClient) await initSupabaseAuth();
-    const redirectTo = rt().platform.getOAuthCallbackUrl();
-    const { data, error } = await supabaseClient.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo, skipBrowserRedirect: true }
-    });
-    if (error) throw error;
-    if (data?.url) {
-      rt().platform.openOAuthUrl(data.url);
+    const origin = rt().getApiOrigin();
+    if (rt().platform.id === "web") {
+      const next =
+        typeof window !== "undefined"
+          ? `/embed/stv${window.location.search}`
+          : "/embed/stv";
+      const url = `${origin}/api/auth/google?next=${encodeURIComponent(next)}`;
+      rt().platform.openOAuthUrl(url);
+      return;
     }
+    await initAppAuth();
+    const nextPath = "/auth/extension/finish";
+    const url = `${origin}/api/auth/google?flow=extension&next=${encodeURIComponent(nextPath)}`;
+    rt().platform.openOAuthUrl(url);
   } catch (err) {
     state.error = normalizeUiError(err, t("err_oauth_failed"));
     setToast("error", state.error);
@@ -1116,12 +1176,13 @@ async function startGoogleSignIn() {
 }
 
 async function signOutExtension() {
+  await clearAppJwtStorage();
   try {
-    await supabaseClient?.auth.signOut();
+    const origin = rt().getApiOrigin();
+    await fetch(`${origin}/api/auth/logout`, { method: "POST", credentials: "include" });
   } catch {
     /* ignore */
   }
-  accessTokenRef = null;
   state.user = null;
   state.credits = 0;
   await checkAuth();
@@ -1268,12 +1329,7 @@ async function api(path, init = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {
-      try {
-        await supabaseClient?.auth.signOut();
-      } catch {
-        /* ignore */
-      }
-      accessTokenRef = null;
+      await clearAppJwtStorage();
       state.user = null;
       state.credits = 0;
       state.generating = false;
@@ -3191,23 +3247,15 @@ export async function boot() {
   await loadPersistedState();
   await applyEmbedQueryParams();
   try {
-    await initSupabaseAuth();
+    await initAppAuth();
   } catch (e) {
-    console.warn("[stv] initSupabaseAuth:", e);
+    console.warn("[stv] initAppAuth:", e);
   }
 
   rt().platform.runtime.onMessage?.((msg) => {
     if (msg?.type === "STV_PENDING_VIBE" && msg.vibe) {
       void applyPendingVibeFromStorage(msg.vibe);
       return;
-    }
-    if (msg?.type === "IMAGEPROMPT_AUTH_DONE") {
-      void (async () => {
-        await refreshAccessTokenFromSupabase();
-        await checkAuth();
-        refreshPersistedPhotoPreviews();
-        render();
-      })();
     }
   });
 
@@ -3222,20 +3270,13 @@ export async function boot() {
   });
 
   await loadPendingVibe();
+  attachPendingAuthExchangeListener();
   await loadConfig();
   await checkAuth();
   await resumeInFlightGenerations();
 
-  /* Ensure Bearer for signed preview URLs after cold open (storage/session timing). */
-  if (supabaseClient && state.user) {
-    try {
-      const { data, error } = await supabaseClient.auth.refreshSession();
-      if (!error && data?.session?.access_token) {
-        accessTokenRef = data.session.access_token;
-      }
-    } catch {
-      await refreshAccessTokenFromSupabase();
-    }
+  if (rt().platform.id === "chrome" && state.user) {
+    await reloadAppJwtFromStorage();
   }
 
   state.loading = false;

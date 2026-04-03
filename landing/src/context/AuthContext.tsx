@@ -4,13 +4,32 @@ import {
   createContext,
   useContext,
   useEffect,
-  useRef,
   useState,
   useCallback,
   type ReactNode,
 } from "react";
-import { createSupabaseBrowser } from "@/lib/supabase-browser";
-import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
+
+type MeUserPayload = {
+  id: string;
+  email: string | null;
+  user_metadata?: {
+    full_name?: string;
+    name?: string;
+    avatar_url?: string;
+  };
+};
+
+function toAuthUser(u: MeUserPayload): User {
+  return {
+    id: u.id,
+    email: u.email ?? undefined,
+    user_metadata: u.user_metadata ?? {},
+    app_metadata: {},
+    aud: "authenticated",
+    created_at: "",
+  } as User;
+}
 
 type AuthContextType = {
   user: User | null;
@@ -34,64 +53,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const handledAuthCodeRef = useRef(false);
 
   const openAuthModal = useCallback(() => setShowAuthModal(true), []);
   const closeAuthModal = useCallback(() => setShowAuthModal(false), []);
 
   useEffect(() => {
-    const supabase = createSupabaseBrowser();
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
+    if (user) setShowAuthModal(false);
+  }, [user]);
 
-    async function initAuth() {
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get("code");
-
-      // Complete OAuth on the client to ensure browser session cookies are set.
-      if (code && !handledAuthCodeRef.current) {
-        handledAuthCodeRef.current = true;
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          console.error("Client OAuth exchange failed:", error.message);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch("/api/me", { credentials: "include" });
+        const data = await res.json();
+        if (cancelled) return;
+        if (data?.user?.id) {
+          setUser(toAuthUser(data.user as MeUserPayload));
+        } else {
+          setUser(null);
         }
-        // Always clean auth params from URL to avoid repeated exchange attempts.
-        const cleanUrl = new URL(window.location.href);
-        cleanUrl.searchParams.delete("code");
-        cleanUrl.searchParams.delete("state");
-        cleanUrl.searchParams.delete("error");
-        cleanUrl.searchParams.delete("error_code");
-        cleanUrl.searchParams.delete("error_description");
-        window.history.replaceState(
-          {},
-          "",
-          `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`
-        );
+      } catch {
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      setLoading(false);
     }
-
-    void initAuth();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-      if (session?.user) setShowAuthModal(false);
-    });
-
-    return () => subscription.unsubscribe();
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const signOut = useCallback(async () => {
-    const supabase = createSupabaseBrowser();
-    if (supabase) await supabase.auth.signOut();
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     setUser(null);
   }, []);
 

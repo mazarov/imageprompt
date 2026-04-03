@@ -1,81 +1,75 @@
 import { createClient } from "@supabase/supabase-js";
-import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
-import type { User, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { sessionCookieName } from "@/lib/app-auth-cookies";
+import { verifyAppSessionToken } from "@/lib/app-auth-jwt";
+
+function dummySupabaseAuth(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://localhost";
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "anon";
+  return createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+function toCompatUser(v: {
+  sub: string;
+  email: string | null;
+  name: string | null;
+  picture: string | null;
+}): User {
+  return {
+    id: v.sub,
+    email: v.email ?? undefined,
+    user_metadata: {
+      full_name: v.name ?? undefined,
+      name: v.name ?? undefined,
+      avatar_url: v.picture ?? undefined,
+    },
+    app_metadata: {},
+    aud: "authenticated",
+    created_at: "",
+  } as User;
+}
 
 /**
- * Auth for Route Handlers: Bearer access token (extension) or Supabase session cookies (site).
+ * Route Handler auth: Bearer app JWT (extension) or httpOnly session cookie (site).
  */
 export async function getSupabaseUserForApiRoute(request: NextRequest): Promise<{
   user: User | null;
   error: Error | null;
   supabaseAuth: SupabaseClient;
 }> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const dummy = dummySupabaseAuth();
   const authHeader = request.headers.get("authorization") || "";
-  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const bearer = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
 
-  if (bearer) {
-    const supabaseAuth = createClient(url, anon, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { Authorization: `Bearer ${bearer}` } },
-    });
-    const { data, error } = await supabaseAuth.auth.getUser();
-    return {
-      user: data.user ?? null,
-      error: error as Error | null,
-      supabaseAuth,
-    };
+  const rawToken = bearer || request.cookies.get(sessionCookieName())?.value;
+  if (!rawToken) {
+    return { user: null, error: null, supabaseAuth: dummy };
   }
 
-  const cookieStore = await cookies();
-  const supabaseAuth = createServerClient(url, anon, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        } catch {
-          /* read-only context */
-        }
-      },
-    },
-  });
-  const { data, error } = await supabaseAuth.auth.getUser();
+  const v = await verifyAppSessionToken(rawToken);
+  if (!v) {
+    return { user: null, error: null, supabaseAuth: dummy };
+  }
+
   return {
-    user: data.user ?? null,
-    error: error as Error | null,
-    supabaseAuth,
+    user: toCompatUser(v),
+    error: null,
+    supabaseAuth: dummy,
   };
 }
 
-/** Server Components / generateMetadata: session from cookies (no Request). */
+/** Server Components: session from cookies only. */
 export async function getSupabaseUserFromServerCookies(): Promise<User | null> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   const cookieStore = await cookies();
-  const supabaseAuth = createServerClient(url, anon, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        } catch {
-          /* read-only context */
-        }
-      },
-    },
-  });
-  const { data } = await supabaseAuth.auth.getUser();
-  return data.user ?? null;
+  const raw = cookieStore.get(sessionCookieName())?.value;
+  if (!raw) return null;
+  const v = await verifyAppSessionToken(raw);
+  if (!v) return null;
+  return toCompatUser(v);
 }

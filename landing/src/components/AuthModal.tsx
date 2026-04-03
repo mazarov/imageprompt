@@ -2,31 +2,18 @@
 
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/context/AuthContext";
-import { createSupabaseBrowser, isSupabaseBrowserConfigured } from "@/lib/supabase-browser";
 
 export function AuthModal() {
   const t = useTranslations("Auth");
   const tc = useTranslations("Common");
   const { showAuthModal, closeAuthModal } = useAuth();
-  const authConfigured = isSupabaseBrowserConfigured();
 
   if (!showAuthModal) return null;
 
-  async function signInWithGoogle() {
-    const supabase = createSupabaseBrowser();
-    if (!supabase) return;
-    // Use canonical SITE_URL so redirect_to matches Supabase allowlist (www vs apex, prod domain).
-    // If redirect_to is not allowlisted, GoTrue falls back to Dashboard Site URL (e.g. promptshot.ru).
-    const base =
-      (typeof process.env.NEXT_PUBLIC_SITE_URL === "string"
-        ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, "")
-        : "") || window.location.origin;
+  function signInWithGoogle() {
+    const base = window.location.origin;
     const nextPath = `${window.location.pathname}${window.location.search}`;
-    const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(nextPath)}`;
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo },
-    });
+    window.location.href = `${base}/api/auth/google?next=${encodeURIComponent(nextPath)}`;
   }
 
   return (
@@ -54,16 +41,10 @@ export function AuthModal() {
         </div>
 
         <div className="space-y-3">
-          {!authConfigured && (
-            <p className="rounded-xl border border-amber-500/30 bg-amber-950/40 px-3 py-2 text-center text-xs text-amber-200">
-              {t("envHint")}
-            </p>
-          )}
           <button
             type="button"
             onClick={signInWithGoogle}
-            disabled={!authConfigured}
-            className="flex w-full items-center gap-3 rounded-xl border border-white/[0.12] bg-zinc-950/60 px-4 py-3 text-sm font-medium text-zinc-200 transition-all hover:border-white/[0.18] hover:bg-zinc-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center gap-3 rounded-xl border border-white/[0.12] bg-zinc-950/60 px-4 py-3 text-sm font-medium text-zinc-200 transition-all hover:border-white/[0.18] hover:bg-zinc-800 active:scale-[0.98]"
           >
             <GoogleIcon />
             {t("continueGoogle")}

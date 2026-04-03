@@ -32,17 +32,19 @@ Flow:
 - `sidepanel/platform/chrome-platform.js` / `web-platform.js`
 - `sidepanel/boot-web.js` — собирается в `landing/public/stv-panel/boot.mjs` (`landing`: `npm run build:stv-web`; зеркало для CI — **`landing/stv-web-sidepanel/`**, обновление: **`npm run sync:stv-sidepanel`**)
 - `sidepanel/i18n.js`, `sidepanel/supabase-extension.js` (Chrome), `supabase-web.js` (embed)
-- `sidepanel/auth-callback.html` + `auth-callback.js` (OAuth redirect)
+- `sidepanel/auth-callback.html` + `auth-callback.js` (legacy; вход через вкладку лендинга + `postMessage`)
 - `sidepanel/vendor/supabase.js` (бандл `@supabase/supabase-js`, см. ниже)
 - `sidepanel/styles.css`
 
-### Supabase Redirect URLs
+### Google OAuth (вход без Supabase Auth)
 
-В Supabase Dashboard → Authentication → URL configuration добавь **точный** redirect:
+Редирект после Google — на **лендинг**: `{origin}/auth/google/callback`. В Google Cloud Console добавь **Authorized redirect URIs** для prod (www и apex при необходимости) и локально, например:
 
-`chrome-extension://<ТВОЙ_EXTENSION_ID>/sidepanel/auth-callback.html`
+- `https://www.imageprompt.tools/auth/google/callback`
+- `https://imageprompt.tools/auth/google/callback`
+- `http://localhost:3001/auth/google/callback`
 
-ID смотри в `chrome://extensions` ( unpacked — стабилен для папки). Без этого Google OAuth вернёт ошибку.
+Переменные на сервере лендинга: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_JWT_SECRET` (см. `landing/.env.example`). После входа расширение получает JWT через `/auth/extension/finish` → `postMessage` → `POST /api/auth/extension/exchange`.
 
 ### Пересборка `vendor/supabase.js`
 

@@ -66,7 +66,7 @@ export function createWebPlatform() {
     getOAuthCallbackUrl: () => {
       const origin = window.location.origin;
       const next = `/embed/stv${window.location.search}`;
-      return `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      return `${origin}/api/auth/google?next=${encodeURIComponent(next)}`;
     }
   };
 }

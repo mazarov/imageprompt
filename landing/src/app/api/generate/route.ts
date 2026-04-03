@@ -278,7 +278,11 @@ export async function POST(req: NextRequest) {
       vibeId: resolvedVibeId,
     });
 
+    // Prefer loopback/internal origin in Docker: fetch(NEXT_PUBLIC_SITE_URL) from inside the same
+    // container often hits hairpin/NAT timeouts (ETIMEDOUT) while the public URL works from browsers.
+    const internalOrigin = (process.env.INTERNAL_GENERATE_PROCESS_ORIGIN || "").replace(/\/+$/, "");
     const baseUrl =
+      internalOrigin ||
       process.env.NEXT_PUBLIC_SITE_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
       req.headers.get("origin") ||
@@ -286,6 +290,7 @@ export async function POST(req: NextRequest) {
     console.log("[generation.create] kickoff generate-process", {
       generationId: gen.id,
       baseUrl,
+      internalKickoff: Boolean(internalOrigin),
     });
 
     fetch(`${baseUrl}/api/generate-process`, {

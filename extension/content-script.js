@@ -519,3 +519,25 @@ mutationObserver.observe(document.documentElement, {
 
 // ─── Initial scan ─────────────────────────────────────────────────────────────
 document.querySelectorAll("img").forEach(attachToImg);
+
+// ─── Relay extension OAuth finish (postMessage from /auth/extension/finish) ─
+(function relayImagepromptAuth() {
+  if (typeof chrome === "undefined" || !chrome.runtime?.id) return;
+  const o = window.location.origin;
+  const allowed =
+    o === "https://www.imageprompt.tools" ||
+    o === "https://imageprompt.tools" ||
+    o === "http://localhost:3001";
+  if (!allowed) return;
+  const TYPE = "IMAGEPROMPT_AUTH_EXCHANGE";
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || event.origin !== o) return;
+    const d = event.data;
+    if (!d || d.type !== TYPE || typeof d.code !== "string") return;
+    /* Side panel listens via chrome.storage.onChanged (MV3: sendMessage hits background only). */
+    chrome.storage.local.set(
+      { ip_pending_auth_exchange: d.code, ip_pending_auth_exchange_at: Date.now() },
+      () => {}
+    );
+  });
+})();

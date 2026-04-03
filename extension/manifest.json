@@ -6,8 +6,8 @@
   "permissions": ["sidePanel", "activeTab", "storage", "tabs"],
   "host_permissions": [
     "https://imageprompt.tools/*",
+    "https://www.imageprompt.tools/*",
     "http://localhost:3001/*",
-    "https://*.supabase.co/*",
     "https://accounts.google.com/*",
     "https://oauth2.googleapis.com/*"
   ],
