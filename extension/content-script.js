@@ -1,5 +1,5 @@
 // ─── Config ──────────────────────────────────────────────────────────────────
-const MIN_RENDERED_SIZE = 200;
+const MIN_RENDERED_SIZE = 100;
 const BUTTON_OFFSET = 8;
 /** Pull button slightly over the image so the cursor path img→button doesn’t cross a “dead” gap. */
 const BUTTON_OVERLAP_IMG_PX = 6;
