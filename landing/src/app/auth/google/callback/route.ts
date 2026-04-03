@@ -35,6 +35,18 @@ function clearOAuthCookies(res: NextResponse): void {
   res.cookies.set({ ...clearedCookie(OAUTH_FLOW_COOKIE), ...path });
 }
 
+/** Surfaces undici `cause` chain (e.g. ENOTFOUND, ECONNREFUSED) for ops debugging. */
+function formatAuthStepError(step: string, e: unknown): string {
+  if (!(e instanceof Error)) return `${step}:unknown`;
+  const parts: string[] = [e.message];
+  let c: unknown = e.cause;
+  for (let d = 0; d < 4 && c instanceof Error; d++) {
+    parts.push(c.message);
+    c = c.cause;
+  }
+  return `${step}:${parts.join(" | ")}`;
+}
+
 export async function GET(request: NextRequest) {
   const origin = getOAuthPublicOrigin(request);
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
@@ -81,8 +93,7 @@ export async function GET(request: NextRequest) {
     }
     idToken = tokens.id_token;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "token_exchange_failed";
-    return errorRedirect(msg);
+    return errorRedirect(formatAuthStepError("oauth_token", e));
   }
 
   let user: { id: string; email: string | null; displayName: string | null; avatarUrl: string | null };
@@ -95,8 +106,7 @@ export async function GET(request: NextRequest) {
       avatarUrl: u.avatarUrl ?? null,
     };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "user_upsert_failed";
-    return errorRedirect(msg);
+    return errorRedirect(formatAuthStepError("user_db", e));
   }
 
   let jwt: string;

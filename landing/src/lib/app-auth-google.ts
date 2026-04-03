@@ -25,6 +25,7 @@ export async function exchangeGoogleAuthorizationCode(params: {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
+    signal: AbortSignal.timeout(20_000),
   });
 
   const json = (await res.json()) as GoogleTokenResponse;
