@@ -15,9 +15,17 @@ export function AuthModal() {
   async function signInWithGoogle() {
     const supabase = createSupabaseBrowser();
     if (!supabase) return;
+    // Use canonical SITE_URL so redirect_to matches Supabase allowlist (www vs apex, prod domain).
+    // If redirect_to is not allowlisted, GoTrue falls back to Dashboard Site URL (e.g. promptshot.ru).
+    const base =
+      (typeof process.env.NEXT_PUBLIC_SITE_URL === "string"
+        ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, "")
+        : "") || window.location.origin;
+    const nextPath = `${window.location.pathname}${window.location.search}`;
+    const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(nextPath)}`;
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}${window.location.pathname}${window.location.search}` },
+      options: { redirectTo },
     });
   }
 
