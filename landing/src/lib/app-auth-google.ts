@@ -1,3 +1,6 @@
+import * as dns from "node:dns";
+import * as https from "node:https";
+
 type GoogleTokenResponse = {
   access_token?: string;
   id_token?: string;
@@ -6,6 +9,103 @@ type GoogleTokenResponse = {
   error?: string;
   error_description?: string;
 };
+
+const GOOGLE_TOKEN_HOST = "oauth2.googleapis.com";
+const GOOGLE_TOKEN_PATH = "/token";
+const GOOGLE_TOKEN_URL = `https://${GOOGLE_TOKEN_HOST}${GOOGLE_TOKEN_PATH}`;
+
+function isLikelyNetworkFetchFailure(e: unknown): boolean {
+  if (!(e instanceof Error)) return false;
+  const m = e.message.toLowerCase();
+  return (
+    m.includes("fetch failed") ||
+    m.includes("network") ||
+    m.includes("econnreset") ||
+    m.includes("etimedout") ||
+    m.includes("enotfound") ||
+    m.includes("eai_again") ||
+    m.includes("econnrefused") ||
+    m.includes("socket") ||
+    m.includes("cert") ||
+    m.includes("ssl") ||
+    m.includes("tls")
+  );
+}
+
+/** Same POST as fetch to Google token URL but forces IPv4 (common VPS fix when IPv6 is broken). */
+function postTokenHttpsIpv4(
+  body: string,
+  signal: AbortSignal,
+): Promise<{ statusCode: number; text: string }> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: GOOGLE_TOKEN_HOST,
+        port: 443,
+        path: GOOGLE_TOKEN_PATH,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Length": Buffer.byteLength(body, "utf8"),
+        },
+        lookup: (hostname, _opts, cb) => {
+          dns.lookup(hostname, { family: 4 }, cb);
+        },
+        servername: GOOGLE_TOKEN_HOST,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (d) => chunks.push(d));
+        res.on("end", () => {
+          resolve({
+            statusCode: res.statusCode ?? 0,
+            text: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+      },
+    );
+
+    const onAbort = () => {
+      req.destroy();
+      reject(new Error("oauth_token_aborted"));
+    };
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
+
+    req.on("error", (err) => {
+      signal.removeEventListener("abort", onAbort);
+      reject(err);
+    });
+    req.on("close", () => {
+      signal.removeEventListener("abort", onAbort);
+    });
+
+    req.write(body, "utf8");
+    req.end();
+  });
+}
+
+function parseTokenJson(
+  statusCode: number,
+  text: string,
+  ok: boolean,
+): GoogleTokenResponse {
+  let json: GoogleTokenResponse;
+  try {
+    json = JSON.parse(text) as GoogleTokenResponse;
+  } catch {
+    throw new Error(`google_token_bad_json_${statusCode}`);
+  }
+  if (!ok) {
+    const msg =
+      json.error_description || json.error || `token_status_${statusCode}`;
+    throw new Error(msg);
+  }
+  return json;
+}
 
 export async function exchangeGoogleAuthorizationCode(params: {
   code: string;
@@ -20,19 +120,30 @@ export async function exchangeGoogleAuthorizationCode(params: {
     redirect_uri: params.redirectUri,
     grant_type: "authorization_code",
   });
+  const bodyString = body.toString();
+  const signal = AbortSignal.timeout(20_000);
 
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-    signal: AbortSignal.timeout(20_000),
-  });
-
-  const json = (await res.json()) as GoogleTokenResponse;
-  if (!res.ok) {
-    const msg =
-      json.error_description || json.error || `token_status_${res.status}`;
-    throw new Error(msg);
+  try {
+    const res = await fetch(GOOGLE_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: bodyString,
+      signal,
+    });
+    const text = await res.text();
+    return parseTokenJson(res.status, text, res.ok);
+  } catch (e) {
+    if (!isLikelyNetworkFetchFailure(e)) {
+      throw e;
+    }
+    try {
+      const { statusCode, text } = await postTokenHttpsIpv4(bodyString, signal);
+      const ok = statusCode >= 200 && statusCode < 300;
+      return parseTokenJson(statusCode, text, ok);
+    } catch (inner) {
+      const outer = e instanceof Error ? e.message : String(e);
+      const innerMsg = inner instanceof Error ? inner.message : String(inner);
+      throw new Error(`${outer} | ipv4_fallback:${innerMsg}`);
+    }
   }
-  return json;
 }
