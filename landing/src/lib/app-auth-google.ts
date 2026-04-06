@@ -32,26 +32,49 @@ function isLikelyNetworkFetchFailure(e: unknown): boolean {
   );
 }
 
-/** Same POST as fetch to Google token URL but forces IPv4 (common VPS fix when IPv6 is broken). */
-function postTokenHttpsIpv4(
+/**
+ * POST to Google token URL over IPv4 only. Resolves A record first, then connects to the IP with
+ * SNI + Host header — avoids custom `lookup` (Next/Node can call it with a signature that left
+ * the peer address undefined → "Invalid IP address: undefined").
+ */
+async function postTokenHttpsIpv4(
   body: string,
   signal: AbortSignal,
 ): Promise<{ statusCode: number; text: string }> {
+  if (signal.aborted) {
+    throw new Error("oauth_token_aborted");
+  }
+
+  let address: string;
+  try {
+    const r = await dns.promises.lookup(GOOGLE_TOKEN_HOST, { family: 4 });
+    address = r.address;
+  } catch (dnsErr) {
+    throw new Error(
+      `dns_ipv4:${dnsErr instanceof Error ? dnsErr.message : String(dnsErr)}`,
+    );
+  }
+  if (!address || typeof address !== "string") {
+    throw new Error("dns_ipv4_empty_address");
+  }
+
+  if (signal.aborted) {
+    throw new Error("oauth_token_aborted");
+  }
+
   return new Promise((resolve, reject) => {
     const req = https.request(
       {
-        hostname: GOOGLE_TOKEN_HOST,
+        hostname: address,
         port: 443,
         path: GOOGLE_TOKEN_PATH,
         method: "POST",
+        servername: GOOGLE_TOKEN_HOST,
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "Content-Length": Buffer.byteLength(body, "utf8"),
+          Host: GOOGLE_TOKEN_HOST,
         },
-        lookup: (hostname, _opts, cb) => {
-          dns.lookup(hostname, { family: 4 }, cb);
-        },
-        servername: GOOGLE_TOKEN_HOST,
       },
       (res) => {
         const chunks: Buffer[] = [];
@@ -69,10 +92,6 @@ function postTokenHttpsIpv4(
       req.destroy();
       reject(new Error("oauth_token_aborted"));
     };
-    if (signal.aborted) {
-      onAbort();
-      return;
-    }
     signal.addEventListener("abort", onAbort, { once: true });
 
     req.on("error", (err) => {
