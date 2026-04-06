@@ -531,7 +531,9 @@ document.querySelectorAll("img").forEach(attachToImg);
   if (!allowed) return;
   const TYPE = "IMAGEPROMPT_AUTH_EXCHANGE";
   window.addEventListener("message", (event) => {
-    if (event.source !== window || event.origin !== o) return;
+    /* Page script postMessage: event.source is page's Window; content-script `window` is an
+       isolated-world proxy — strict `event.source !== window` drops the message (Chrome MV3). */
+    if (event.origin !== o) return;
     const d = event.data;
     if (!d || d.type !== TYPE || typeof d.code !== "string") return;
     /* Side panel listens via chrome.storage.onChanged (MV3: sendMessage hits background only). */

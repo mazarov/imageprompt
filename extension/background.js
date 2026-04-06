@@ -1,7 +1,19 @@
 const STORAGE_KEY = "pendingVibe";
+const AUTH_PENDING_KEY = "ip_pending_auth_exchange";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+});
+
+/* OAuth finish tab wrote the exchange code; open side panel so onChanged/boot can consume it. */
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local") return;
+  const ch = changes[AUTH_PENDING_KEY];
+  if (!ch?.newValue || typeof ch.newValue !== "string" || !ch.newValue.trim()) return;
+  chrome.windows.getLastFocused({ populate: false }, (w) => {
+    if (chrome.runtime.lastError || !w?.id) return;
+    chrome.sidePanel.open({ windowId: w.id }).catch(() => {});
+  });
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

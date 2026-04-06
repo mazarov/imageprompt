@@ -56,6 +56,32 @@ export function serializeSupabaseError(
   return safeSupabaseError(err);
 }
 
+/** Full dump for PostgREST / Supabase client errors (non-enumerable-safe). */
+export function serializeSupabaseErrorFull(err: unknown): Record<string, unknown> {
+  if (err === null || err === undefined) {
+    return { present: false };
+  }
+  if (typeof err !== "object") {
+    return { present: true, primitive: String(err) };
+  }
+  const o = err as Record<string, unknown>;
+  const base = {
+    present: true,
+    message: typeof o.message === "string" ? o.message : undefined,
+    code: typeof o.code === "string" ? o.code : undefined,
+    details: o.details ?? undefined,
+    hint: typeof o.hint === "string" ? o.hint : undefined,
+    name: typeof o.name === "string" ? o.name : undefined,
+  };
+  let extra = "";
+  try {
+    extra = JSON.stringify(err, Object.getOwnPropertyNames(err as object));
+  } catch {
+    extra = "";
+  }
+  return { ...base, json_own: extra || undefined };
+}
+
 /** Shared step logs (callback + user upsert) when AUTH_CALLBACK_DEBUG=1 */
 export function authFlowDebug(
   event: string,

@@ -4,6 +4,7 @@ import {
   appAuthUserError,
   authFlowDebug,
   serializeSupabaseError,
+  serializeSupabaseErrorFull,
 } from "@/lib/app-auth-oauth-log";
 
 /**
@@ -55,26 +56,56 @@ export async function upsertAppUserFromGoogleIdToken(
     onConflict: "google_sub",
   });
 
-  const { data: upserted, error: upErr } = await supabase
+  const { data: upsertRows, error: upErr } = await supabase
     .from("imageprompt_users")
     .upsert(upsertPayload, { onConflict: "google_sub" })
-    .select("id")
-    .single();
+    .select("id");
 
-  if (upErr || !upserted?.id) {
+  if (upErr) {
     appAuthUserError("imageprompt_users_upsert_failed", {
       requestId,
       google_sub_len: googleSub.length,
       has_email: Boolean(email),
-      supabase: serializeSupabaseError(upErr),
-      data_present: Boolean(upserted),
-      data_id: upserted?.id ?? null,
-      hint: "Check table exists (docs/sql/03-04-imageprompt-users.sql), unique on google_sub, service role key, RLS off or bypass.",
+      supabase: serializeSupabaseErrorFull(upErr),
+      hint: "PostgREST rejected upsert: table/columns, unique on google_sub, or key (use service_role JWT in SUPABASE_SERVICE_ROLE_KEY).",
     });
-    throw new Error(upErr?.message || "imageprompt_users upsert failed");
+    throw new Error(upErr.message || "imageprompt_users upsert failed");
   }
 
-  const userId = upserted.id as string;
+  const rows = Array.isArray(upsertRows) ? upsertRows : [];
+  let userId = rows[0]?.id as string | undefined;
+
+  if (!userId) {
+    const { data: found, error: selErr } = await supabase
+      .from("imageprompt_users")
+      .select("id")
+      .eq("google_sub", googleSub)
+      .maybeSingle();
+
+    if (selErr) {
+      appAuthUserError("imageprompt_users_select_after_upsert_failed", {
+        requestId,
+        google_sub_len: googleSub.length,
+        supabase: serializeSupabaseErrorFull(selErr),
+        upsert_returned_row_count: rows.length,
+      });
+      throw new Error(selErr.message || "imageprompt_users select failed");
+    }
+    userId = found?.id as string | undefined;
+  }
+
+  if (!userId) {
+    appAuthUserError("imageprompt_users_upsert_failed", {
+      requestId,
+      google_sub_len: googleSub.length,
+      has_email: Boolean(email),
+      supabase: serializeSupabaseErrorFull(upErr),
+      upsert_returned_row_count: rows.length,
+      upsert_raw: rows.length ? JSON.stringify(rows).slice(0, 500) : null,
+      hint: "No row after upsert: table missing (run docs/sql/03-04-imageprompt-users.sql), anon key instead of service_role, or RLS blocking reads/writes.",
+    });
+    throw new Error("imageprompt_users upsert failed");
+  }
 
   authFlowDebug("imageprompt_users_upsert_ok", { requestId, userId });
 

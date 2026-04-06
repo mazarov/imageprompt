@@ -43,3 +43,5 @@ CREATE INDEX IF NOT EXISTS oauth_extension_exchange_expires_idx
   WHERE consumed_at IS NULL;
 
 COMMENT ON TABLE public.oauth_extension_exchange IS 'Single-use hashed tokens; extension swaps for app JWT via POST /api/auth/extension/exchange.';
+
+-- 3) Next: if landing_users.id still references auth.users, run docs/sql/03-05-landing-users-fk-imageprompt-users.sql
