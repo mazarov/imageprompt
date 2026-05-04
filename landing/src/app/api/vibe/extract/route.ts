@@ -26,6 +26,8 @@ import { getStvPipelineTrace, stvLog } from "@/lib/stv-pipeline-log";
 
 const DIRECT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES * 4 / 3);
+const INLINE_MIME_ALLOWLIST = ["image/jpeg", "image/png", "image/webp"] as const;
 
 /** Optional client override for vision instruction (A/B extract prompts). */
 const MIN_EXTRACT_INSTRUCTION_OVERRIDE_LEN = 80;
@@ -208,6 +210,8 @@ export async function POST(req: NextRequest) {
 
     const body = (await req.json()) as {
       imageUrl?: string;
+      imageBase64?: unknown;
+      imageMimeType?: unknown;
       extractTemperature?: unknown;
       extractInstructionOverride?: unknown;
     };
@@ -244,6 +248,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_url" }, { status: 400 });
     }
 
+    const rawBase64 = typeof body?.imageBase64 === "string" ? body.imageBase64.trim() : "";
+    const rawMimeType = typeof body?.imageMimeType === "string" ? body.imageMimeType.trim().toLowerCase() : "";
+
+    if (rawBase64 && !rawMimeType) {
+      return NextResponse.json(
+        { error: "validation_error", message: "imageMimeType is required when imageBase64 is provided" },
+        { status: 400 },
+      );
+    }
+    if (!rawBase64 && rawMimeType) {
+      return NextResponse.json(
+        { error: "validation_error", message: "imageBase64 is required when imageMimeType is provided" },
+        { status: 400 },
+      );
+    }
+    if (rawBase64 && rawMimeType) {
+      if (!(INLINE_MIME_ALLOWLIST as readonly string[]).includes(rawMimeType)) {
+        return NextResponse.json(
+          { error: "validation_error", message: "imageMimeType must be one of: image/jpeg, image/png, image/webp" },
+          { status: 400 },
+        );
+      }
+      if (rawBase64.length > MAX_BASE64_CHARS) {
+        return NextResponse.json(
+          { error: "validation_error", message: "imageBase64 exceeds maximum allowed size" },
+          { status: 400 },
+        );
+      }
+      const decoded = Buffer.from(rawBase64, "base64");
+      if (decoded.length > MAX_IMAGE_BYTES) {
+        return NextResponse.json(
+          { error: "validation_error", message: "Decoded image exceeds 10 MB limit" },
+          { status: 400 },
+        );
+      }
+    }
+
+    const imageSource = rawBase64 ? "inline_client" : "server_fetch";
+
     const resolvedWriter = await resolveImagepromptUserIdForApiWrite({
       jwtSub: user.id,
       jwtEmail: user.email ?? null,
@@ -277,6 +320,8 @@ export async function POST(req: NextRequest) {
       userId: writerUserId,
       pipelineTrace,
       imageHost: safeUrl.hostname,
+      imageSource,
+      ...(imageSource === "inline_client" ? { inlineBase64Chars: rawBase64.length } : {}),
       extractTemperature: extractTemperature ?? "default",
       extractInstructionCustom,
       instructionChars: extractInstruction.length,
@@ -285,32 +330,43 @@ export async function POST(req: NextRequest) {
       pipelineTrace,
       userId: writerUserId,
       imageUrlHost: safeUrl.hostname,
+      imageSource,
       instructionChars: extractInstruction.length,
       extractInstructionCustom,
       extractTemperature: extractTemperature ?? "default",
     });
 
     let inlineData: { mimeType: string; data: string };
-    try {
-      console.warn("[vibe.extract] image_download_begin", {
+    if (imageSource === "inline_client") {
+      console.warn("[vibe.extract] inline_image_received", {
         userId: writerUserId,
-        imageHost: safeUrl.hostname,
-        timeoutMs: 15000,
+        mimeType: rawMimeType,
+        base64Chars: rawBase64.length,
+        approxKb: Math.round(rawBase64.length * 3 / 4 / 1024),
       });
-      inlineData = await fetchImageAsInlineData(safeUrl.toString());
-      console.warn("[vibe.extract] image_download_ok", {
-        userId: writerUserId,
-        mimeType: inlineData.mimeType,
-        base64Chars: inlineData.data.length,
-      });
-    } catch (err) {
-      console.error("[vibe.extract] image_download_failed", {
-        userId: writerUserId,
-        imageHost: safeUrl.hostname,
-        ...toErrorMeta(err),
-        ...fetchErrorDetails(err),
-      });
-      return NextResponse.json({ error: "fetch_failed" }, { status: 400 });
+      inlineData = { mimeType: rawMimeType, data: rawBase64 };
+    } else {
+      try {
+        console.warn("[vibe.extract] image_download_begin", {
+          userId: writerUserId,
+          imageHost: safeUrl.hostname,
+          timeoutMs: 15000,
+        });
+        inlineData = await fetchImageAsInlineData(safeUrl.toString());
+        console.warn("[vibe.extract] image_download_ok", {
+          userId: writerUserId,
+          mimeType: inlineData.mimeType,
+          base64Chars: inlineData.data.length,
+        });
+      } catch (err) {
+        console.error("[vibe.extract] image_download_failed", {
+          userId: writerUserId,
+          imageHost: safeUrl.hostname,
+          ...toErrorMeta(err),
+          ...fetchErrorDetails(err),
+        });
+        return NextResponse.json({ error: "fetch_failed" }, { status: 400 });
+      }
     }
 
     const supabase = createSupabaseServer();
