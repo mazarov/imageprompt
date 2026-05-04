@@ -520,7 +520,7 @@ mutationObserver.observe(document.documentElement, {
 // ─── Initial scan ─────────────────────────────────────────────────────────────
 document.querySelectorAll("img").forEach(attachToImg);
 
-// ─── Relay extension OAuth finish (postMessage from /auth/extension/finish) ─
+// ─── Relay extension OAuth finish (/auth/extension/finish → chrome.storage) ─
 (function relayImagepromptAuth() {
   if (typeof chrome === "undefined" || !chrome.runtime?.id) return;
   const o = window.location.origin;
@@ -530,16 +530,33 @@ document.querySelectorAll("img").forEach(attachToImg);
     o === "http://localhost:3001";
   if (!allowed) return;
   const TYPE = "IMAGEPROMPT_AUTH_EXCHANGE";
+  const DOM_EVENT = "imageprompt-tools-auth-exchange";
+
+  function persistAuthCode(code) {
+    if (typeof code !== "string" || !code.trim()) return;
+    chrome.storage.local.set(
+      {
+        ip_pending_auth_exchange: code.trim(),
+        ip_pending_auth_exchange_at: Date.now(),
+      },
+      () => {}
+    );
+  }
+
+  /* CustomEvent from page (React) is visible here even when postMessage is flaky. */
+  document.addEventListener(
+    DOM_EVENT,
+    (ev) => {
+      const code = ev?.detail?.code;
+      if (typeof code === "string") persistAuthCode(code);
+    },
+    false
+  );
+
   window.addEventListener("message", (event) => {
-    /* Page script postMessage: event.source is page's Window; content-script `window` is an
-       isolated-world proxy — strict `event.source !== window` drops the message (Chrome MV3). */
     if (event.origin !== o) return;
     const d = event.data;
     if (!d || d.type !== TYPE || typeof d.code !== "string") return;
-    /* Side panel listens via chrome.storage.onChanged (MV3: sendMessage hits background only). */
-    chrome.storage.local.set(
-      { ip_pending_auth_exchange: d.code, ip_pending_auth_exchange_at: Date.now() },
-      () => {}
-    );
+    persistAuthCode(d.code);
   });
 })();

@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from "crypto";
 import { createSupabaseServer } from "@/lib/supabase";
 
-const EXCHANGE_TTL_MS = 120_000;
+/** One-time code validity (user may switch tabs / slow network before extension consumes). */
+const EXCHANGE_TTL_MS = 600_000;
 
 export function newExchangePlaintext(): string {
   return randomBytes(32).toString("base64url");

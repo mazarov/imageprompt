@@ -46,3 +46,6 @@ ALTER TABLE public.landing_users
 
 COMMENT ON CONSTRAINT landing_users_id_fkey ON public.landing_users IS
   'App user id: must exist in imageprompt_users (Google OAuth flow).';
+
+-- If vibe extract fails with vibes_user_id_fkey after app JWT migration, run:
+-- docs/sql/03-06-vibes-user-id-fk-imageprompt-users.sql

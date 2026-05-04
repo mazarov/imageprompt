@@ -1,6 +1,7 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { NextRequest, NextResponse } from "next/server";
+import { ensureLandingUserStubRow, resolveImagepromptUserIdForApiWrite } from "@/lib/app-auth-user";
 import { createSupabaseServer } from "@/lib/supabase";
 import { getSupabaseUserForApiRoute } from "@/lib/supabase-route-auth";
 import {
@@ -243,8 +244,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_url" }, { status: 400 });
     }
 
+    const resolvedWriter = await resolveImagepromptUserIdForApiWrite({
+      jwtSub: user.id,
+      jwtEmail: user.email ?? null,
+    });
+    if (!resolvedWriter) {
+      console.warn("[vibe.extract] missing_imageprompt_user", {
+        jwtSub: user.id,
+        jwtEmail: user.email ?? null,
+        pipelineTrace,
+        hint: "No imageprompt_users row for JWT sub or email — complete Google login again or check SUPABASE_* env",
+      });
+      return NextResponse.json(
+        {
+          error: "session_expired",
+          message:
+            "Сессия устарела или пользователь не найден в базе. Выйдите и войдите снова через Google в расширении.",
+        },
+        { status: 401 },
+      );
+    }
+    const writerUserId = resolvedWriter.userId;
+    if (resolvedWriter.repairedByEmail) {
+      console.warn("[vibe.extract] jwt_sub_stale_repaired_by_email", {
+        jwtSub: user.id,
+        writerUserId,
+        pipelineTrace,
+      });
+    }
+
     console.warn("[vibe.extract] request_begin", {
-      userId: user.id,
+      userId: writerUserId,
       pipelineTrace,
       imageHost: safeUrl.hostname,
       extractTemperature: extractTemperature ?? "default",
@@ -253,7 +283,7 @@ export async function POST(req: NextRequest) {
     });
     stvLog("vibe.extract.begin", {
       pipelineTrace,
-      userId: user.id,
+      userId: writerUserId,
       imageUrlHost: safeUrl.hostname,
       instructionChars: extractInstruction.length,
       extractInstructionCustom,
@@ -263,19 +293,19 @@ export async function POST(req: NextRequest) {
     let inlineData: { mimeType: string; data: string };
     try {
       console.warn("[vibe.extract] image_download_begin", {
-        userId: user.id,
+        userId: writerUserId,
         imageHost: safeUrl.hostname,
         timeoutMs: 15000,
       });
       inlineData = await fetchImageAsInlineData(safeUrl.toString());
       console.warn("[vibe.extract] image_download_ok", {
-        userId: user.id,
+        userId: writerUserId,
         mimeType: inlineData.mimeType,
         base64Chars: inlineData.data.length,
       });
     } catch (err) {
       console.error("[vibe.extract] image_download_failed", {
-        userId: user.id,
+        userId: writerUserId,
         imageHost: safeUrl.hostname,
         ...toErrorMeta(err),
         ...fetchErrorDetails(err),
@@ -302,7 +332,7 @@ export async function POST(req: NextRequest) {
       }
       modelUsed = await getOpenAiVibeExtractModelRuntime(supabase);
       console.warn("[vibe.extract] openai_request", {
-        userId: user.id,
+        userId: writerUserId,
         pipelineTrace,
         llm: "openai",
         model: modelUsed,
@@ -325,7 +355,7 @@ export async function POST(req: NextRequest) {
       httpStatus = oaRes.status;
       llmError = oaRes.errorMessage ?? null;
       console.warn("[vibe.extract] openai_response", {
-        userId: user.id,
+        userId: writerUserId,
         pipelineTrace,
         llm: "openai",
         model: modelUsed,
@@ -336,7 +366,7 @@ export async function POST(req: NextRequest) {
       });
       if (isGeminiVibeDebug() && text.length > 0) {
         console.warn("[vibe.extract] openai_response_text_preview", {
-          userId: user.id,
+          userId: writerUserId,
           preview: text.slice(0, 2500),
           tail: text.length > 2500 ? text.slice(-400) : undefined,
         });
@@ -377,7 +407,7 @@ export async function POST(req: NextRequest) {
       })();
 
       console.warn("[vibe.extract] gemini_request", {
-        userId: user.id,
+        userId: writerUserId,
         pipelineTrace,
         llm: "gemini",
         model: visionModel,
@@ -405,7 +435,7 @@ export async function POST(req: NextRequest) {
         });
       } catch (err) {
         console.error("[vibe.extract] gemini_fetch_failed", {
-          userId: user.id,
+          userId: writerUserId,
           model: visionModel,
           endpointHost: geminiEndpointHost,
           durationMs: Date.now() - llmStarted,
@@ -423,7 +453,7 @@ export async function POST(req: NextRequest) {
         geminiData = (await geminiRes.json()) as typeof geminiData;
       } catch (err) {
         console.error("[vibe.extract] gemini_response_body_not_json", {
-          userId: user.id,
+          userId: writerUserId,
           model: visionModel,
           httpStatus: geminiRes.status,
           durationMs: Date.now() - llmStarted,
@@ -439,7 +469,7 @@ export async function POST(req: NextRequest) {
       llmError = geminiData?.error?.message ?? null;
 
       console.warn("[vibe.extract] gemini_response", {
-        userId: user.id,
+        userId: writerUserId,
         pipelineTrace,
         llm: "gemini",
         model: visionModel,
@@ -450,7 +480,7 @@ export async function POST(req: NextRequest) {
       });
       if (isGeminiVibeDebug() && text.length > 0) {
         console.warn("[vibe.extract] gemini_response_text_preview", {
-          userId: user.id,
+          userId: writerUserId,
           preview: text.slice(0, 2500),
           tail: text.length > 2500 ? text.slice(-400) : undefined,
         });
@@ -459,7 +489,7 @@ export async function POST(req: NextRequest) {
 
     stvLog("vibe.extract.llm_done", {
       pipelineTrace,
-      userId: user.id,
+      userId: writerUserId,
       llm: extractLlm,
       modelUsed,
       durationMs: Date.now() - llmStarted,
@@ -471,7 +501,7 @@ export async function POST(req: NextRequest) {
 
     if (!httpOk) {
       console.error("[vibe.extract] extract_pipeline_failed_legacy_http", {
-        userId: user.id,
+        userId: writerUserId,
         pipelineTrace,
         llm: extractLlm,
         httpStatus,
@@ -483,7 +513,7 @@ export async function POST(req: NextRequest) {
     const legacyStyle = parsed ? coerceLegacyVibeStylePayload(parsed) : null;
     if (!legacyStyle) {
       console.error("[vibe.extract] extract_pipeline_failed_legacy_coerce", {
-        userId: user.id,
+        userId: writerUserId,
         pipelineTrace,
         llm: extractLlm,
         model: modelUsed,
@@ -494,10 +524,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "extract_failed" }, { status: 500 });
     }
 
+    await ensureLandingUserStubRow(writerUserId);
+
     const { data: vibe, error: insertError } = await supabase
       .from("vibes")
       .insert({
-        user_id: user.id,
+        user_id: writerUserId,
         source_image_url: safeUrl.toString(),
         style: legacyStyle,
         prompt_chain: VIBE_PROMPT_CHAIN_LEGACY_2C23,
@@ -506,16 +538,23 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insertError || !vibe) {
+      const errMsg = insertError?.message ?? "";
+      const fkHint =
+        errMsg.includes("vibes_user_id_fkey") ||
+        errMsg.includes("violates foreign key constraint")
+          ? "Repoint vibes.user_id FK to imageprompt_users: docs/sql/03-06-vibes-user-id-fk-imageprompt-users.sql"
+          : undefined;
       console.error("[vibe.extract] insert failed", {
-        userId: user.id,
+        userId: writerUserId,
         legacyPromptChain: true,
         error: insertError?.message ?? null,
+        ...(fkHint ? { hint: fkHint } : {}),
       });
       return NextResponse.json({ error: "extract_failed" }, { status: 500 });
     }
 
     console.warn("[vibe.extract] extract_parse_ok", {
-      userId: user.id,
+      userId: writerUserId,
       pipelineTrace,
       vibeId: vibe.id,
       llm: extractLlm,
@@ -524,7 +563,7 @@ export async function POST(req: NextRequest) {
     });
     stvLog("vibe.extract.ok", {
       pipelineTrace,
-      userId: user.id,
+      userId: writerUserId,
       vibeId: vibe.id,
       modelUsed,
       llmProvider: extractLlm,

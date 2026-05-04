@@ -28,8 +28,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "invalid path" }, { status: 400 });
     }
 
-    const prefix = `${user.id}/`;
-    if (!path.startsWith(prefix)) {
+    const slash = path.indexOf("/");
+    if (slash < 1) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    const folder = path.slice(0, slash);
+    if (folder.toLowerCase() !== user.id.toLowerCase()) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
 

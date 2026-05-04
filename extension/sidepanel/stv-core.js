@@ -707,7 +707,7 @@ function normalizeUiError(err, fallbackText) {
   const message = String(payload?.message || "").trim();
   const status = Number(err.status || 0);
 
-  if (status === 401 || status === 403 || code === "unauthorized") {
+  if (status === 401 || code === "unauthorized") {
     return t("err_session");
   }
   if (code === "insufficient_credits") {
@@ -1119,7 +1119,12 @@ async function completeExtensionOAuth(code) {
     refreshPersistedPhotoPreviews();
     render();
   } catch (err) {
-    state.error = normalizeUiError(err, t("err_oauth_failed"));
+    const st = Number(err?.status || 0);
+    /* Exchange 401 = one-time code invalid/expired — not "session expired". */
+    state.error =
+      st === 401 || st === 403
+        ? t("err_oauth_failed")
+        : normalizeUiError(err, t("err_oauth_failed"));
     setToast("error", state.error);
     render();
   } finally {
@@ -1328,7 +1333,8 @@ async function api(path, init = {}) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
+    /* 403 = forbidden resource (e.g. signed-url path not under this user) — not invalid JWT. */
+    if (response.status === 401) {
       await clearAppJwtStorage();
       state.user = null;
       state.credits = 0;
@@ -1471,12 +1477,61 @@ async function loadConfig() {
   }
 }
 
+function uploadedStoragePathBelongsToUser(storagePath, userId) {
+  if (typeof storagePath !== "string" || typeof userId !== "string") return false;
+  const i = storagePath.indexOf("/");
+  if (i < 1) return false;
+  const folder = storagePath.slice(0, i);
+  return folder.toLowerCase() === userId.toLowerCase();
+}
+
+/** Drop persisted upload paths from a previous account (e.g. Supabase Auth id vs imageprompt_users id). */
+function prunePersistedUploadsNotOwnedByUser() {
+  const uid = state.user?.id;
+  if (!uid || rt().platform.id !== "chrome") return false;
+
+  const prevLen = state.userPhotos.length;
+  const refMustClear =
+    Boolean(state.referencePhoto?.storagePath) &&
+    !uploadedStoragePathBelongsToUser(state.referencePhoto.storagePath, uid);
+
+  const nextPhotos = [];
+  for (const p of state.userPhotos) {
+    if (!p?.storagePath) {
+      nextPhotos.push(p);
+      continue;
+    }
+    if (uploadedStoragePathBelongsToUser(p.storagePath, uid)) {
+      nextPhotos.push(p);
+    } else if (p.previewObjectUrl) {
+      try {
+        URL.revokeObjectURL(p.previewObjectUrl);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  state.userPhotos = nextPhotos;
+
+  if (refMustClear) {
+    clearReferenceUpload();
+  }
+
+  return nextPhotos.length !== prevLen || refMustClear;
+}
+
 async function checkAuth() {
   try {
     const data = await api("/api/me");
     state.user = data.user || null;
     state.credits = Number(data.credits || 0);
     state.error = "";
+    if (state.user?.id) {
+      const pruned = prunePersistedUploadsNotOwnedByUser();
+      if (pruned) {
+        await persistState();
+      }
+    }
   } catch (err) {
     state.user = null;
     state.credits = 0;

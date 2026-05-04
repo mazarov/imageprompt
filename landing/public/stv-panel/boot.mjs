@@ -1922,7 +1922,8 @@ async function completeExtensionOAuth(code) {
     refreshPersistedPhotoPreviews();
     render();
   } catch (err) {
-    state.error = normalizeUiError(err, t("err_oauth_failed"));
+    const st = Number(err?.status || 0);
+    state.error = st === 401 || st === 403 ? t("err_oauth_failed") : normalizeUiError(err, t("err_oauth_failed"));
     setToast("error", state.error);
     render();
   } finally {

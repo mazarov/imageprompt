@@ -134,6 +134,77 @@ export async function upsertAppUserFromGoogleIdToken(
   };
 }
 
+/**
+ * Resolves imageprompt_users.id for DB writes. JWT `sub` should match that id; when the extension
+ * keeps an old token after re-login, `sub` may be stale while `email` still matches the current row.
+ */
+export async function resolveImagepromptUserIdForApiWrite(params: {
+  jwtSub: string;
+  jwtEmail: string | null | undefined;
+}): Promise<{ userId: string; repairedByEmail: boolean } | null> {
+  if (!isSupabaseServerConfigured()) return null;
+  const supabase = createSupabaseServer();
+
+  const { data: byId, error: errById } = await supabase
+    .from("imageprompt_users")
+    .select("id")
+    .eq("id", params.jwtSub)
+    .maybeSingle();
+
+  if (!errById && byId?.id) {
+    return { userId: byId.id as string, repairedByEmail: false };
+  }
+
+  const rawEmail = typeof params.jwtEmail === "string" ? params.jwtEmail.trim() : "";
+  if (!rawEmail) return null;
+
+  const { data: rows, error: errEmail } = await supabase
+    .from("imageprompt_users")
+    .select("id")
+    .ilike("email", rawEmail)
+    .limit(5);
+
+  if (errEmail || !rows?.length) return null;
+  if (rows.length > 1) {
+    console.error("[resolveImagepromptUserIdForApiWrite] ambiguous email in imageprompt_users", {
+      jwtSub: params.jwtSub,
+      rowCount: rows.length,
+    });
+    return null;
+  }
+
+  const userId = rows[0].id as string;
+  if (userId === params.jwtSub) {
+    return { userId, repairedByEmail: false };
+  }
+  console.warn("[resolveImagepromptUserIdForApiWrite] repaired stale jwt sub via email match", {
+    jwtSub: params.jwtSub,
+    resolvedUserId: userId,
+  });
+  return { userId, repairedByEmail: true };
+}
+
+/**
+ * Ensures a billing row exists for this app user. Safe on duplicate.
+ * Some deployments FK vibes.user_id (or other tables) to landing_users; OAuth flow inserts this,
+ * but repairing here avoids extract failures if the row was missing.
+ */
+export async function ensureLandingUserStubRow(userId: string): Promise<void> {
+  if (!isSupabaseServerConfigured()) return;
+  const supabase = createSupabaseServer();
+  const { error } = await supabase.from("landing_users").insert({
+    id: userId,
+    credits: 0,
+  });
+  if (!error) return;
+  const msg = error.message || "";
+  if (msg.includes("duplicate") || msg.includes("23505")) return;
+  console.warn("[ensureLandingUserStubRow] landing_users insert failed", {
+    userId,
+    message: msg,
+  });
+}
+
 export async function getImagepromptProfileForSession(userId: string): Promise<{
   email: string | null;
   display_name: string | null;
