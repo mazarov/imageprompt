@@ -39,3 +39,5 @@ docker build -f landing/Dockerfile ./landing
 ## Переменные окружения
 
 Шаблон: `landing/.env.example`. Секреты не коммитить.
+
+<!-- git-push-smoke: маркер теста push, можно удалить -->
