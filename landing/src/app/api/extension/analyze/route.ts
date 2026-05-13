@@ -5,7 +5,12 @@ import { createSupabaseServer } from "@/lib/supabase";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES * (4 / 3)) + 100; // small header overhead
 const GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
+const GEMINI_DIRECT_BASE_URL = "https://generativelanguage.googleapis.com";
+
+function getGeminiBaseUrl(): string {
+  const proxy = (process.env.GEMINI_PROXY_BASE_URL || "").replace(/\/+$/, "");
+  return proxy || GEMINI_DIRECT_BASE_URL;
+}
 const RATE_LIMIT_PER_DAY = 30;
 const GEMINI_TIMEOUT_MS = 30_000;
 
@@ -160,7 +165,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const geminiUrl = `${GEMINI_BASE_URL}/v1beta/models/${GEMINI_MODEL}:generateContent`;
+  const geminiUrl = `${getGeminiBaseUrl()}/v1beta/models/${GEMINI_MODEL}:generateContent`;
   const geminiBody = {
     contents: [
       {
