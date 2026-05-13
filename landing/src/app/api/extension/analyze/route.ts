@@ -7,9 +7,27 @@ const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES * (4 / 3)) + 100; // small he
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_DIRECT_BASE_URL = "https://generativelanguage.googleapis.com";
 
-function getGeminiBaseUrl(): string {
-  const proxy = (process.env.GEMINI_PROXY_BASE_URL || "").replace(/\/+$/, "");
-  return proxy || GEMINI_DIRECT_BASE_URL;
+async function getGeminiBaseUrl(supabase: ReturnType<typeof createSupabaseServer>): Promise<string> {
+  const proxyEnv = (process.env.GEMINI_PROXY_BASE_URL || "").replace(/\/+$/, "");
+
+  // Mirror the same logic as vibe/extract: check photo_app_config.gemini_use_proxy
+  try {
+    const { data } = await supabase
+      .from("photo_app_config")
+      .select("value")
+      .eq("key", "gemini_use_proxy")
+      .maybeSingle();
+
+    const raw = String(data?.value ?? "").trim().toLowerCase();
+    const useProxy = raw === "" ? true : ["true", "1", "yes", "y", "on"].includes(raw);
+
+    if (useProxy && proxyEnv) return proxyEnv;
+  } catch {
+    // Fall through to direct on DB error
+    if (proxyEnv) return proxyEnv;
+  }
+
+  return GEMINI_DIRECT_BASE_URL;
 }
 const RATE_LIMIT_PER_DAY = 30;
 const GEMINI_TIMEOUT_MS = 30_000;
@@ -165,8 +183,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const baseUrl = getGeminiBaseUrl();
-  console.log("[extension.analyze] gemini_base_url", { baseUrl, proxyEnv: !!process.env.GEMINI_PROXY_BASE_URL });
+  const baseUrl = await getGeminiBaseUrl(supabase);
+  console.log("[extension.analyze] gemini_base_url", {
+    baseUrl,
+    proxyEnv: !!process.env.GEMINI_PROXY_BASE_URL,
+  });
   const geminiUrl = `${baseUrl}/v1beta/models/${GEMINI_MODEL}:generateContent`;
   const geminiBody = {
     contents: [
