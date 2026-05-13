@@ -184,10 +184,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const baseUrl = await getGeminiBaseUrl(supabase);
-  console.log("[extension.analyze] gemini_base_url", {
-    baseUrl,
-    proxyEnv: !!process.env.GEMINI_PROXY_BASE_URL,
-  });
   const geminiUrl = `${baseUrl}/v1beta/models/${GEMINI_MODEL}:generateContent`;
   const geminiBody = {
     contents: [
