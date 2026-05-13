@@ -95,8 +95,32 @@ async function getGeminiBaseUrl(supabase: ReturnType<typeof createSupabaseServer
 
   return GEMINI_DIRECT_BASE_URL;
 }
-const RATE_LIMIT_PER_DAY = 30;
+const RATE_LIMIT_PER_DAY_DEFAULT = 30;
 const GEMINI_TIMEOUT_MS = 30_000;
+
+async function getRateLimitPerDay(supabase: ReturnType<typeof createSupabaseServer>): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from("aiid_app_config")
+      .select("value")
+      .eq("key", "extension_rate_limit_per_day")
+      .maybeSingle();
+
+    if (error) {
+      console.warn("[extension.analyze] aiid_app_config read failed", { message: error.message });
+      return RATE_LIMIT_PER_DAY_DEFAULT;
+    }
+
+    const parsed = parseInt(String(data?.value ?? ""), 10);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  } catch (err) {
+    console.warn("[extension.analyze] aiid_app_config read threw", {
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  return RATE_LIMIT_PER_DAY_DEFAULT;
+}
 
 type Style = "photoreal" | "midjourney" | "sd" | "flux";
 const VALID_STYLES: Style[] = ["photoreal", "midjourney", "sd", "flux"];
@@ -207,13 +231,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const windowStart = dayWindowStart();
 
   const supabase = createSupabaseServer();
+  const rateLimitPerDay = await getRateLimitPerDay(supabase);
   let rateLimitResult: { allowed: boolean; count: number } | null = null;
 
   try {
     const { data, error } = await supabase.rpc("extension_rate_limit_check_and_increment", {
       p_ip_hash: ipHash,
       p_window_start: windowStart,
-      p_max_count: RATE_LIMIT_PER_DAY,
+      p_max_count: rateLimitPerDay,
     });
 
     if (error) {
