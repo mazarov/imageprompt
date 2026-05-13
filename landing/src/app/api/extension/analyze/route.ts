@@ -7,6 +7,72 @@ const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES * (4 / 3)) + 100; // small he
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_DIRECT_BASE_URL = "https://generativelanguage.googleapis.com";
 
+/**
+ * Detailed vision extraction prompt — mirrors LEGACY_EXTRACT_PROMPT_2C23CE94 but outputs
+ * formatted labeled text sections (not JSON) so the result is ready for image generation directly.
+ */
+const PHOTOREAL_EXTRACT_PROMPT = `
+You are an expert AI image analyst and photographic art director.
+Analyze the image and produce a structured scene description for an AI image generator.
+
+Output ONLY the labeled sections below, in this exact order. Each label is on its own line,
+the description starts on the next line. No extra commentary, no markdown fences.
+
+Scene:
+Where it is and what is happening — 1–2 sentences. Use a neutral subject label ("the subject",
+"a person"). Do NOT describe hair color, hair length, hair texture, facial features, skin tone,
+age, or body type here. Actions and props are fine.
+
+Genre:
+The photographic genre (fashion editorial, street photography, portrait, boudoir, fitness, etc.)
+
+Pose:
+One cohesive paragraph for IMAGE GENERATION describing ONLY the subject's physical pose and body
+geometry. Cover in order: (1) head vs torso facing direction and tilt relative to camera;
+(2) shoulders and torso angle/lean; (3) arms and hands — positions, angles, contacts;
+(4) hips and legs if visible. End with one short posture label (e.g. "contrapposto", "upright
+formal", "relaxed slouch"). Do NOT include focal length, camera height, or framing here.
+
+Lighting:
+Describe the lighting setup: key light direction and quality (hard/soft), fill and rim presence,
+color temperature (warm/cool/neutral), visible shadows and highlights. Be specific (e.g.
+"Rembrandt loop from camera-left, soft box, warm 4500 K").
+
+Camera:
+One paragraph covering in order: (1) estimated focal length class with plausible full-frame mm
+range; (2) framing scale (close-up / bust / waist-up / full body / environmental); (3) camera
+height relative to subject's eyes (below / eye level / slightly above / clearly above);
+(4) horizontal viewing angle (frontal / slight three-quarter / strong three-quarter / near-profile);
+(5) depth of field (shallow / moderate / deep, what is sharp vs blurred).
+
+Mood:
+The emotional tone and atmosphere — adjectives plus brief interpretation.
+
+Color:
+Color palette, grading style, contrast, saturation. Name dominant and accent colors, note any
+cinematic grade (e.g. "teal-orange grade", "muted desaturated", "warm golden hour").
+
+Clothing:
+One cohesive paragraph for IMAGE GENERATION. Cover in order: (1) upper body garment(s), neckline,
+sleeves, layers; (2) lower body if visible; (3) colors and patterns; (4) fabric/material read;
+(5) fit and styling details; (6) jewelry and piercings; (7) other worn accessories (footwear,
+headwear, belt, bag, etc.). Say "not visible" for out-of-frame regions; use "" only if nothing
+worn is visible at all.
+
+Composition:
+One cohesive paragraph for IMAGE GENERATION. Cover: (1) subject placement vs frame (centered,
+rule-of-thirds, edge-weighted); (2) crop tightness and what is included; (3) vertical subject
+position in frame and horizon placement; (4) foreground/midground/background emphasis;
+(5) leading lines or framing elements; (6) notable negative space.
+`.trim();
+
+const CRITICAL_RULES_SINGLE = `
+CRITICAL RULES
+- Preserve: face structure, features, skin tone, eye color, proportions.
+- Subject must look naturally photographed in the setting, not pasted.
+- Photorealistic output, high textural detail, high quality, 8K-grade resolution and micro-detail (maximize sharpness and surface fidelity).
+`.trim();
+
 async function getGeminiBaseUrl(supabase: ReturnType<typeof createSupabaseServer>): Promise<string> {
   const proxyEnv = (process.env.GEMINI_PROXY_BASE_URL || "").replace(/\/+$/, "");
 
@@ -39,11 +105,7 @@ function systemPrompt(style: Style): string {
   const base = `You are an expert AI image analyst. Analyze the provided image and write a detailed generation prompt that would recreate a similar image.`;
 
   const styleInstructions: Record<Style, string> = {
-    photoreal: `${base}
-
-Output a single, detailed prompt for a photorealistic AI image generator (e.g. Midjourney, Stable Diffusion, DALL-E). 
-Describe: subject, setting/environment, lighting, camera angle, lens, depth of field, color palette, mood, composition, and any distinctive visual details.
-Use photography terminology. Be precise and specific. Output ONLY the prompt text, no explanations or headings.`,
+    photoreal: PHOTOREAL_EXTRACT_PROMPT,
 
     midjourney: `${base}
 
@@ -197,7 +259,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     ],
     generationConfig: {
       temperature: 0.4,
-      maxOutputTokens: 1024,
+      maxOutputTokens: style === "photoreal" ? 2048 : 1024,
     },
   };
 
@@ -247,14 +309,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const promptText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-  if (!promptText) {
+  const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+  if (!rawText) {
     console.error("[extension.analyze] gemini_empty_response", { data: JSON.stringify(geminiData).slice(0, 300) });
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try another image." },
       { status: 502 }
     );
   }
+
+  const promptText =
+    style === "photoreal" ? `${rawText}\n\n${CRITICAL_RULES_SINGLE}` : rawText;
 
   return NextResponse.json({ prompt: promptText });
 }
