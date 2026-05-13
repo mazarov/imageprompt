@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Ai Image Describer",
+  "version": "0.1.0",
+  "description": "Get a ready-to-use AI prompt from any image. One click, no signup.",
+  "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "<all_urls>",
+    "https://imageprompt.tools/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Ai Image Describer"
+  }
+}
