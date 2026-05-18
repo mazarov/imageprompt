@@ -30,7 +30,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return {
     title,
     description,
-    robots: { index: false, follow: true },
+    robots: { index: false, follow: false },
     alternates: {
       canonical,
       languages: { en: enUrl, ru: ruUrl },

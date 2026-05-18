@@ -65,9 +65,7 @@ export async function generateMetadata({ params }: Props) {
   return {
     title,
     description: seo.metaDescription,
-    robots: shouldIndex
-      ? { index: true, follow: true }
-      : { index: false, follow: true },
+    robots: { index: false, follow: false },
     alternates: {
       canonical: shouldIndex
         ? canonicalUrl

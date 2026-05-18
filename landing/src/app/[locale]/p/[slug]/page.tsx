@@ -118,12 +118,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: desc,
       images: data.mainPhotoUrl ? [data.mainPhotoUrl] : undefined,
     },
-    robots:
-      !data.isPublished
-        ? { index: false, follow: false }
-        : isThin || isGroupSecondary
-          ? "noindex, follow"
-          : "index, follow",
+    robots: { index: false, follow: false },
   };
 }
 

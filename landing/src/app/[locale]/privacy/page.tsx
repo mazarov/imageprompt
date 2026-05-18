@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: t("privacyPageTitle"),
     description: t("privacyPageDescription"),
-    robots: "noindex, follow",
+    robots: "noindex, nofollow",
     alternates: {
       canonical,
       languages: { en: enUrl, ru: ruUrl },

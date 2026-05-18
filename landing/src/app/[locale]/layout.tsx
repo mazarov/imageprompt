@@ -42,11 +42,8 @@ export async function generateMetadata({
     description: t("rootDescription"),
     manifest: "/site.webmanifest",
     robots: {
-      index: true,
-      follow: true,
-      "max-image-preview": "large" as const,
-      "max-snippet": -1,
-      "max-video-preview": -1,
+      index: false,
+      follow: false,
     },
     icons: {
       icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
