@@ -20,10 +20,14 @@ npm run build:stv-web
 npm run dev
 # http://localhost:3001
 
-# Build (включает build:stv-web автоматически)
+# Build (`npm run build` = STV web + `next build --no-lint`). Два сценария выката:
+#   npm run deploy:fast   — только сборка (без eslint из командной строки).
+#   npm run deploy:prod   — lint + build (перед «строгим» продом).
 npm run build
 npm start
 ```
+
+Перед коммитом или в CI дополнительно: **`npm run lint`** — либо сразу **`npm run deploy:prod`** (линт + сборка). Для быстрой проверки сборки без линта: **`npm run deploy:fast`**.
 
 Если в dev после правок появляется **`Cannot find module './….js'`** (битый webpack-чанк), остановите сервер, выполните **`rm -rf .next`** в каталоге **`landing/`** и снова **`npm run dev`**.
 
@@ -31,7 +35,7 @@ npm start
 
 - Запуск из каталога **`landing/`**.
 - **`build:stv-web`** смотрит **`../extension/sidepanel`**, иначе **`./stv-web-sidepanel/`** (зеркало в git для Docker). После правок в **`extension/sidepanel/`**: **`npm run sync:stv-sidepanel`**.
-- Скрипты: **`build:stv-web`** → `public/stv-panel/boot.mjs` + `styles.css`; **`build`** → STV + **`next build`**.
+- Скрипты: **`build:stv-web`** → `public/stv-panel/boot.mjs` + `styles.css`; **`build`** → STV + **`next build --no-lint`** (ESLint в билде отключён ради скорости — гоняйте **`npm run lint`** отдельно).
 
 ## Steal This Vibe (extension + API)
 

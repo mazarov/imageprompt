@@ -113,6 +113,8 @@
     "chromeBadge": "Chrome extension",
     "problem": {
       "title": "Great AI art starts with a prompt that actually describes the scene",
+      "demoLabel": "Live demo",
+      "intro": "Upload a reference below and we draft a structured prompt you can paste into any image model.",
       "b1": "Strong prompts spell out the <strong>hero subject</strong>, <strong>environment</strong>, and <strong>art direction</strong>—yet most people only remember a few adjectives when the tab is gone.",
       "b2": "Guessing light direction, palette, lens feel, and mood burns time; models return <strong>almost-right</strong> frames until you luck into the magic phrase.",
       "b3": "Manual screenshots and copy/paste across tools add <strong>friction</strong> right when you should be iterating on the idea—not the window layout."
@@ -451,7 +453,9 @@
     "readFailed": "Could not read this file. Try another image.",
     "noticeFetchFailed": "Couldn't load the image automatically. Upload a file instead.",
     "pasteHint": "Tip: paste a direct link to an image (https://…), or copy a picture and press Ctrl+V (⌘V on Mac).",
+    "resultScrollHint": "Scroll to read the full prompt",
     "urlLabel": "Or paste image URL",
+    "urlSectionToggle": "Paste image URL (https://…)",
     "urlPlaceholder": "https://example.com/image.jpg",
     "urlSubmit": "Analyze URL",
     "errorInvalidUrl": "Enter a valid http(s) link to an image."

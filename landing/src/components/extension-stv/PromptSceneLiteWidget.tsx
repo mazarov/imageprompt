@@ -307,59 +307,15 @@ export function PromptSceneLiteWidget() {
   };
 
   return (
-    <div className="w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-zinc-950/80 p-4 shadow-xl shadow-black/30 backdrop-blur-sm sm:p-5">
+    <div className="w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-zinc-950/80 p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl shadow-black/30 backdrop-blur-sm sm:p-5">
       {notice ? <p className="mb-3 text-sm text-amber-400/90">{notice}</p> : null}
 
       {panel === "empty" ? (
         <div className="flex flex-col gap-4">
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500">{t("styleLabel")}</span>
-            <select
-              value={style}
-              onChange={(e) => setStyle(e.target.value as AnalyzeStyle)}
-              className={`w-full rounded-lg border border-white/[0.1] bg-zinc-900 px-3 py-2 text-sm text-zinc-100 ${STV_FOCUS_RING}`}
-            >
-              <option value="photoreal">{t("stylePhotoreal")}</option>
-              <option value="midjourney">{t("styleMidjourney")}</option>
-              <option value="sd">{t("styleSd")}</option>
-              <option value="flux">{t("styleFlux")}</option>
-            </select>
-          </label>
-
-          <div className="flex flex-col gap-2">
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500">{t("urlLabel")}</span>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                <input
-                  type="url"
-                  name="image-url"
-                  autoComplete="off"
-                  placeholder={t("urlPlaceholder")}
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void analyzeFromImageUrl(urlInput);
-                    }
-                  }}
-                  className={`min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 ${STV_FOCUS_RING}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => void analyzeFromImageUrl(urlInput)}
-                  className={`shrink-0 rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-100 ring-1 ring-white/10 transition hover:bg-zinc-700 ${STV_FOCUS_RING}`}
-                >
-                  {t("urlSubmit")}
-                </button>
-              </div>
-            </label>
-          </div>
-
           <div
             role="button"
             tabIndex={0}
-            className={`flex min-h-[160px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 px-4 py-8 text-center transition-colors hover:border-indigo-500/50 hover:bg-zinc-900/80 ${STV_FOCUS_RING}`}
+            className={`flex min-h-[11rem] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 px-4 py-8 text-center transition-colors hover:border-indigo-500/50 hover:bg-zinc-900/80 sm:min-h-[10rem] ${STV_FOCUS_RING}`}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
@@ -389,7 +345,7 @@ export function PromptSceneLiteWidget() {
                 e.stopPropagation();
                 fileInputRef.current?.click();
               }}
-              className={`mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 ${STV_FOCUS_RING}`}
+              className={`mt-4 inline-flex min-h-11 min-w-[10rem] items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500 ${STV_FOCUS_RING}`}
             >
               {t("chooseFile")}
             </button>
@@ -405,6 +361,86 @@ export function PromptSceneLiteWidget() {
               }}
             />
           </div>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500">{t("styleLabel")}</span>
+            <select
+              value={style}
+              onChange={(e) => setStyle(e.target.value as AnalyzeStyle)}
+              className={`min-h-11 w-full rounded-lg border border-white/[0.1] bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 ${STV_FOCUS_RING}`}
+            >
+              <option value="photoreal">{t("stylePhotoreal")}</option>
+              <option value="midjourney">{t("styleMidjourney")}</option>
+              <option value="sd">{t("styleSd")}</option>
+              <option value="flux">{t("styleFlux")}</option>
+            </select>
+          </label>
+
+          <details className="group rounded-xl border border-white/[0.08] bg-zinc-900/40 sm:hidden">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium text-zinc-200 [&::-webkit-details-marker]:hidden">
+              {t("urlSectionToggle")}
+              <span className="shrink-0 text-zinc-500 transition-transform duration-200 group-open:rotate-180" aria-hidden>
+                ▼
+              </span>
+            </summary>
+            <div className="border-t border-white/[0.06] p-3 pt-2">
+              <div className="flex flex-col gap-2">
+                <input
+                  type="url"
+                  name="image-url"
+                  autoComplete="off"
+                  placeholder={t("urlPlaceholder")}
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void analyzeFromImageUrl(urlInput);
+                    }
+                  }}
+                  className={`min-h-11 min-w-0 w-full rounded-lg border border-white/[0.1] bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 ${STV_FOCUS_RING}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => void analyzeFromImageUrl(urlInput)}
+                  className={`inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-white/10 transition hover:bg-zinc-700 ${STV_FOCUS_RING}`}
+                >
+                  {t("urlSubmit")}
+                </button>
+              </div>
+            </div>
+          </details>
+
+          <div className="hidden sm:block">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500">{t("urlLabel")}</span>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                <input
+                  type="url"
+                  name="image-url-desktop"
+                  autoComplete="off"
+                  placeholder={t("urlPlaceholder")}
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void analyzeFromImageUrl(urlInput);
+                    }
+                  }}
+                  className={`min-h-11 min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 ${STV_FOCUS_RING}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => void analyzeFromImageUrl(urlInput)}
+                  className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-white/10 transition hover:bg-zinc-700 ${STV_FOCUS_RING}`}
+                >
+                  {t("urlSubmit")}
+                </button>
+              </div>
+            </label>
+          </div>
+
           <p className="text-xs text-zinc-600">{t("pasteHint")}</p>
         </div>
       ) : null}
@@ -422,26 +458,27 @@ export function PromptSceneLiteWidget() {
       ) : null}
 
       {panel === "result" && previewUrl ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex min-h-0 flex-col gap-4">
           <ImagePreviewFrame src={previewUrl} />
-          <div>
+          <div className="min-h-0">
             <div className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">{t("resultTitle")}</div>
-            <pre className="max-h-[min(40vh,22rem)] overflow-auto whitespace-pre-wrap rounded-lg border border-white/[0.08] bg-zinc-900/80 p-3 text-xs leading-relaxed text-zinc-200 sm:text-sm">
+            <pre className="max-h-[min(40vh,22rem)] min-h-0 overflow-auto whitespace-pre-wrap rounded-lg border border-white/[0.08] bg-zinc-900/80 p-3 text-xs leading-relaxed text-zinc-200 sm:text-sm">
               {promptText}
             </pre>
+            <p className="mt-1.5 text-center text-[0.65rem] text-zinc-600 sm:hidden">{t("resultScrollHint")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => void copyPrompt()}
-              className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 ${STV_FOCUS_RING}`}
+              className={`inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 ${STV_FOCUS_RING}`}
             >
               {t("copy")}
             </button>
             <button
               type="button"
               onClick={resetEmpty}
-              className={`rounded-lg border border-white/[0.12] px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800 ${STV_FOCUS_RING}`}
+              className={`inline-flex min-h-11 items-center justify-center rounded-lg border border-white/[0.12] px-5 py-2.5 text-sm text-zinc-200 hover:bg-zinc-800 ${STV_FOCUS_RING}`}
             >
               {t("tryAgain")}
             </button>
@@ -456,7 +493,7 @@ export function PromptSceneLiteWidget() {
           <button
             type="button"
             onClick={resetEmpty}
-            className={`self-start rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 ${STV_FOCUS_RING}`}
+            className={`inline-flex min-h-11 items-center justify-center self-start rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 ${STV_FOCUS_RING}`}
           >
             {t("tryAgain")}
           </button>
