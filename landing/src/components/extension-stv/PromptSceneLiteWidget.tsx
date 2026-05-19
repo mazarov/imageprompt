@@ -1,8 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import {
+  appendLiteRecognitionHistory,
+  EXTENSION_LITE_RECOGNITION_HISTORY_KEY,
+  listLiteRecognitionHistory,
+  type LiteRecognitionEntry,
+} from "@/lib/extension-lite-recognition-history";
 import { STV_FOCUS_RING } from "./stv-marketing-shared";
+
+const HISTORY_HASH_PREFIX = "#extension-lite-history";
 
 const STORAGE_KEY = "extension_lite_pending";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -11,6 +19,8 @@ const API_PATH = "/api/extension/analyze";
 type AnalyzeStyle = "photoreal" | "midjourney" | "sd" | "flux";
 
 type Panel = "empty" | "loading" | "result" | "error";
+
+type MainTab = "analyze" | "history";
 
 function looksLikeHttpImageUrl(s: string): boolean {
   try {
@@ -70,6 +80,7 @@ async function resizeImageFileToDataUrl(file: Blob, maxPx = 1024, quality = 0.85
 
 export function PromptSceneLiteWidget() {
   const t = useTranslations("PromptSceneLite");
+  const [mainTab, setMainTab] = useState<MainTab>("analyze");
   const [panel, setPanel] = useState<Panel>("empty");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [promptText, setPromptText] = useState("");
@@ -77,11 +88,57 @@ export function PromptSceneLiteWidget() {
   const [notice, setNotice] = useState("");
   const [style, setStyle] = useState<AnalyzeStyle>("photoreal");
   const [urlInput, setUrlInput] = useState("");
+  const [historyTick, setHistoryTick] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ranPendingRef = useRef(false);
 
-  const analyze = useCallback(
-    async (dataUrl: string) => {
+  const bumpHistory = useCallback(() => setHistoryTick((n) => n + 1), []);
+
+  const historyItems = useMemo(() => {
+    void historyTick;
+    return listLiteRecognitionHistory();
+  }, [historyTick]);
+
+  const showHistoryTab = historyItems.length >= 1;
+
+  /** Deep link from extension popup (same hash as production home). */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const applyHash = () => {
+      if (
+        window.location.hash === HISTORY_HASH_PREFIX &&
+        showHistoryTab &&
+        mainTab !== "history"
+      ) {
+        setMainTab("history");
+      }
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, [showHistoryTab, mainTab]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onExt = () => bumpHistory();
+    window.addEventListener("extension-lite-recognition-history", onExt);
+    const onStorage = (e: StorageEvent) => {
+      if (
+        e.storageArea === window.localStorage &&
+        e.key === EXTENSION_LITE_RECOGNITION_HISTORY_KEY
+      ) {
+        bumpHistory();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("extension-lite-recognition-history", onExt);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [bumpHistory]);
+
+  const analyzeDataUrlWithStyle = useCallback(
+    async (dataUrl: string, styleUsed: AnalyzeStyle) => {
       setPanel("loading");
       setPreviewUrl(dataUrl);
       setErrorMessage("");
@@ -91,7 +148,7 @@ export function PromptSceneLiteWidget() {
         res = await fetch(API_PATH, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image_base64: dataUrl, style }),
+          body: JSON.stringify({ image_base64: dataUrl, style: styleUsed }),
           credentials: "omit",
         });
       } catch {
@@ -125,19 +182,27 @@ export function PromptSceneLiteWidget() {
         return;
       }
 
+      appendLiteRecognitionHistory({
+        style: styleUsed,
+        prompt: data.prompt,
+        image: { mode: "data_url", dataUrl },
+      });
+      bumpHistory();
+
       setPromptText(data.prompt);
       setPanel("result");
     },
-    [style, t],
+    [bumpHistory, t],
   );
 
-  const analyzeFromImageUrl = useCallback(
-    async (imageUrl: string) => {
+  const analyzeImageUrlWithStyle = useCallback(
+    async (imageUrl: string, styleUsed: AnalyzeStyle) => {
       const trimmed = imageUrl.trim();
       if (!looksLikeHttpImageUrl(trimmed)) {
         setNotice(t("errorInvalidUrl"));
         return;
       }
+      setMainTab("analyze");
       setNotice("");
       setPanel("loading");
       setPreviewUrl(trimmed);
@@ -148,7 +213,7 @@ export function PromptSceneLiteWidget() {
         res = await fetch(API_PATH, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image_url: trimmed, style }),
+          body: JSON.stringify({ image_url: trimmed, style: styleUsed }),
           credentials: "omit",
         });
       } catch {
@@ -182,10 +247,27 @@ export function PromptSceneLiteWidget() {
         return;
       }
 
+      appendLiteRecognitionHistory({
+        style: styleUsed,
+        prompt: data.prompt,
+        image: { mode: "image_url", imageUrl: trimmed },
+      });
+      bumpHistory();
+
       setPromptText(data.prompt);
       setPanel("result");
     },
-    [style, t],
+    [bumpHistory, t],
+  );
+
+  const analyzeFromCurrentStyleDataUrl = useCallback(
+    (dataUrl: string) => analyzeDataUrlWithStyle(dataUrl, style),
+    [analyzeDataUrlWithStyle, style],
+  );
+
+  const analyzeFromCurrentStyleUrl = useCallback(
+    (imageUrl: string) => analyzeImageUrlWithStyle(imageUrl, style),
+    [analyzeImageUrlWithStyle, style],
   );
 
   const tryConsumePendingFromStorage = useCallback(async () => {
@@ -217,10 +299,11 @@ export function PromptSceneLiteWidget() {
       return;
     }
     if (parsed.dataUrl && typeof parsed.dataUrl === "string") {
+      setMainTab("analyze");
       setPreviewUrl(parsed.dataUrl);
-      await analyze(parsed.dataUrl);
+      await analyzeFromCurrentStyleDataUrl(parsed.dataUrl);
     }
-  }, [analyze, t]);
+  }, [analyzeFromCurrentStyleDataUrl, t]);
 
   // Extension content script may fill sessionStorage after first paint; poll briefly so
   // we do not miss a one-shot CustomEvent if it fired before this listener attached.
@@ -248,6 +331,7 @@ export function PromptSceneLiteWidget() {
   }, [tryConsumePendingFromStorage]);
 
   const handleFile = useCallback(async (file: File) => {
+    setMainTab("analyze");
     setNotice("");
     if (!file.type.startsWith("image/")) {
       setNotice(t("invalidType"));
@@ -264,11 +348,11 @@ export function PromptSceneLiteWidget() {
       setNotice(t("readFailed"));
       return;
     }
-    await analyze(dataUrl);
-  }, [analyze, t]);
+    await analyzeFromCurrentStyleDataUrl(dataUrl);
+  }, [analyzeFromCurrentStyleDataUrl, t]);
 
   useEffect(() => {
-    if (panel !== "empty") return;
+    if (panel !== "empty" || mainTab !== "analyze") return;
     const onPaste = (e: ClipboardEvent) => {
       const item = Array.from(e.clipboardData?.items ?? []).find((i) => i.type.startsWith("image/"));
       if (item) {
@@ -281,12 +365,12 @@ export function PromptSceneLiteWidget() {
       const text = e.clipboardData?.getData("text/plain")?.trim() ?? "";
       if (text && looksLikeHttpImageUrl(text)) {
         e.preventDefault();
-        void analyzeFromImageUrl(text);
+        void analyzeFromCurrentStyleUrl(text);
       }
     };
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
-  }, [panel, handleFile, analyzeFromImageUrl]);
+  }, [panel, mainTab, handleFile, analyzeFromCurrentStyleUrl]);
 
   const resetEmpty = () => {
     setPanel("empty");
@@ -306,11 +390,111 @@ export function PromptSceneLiteWidget() {
     }
   };
 
+  const copyHistoryPrompt = async (prompt: string) => {
+    if (!prompt) return;
+    try {
+      await navigator.clipboard.writeText(prompt);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const historyThumbnailSrc = (entry: LiteRecognitionEntry) =>
+    entry.image.mode === "image_url" ? entry.image.imageUrl : entry.image.dataUrl;
+
+  const recognizeAgainFromHistory = useCallback(
+    (entry: LiteRecognitionEntry) => {
+      setMainTab("analyze");
+      if (entry.image.mode === "image_url") {
+        void analyzeImageUrlWithStyle(entry.image.imageUrl, entry.style);
+      } else {
+        void analyzeDataUrlWithStyle(entry.image.dataUrl, entry.style);
+      }
+    },
+    [analyzeDataUrlWithStyle, analyzeImageUrlWithStyle],
+  );
+
   return (
     <div className="w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-zinc-950/80 p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl shadow-black/30 backdrop-blur-sm sm:p-5">
-      {notice ? <p className="mb-3 text-sm text-amber-400/90">{notice}</p> : null}
+      <div className="mb-4 flex flex-wrap gap-1 rounded-lg bg-zinc-900/60 p-1 ring-1 ring-white/[0.06]">
+        <button
+          type="button"
+          onClick={() => setMainTab("analyze")}
+          className={`min-h-10 flex-1 rounded-md px-3 text-sm font-medium transition sm:flex-none ${STV_FOCUS_RING} ${
+            mainTab === "analyze"
+              ? "bg-indigo-600 text-white shadow"
+              : "text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-100"
+          }`}
+        >
+          {t("tabAnalyze")}
+        </button>
+        {showHistoryTab ? (
+          <button
+            type="button"
+            onClick={() => setMainTab("history")}
+            className={`min-h-10 flex-1 rounded-md px-3 text-sm font-medium transition sm:flex-none ${STV_FOCUS_RING} ${
+              mainTab === "history"
+                ? "bg-indigo-600 text-white shadow"
+                : "text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-100"
+            }`}
+          >
+            {t("tabHistory")}
+          </button>
+        ) : null}
+      </div>
 
-      {panel === "empty" ? (
+      {mainTab === "history" ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-xs text-zinc-500">{t("historyIntro")}</p>
+          <ul className="max-h-[min(60vh,28rem)] list-none space-y-3 overflow-y-auto pr-0.5">
+            {historyItems.map((entry) => (
+              <li
+                key={entry.id}
+                className="flex gap-3 rounded-xl border border-white/[0.08] bg-zinc-900/50 p-3 ring-1 ring-white/[0.04]"
+              >
+                <div className="relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-lg bg-zinc-950/80 ring-1 ring-white/[0.06]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={historyThumbnailSrc(entry)}
+                    alt=""
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[0.65rem] font-medium uppercase tracking-wide text-zinc-500">
+                    {new Date(entry.createdAt).toLocaleString(undefined, {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
+                    <span className="ml-2 normal-case text-zinc-600">{entry.style}</span>
+                  </p>
+                  <p className="mt-1 line-clamp-3 text-xs leading-snug text-zinc-300">{entry.prompt}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => recognizeAgainFromHistory(entry)}
+                      className={`inline-flex min-h-9 items-center justify-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 ${STV_FOCUS_RING}`}
+                    >
+                      {t("historyRecognizeAgain")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void copyHistoryPrompt(entry.prompt)}
+                      className={`inline-flex min-h-9 items-center justify-center rounded-lg border border-white/[0.12] px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 ${STV_FOCUS_RING}`}
+                    >
+                      {t("historyCopyPrompt")}
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <>
+          {notice ? <p className="mb-3 text-sm text-amber-400/90">{notice}</p> : null}
+
+          {panel === "empty" ? (
         <div className="flex flex-col gap-4">
           <div
             role="button"
@@ -395,14 +579,14 @@ export function PromptSceneLiteWidget() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      void analyzeFromImageUrl(urlInput);
+                      void analyzeFromCurrentStyleUrl(urlInput);
                     }
                   }}
                   className={`min-h-11 min-w-0 w-full rounded-lg border border-white/[0.1] bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 ${STV_FOCUS_RING}`}
                 />
                 <button
                   type="button"
-                  onClick={() => void analyzeFromImageUrl(urlInput)}
+                  onClick={() => void analyzeFromCurrentStyleUrl(urlInput)}
                   className={`inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-white/10 transition hover:bg-zinc-700 ${STV_FOCUS_RING}`}
                 >
                   {t("urlSubmit")}
@@ -425,14 +609,14 @@ export function PromptSceneLiteWidget() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      void analyzeFromImageUrl(urlInput);
+                      void analyzeFromCurrentStyleUrl(urlInput);
                     }
                   }}
                   className={`min-h-11 min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 ${STV_FOCUS_RING}`}
                 />
                 <button
                   type="button"
-                  onClick={() => void analyzeFromImageUrl(urlInput)}
+                  onClick={() => void analyzeFromCurrentStyleUrl(urlInput)}
                   className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-white/10 transition hover:bg-zinc-700 ${STV_FOCUS_RING}`}
                 >
                   {t("urlSubmit")}
@@ -500,6 +684,8 @@ export function PromptSceneLiteWidget() {
         </div>
       ) : null}
 
+        </>
+      )}
     </div>
   );
 }

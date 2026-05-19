@@ -458,7 +458,12 @@
     "urlSectionToggle": "Paste image URL (https://…)",
     "urlPlaceholder": "https://example.com/image.jpg",
     "urlSubmit": "Analyze URL",
-    "errorInvalidUrl": "Enter a valid http(s) link to an image."
+    "errorInvalidUrl": "Enter a valid http(s) link to an image.",
+    "tabAnalyze": "Analyze",
+    "tabHistory": "Recognition history",
+    "historyIntro": "Runs saved in this browser on imageprompt.tools. Repeat an image with one click.",
+    "historyRecognizeAgain": "Analyze again",
+    "historyCopyPrompt": "Copy prompt"
   },
   "BlogAiPromptExamples": {
     "kicker": "Guide",

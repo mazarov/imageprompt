@@ -6,6 +6,7 @@ const API_ORIGIN =
   "https://imageprompt.tools";
 const API_URL = `${API_ORIGIN}/api/extension/analyze`;
 const PENDING_IMAGE_KEY = "pending_image";
+const SITE_HISTORY_URL = "https://imageprompt.tools/#extension-lite-history";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 // ── DOM refs ──
@@ -23,7 +24,9 @@ const errorBanner     = document.getElementById("error-banner");
 const errorMessage    = document.getElementById("error-message");
 const btnCopy         = document.getElementById("btn-copy");
 const btnRetry        = document.getElementById("btn-retry");
+const btnOpenHistorySite = document.getElementById("btn-open-history-site");
 const btnErrorRetry   = document.getElementById("btn-error-retry");
+const btnChooseFile   = document.getElementById("btn-choose-file");
 const btnOpenSite     = document.getElementById("btn-open-site");
 const fileInput       = document.getElementById("file-input");
 const dropzone        = document.getElementById("dropzone");
@@ -78,6 +81,16 @@ function bindEvents() {
     filePickIntent = "open_site";
     fileInput.click();
   });
+
+  if (btnOpenHistorySite) {
+    btnOpenHistorySite.addEventListener("click", () => {
+      try {
+        chrome.tabs.create({ url: SITE_HISTORY_URL });
+      } catch (e) {
+        console.warn("[aid] open history tab", e);
+      }
+    });
+  }
 
   // File input change
   fileInput.addEventListener("change", async () => {
@@ -243,7 +256,29 @@ async function analyze(dataUrl) {
     return;
   }
 
-  showResult(dataUrl, data.prompt);
+  showResult(dataUrl, data.prompt, style);
+}
+
+/** @typedef {{ id: string; createdAt: string; style: string; prompt: string; image: { mode: "data_url"; dataUrl: string } }}} LiteHistoryEntry */
+
+function createLiteHistoryEntry(dataUrl, style, prompt) {
+  const id =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  return {
+    id,
+    createdAt: new Date().toISOString(),
+    style,
+    prompt,
+    image: { mode: "data_url", dataUrl },
+  };
+}
+
+function sendLiteHistoryToSite(entry) {
+  chrome.runtime
+    .sendMessage({ type: "LITE_HISTORY_APPEND", entry })
+    .catch((e) => console.warn("[aid] LITE_HISTORY_APPEND failed", e));
 }
 
 // ── Panel helpers ──
@@ -258,12 +293,14 @@ function showLoading(dataUrl) {
   showPanel("loading");
 }
 
-function showResult(dataUrl, prompt) {
+function showResult(dataUrl, prompt, styleUsed) {
   currentPrompt = prompt;
   resultPreview.src = dataUrl;
   promptBox.textContent = prompt;
   errorBanner.hidden = true;
   showPanel("result");
+
+  sendLiteHistoryToSite(createLiteHistoryEntry(dataUrl, styleUsed || "photoreal", prompt));
 }
 
 function showFullError(message) {

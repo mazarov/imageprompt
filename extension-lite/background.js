@@ -4,9 +4,20 @@ const PENDING_IMAGE_KEY = "pending_image";
 const CONTEXT_MENU_ID = "analyze-image";
 const CONTEXT_OPEN_SITE = "open-imageprompt-with-image";
 const WEB_PENDING_STORAGE_KEY = "extension_lite_web_pending";
+const HISTORY_QUEUE_KEY = "extension_lite_history_queue_v1";
+const MAX_HISTORY_QUEUE_ENTRIES = 45;
 const MAX_SW_FETCH_BYTES = 10 * 1024 * 1024;
 
 const SITE_URL = "https://imageprompt.tools/";
+
+/** Hosts where lite content-script runs — keep in sync with manifest.json matches. */
+function isLiteHost(hostname) {
+  return (
+    hostname === "imageprompt.tools" ||
+    hostname === "localhost" ||
+    hostname === "127.0.0.1"
+  );
+}
 
 // Register context menus once on install / service worker startup.
 chrome.runtime.onInstalled.addListener(() => {
@@ -29,6 +40,31 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     openSiteWithPendingImage(msg.dataUrl)
       .then(() => sendResponse({ ok: true }))
       .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    return true;
+  }
+  if (msg?.type === "LITE_HISTORY_APPEND" && msg.entry != null) {
+    void relayOrQueueLiteHistoryEntry(msg.entry)
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    return true;
+  }
+  if (msg?.type === "CONSUME_LITE_HISTORY_QUEUE") {
+    chrome.storage.local.get(HISTORY_QUEUE_KEY, (data) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError.message, entries: [] });
+        return;
+      }
+      const entries = Array.isArray(data?.[HISTORY_QUEUE_KEY]?.entries)
+        ? data[HISTORY_QUEUE_KEY].entries
+        : [];
+      chrome.storage.local.remove(HISTORY_QUEUE_KEY, () => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ ok: false, error: chrome.runtime.lastError.message, entries: [] });
+          return;
+        }
+        sendResponse({ ok: true, entries });
+      });
+    });
     return true;
   }
   // Content scripts cannot reliably read chrome.storage.session — pop pending in the SW.
@@ -55,6 +91,66 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   return false;
 });
+
+/**
+ * Persist recognition on the site origin: try all matching tabs via content-script;
+ * if none ACK, queue until a tab loads content-bridge.
+ */
+async function relayOrQueueLiteHistoryEntry(entry) {
+  try {
+    const tabs = await chrome.tabs.query({});
+    let delivered = false;
+    await Promise.all(
+      tabs.map(async (tab) => {
+        try {
+          const raw = tab.url || "";
+          let hostname = "";
+          try {
+            hostname = new URL(raw).hostname;
+          } catch {
+            return;
+          }
+          if (!isLiteHost(hostname) || tab.id == null) return;
+          const ack = await chrome.tabs.sendMessage(tab.id, {
+            type: "LITE_HISTORY_APPEND",
+            entry,
+          });
+          if (ack?.ok) delivered = true;
+        } catch {
+          /** tab has no injected listener yet */
+        }
+      }),
+    );
+    if (!delivered) await enqueueLiteHistory(entry);
+  } catch (err) {
+    console.warn("[ai-image-describer] history relay failed", err?.message ?? err);
+    await enqueueLiteHistory(entry);
+  }
+}
+
+function dedupeQueuedEntries(entries) {
+  const seen = new Set();
+  const out = [];
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const e = entries[i];
+    const id = e?.id;
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.unshift(e);
+  }
+  if (out.length > MAX_HISTORY_QUEUE_ENTRIES) {
+    return out.slice(out.length - MAX_HISTORY_QUEUE_ENTRIES);
+  }
+  return out;
+}
+
+async function enqueueLiteHistory(entry) {
+  const prev = await chrome.storage.local.get(HISTORY_QUEUE_KEY);
+  const merged = dedupeQueuedEntries([...(prev?.[HISTORY_QUEUE_KEY]?.entries ?? []), entry]);
+  await chrome.storage.local.set({
+    [HISTORY_QUEUE_KEY]: { entries: merged, ts: Date.now() },
+  });
+}
 
 async function openSiteWithPendingImage(dataUrl) {
   await chrome.storage.session.set({
