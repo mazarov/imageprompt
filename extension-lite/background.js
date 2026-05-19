@@ -31,6 +31,28 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
     return true;
   }
+  // Content scripts cannot reliably read chrome.storage.session — pop pending in the SW.
+  if (msg?.type === "CONSUME_WEB_PENDING") {
+    chrome.storage.session.get(WEB_PENDING_STORAGE_KEY, (data) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+        return;
+      }
+      const payload = data?.[WEB_PENDING_STORAGE_KEY];
+      if (!payload) {
+        sendResponse({ ok: true, payload: null });
+        return;
+      }
+      chrome.storage.session.remove(WEB_PENDING_STORAGE_KEY, () => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+        sendResponse({ ok: true, payload });
+      });
+    });
+    return true;
+  }
   return false;
 });
 

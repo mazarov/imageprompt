@@ -222,8 +222,21 @@ export function PromptSceneLiteWidget() {
     }
   }, [analyze, t]);
 
+  // Extension content script may fill sessionStorage after first paint; poll briefly so
+  // we do not miss a one-shot CustomEvent if it fired before this listener attached.
   useEffect(() => {
-    void tryConsumePendingFromStorage();
+    let cancelled = false;
+    const run = async () => {
+      for (let i = 0; i < 25 && !cancelled; i++) {
+        await tryConsumePendingFromStorage();
+        if (ranPendingRef.current) break;
+        if (i < 24) await new Promise((r) => setTimeout(r, 120));
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
   }, [tryConsumePendingFromStorage]);
 
   useEffect(() => {
