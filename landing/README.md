@@ -25,6 +25,8 @@ npm run build
 npm start
 ```
 
+Если в dev после правок появляется **`Cannot find module './….js'`** (битый webpack-чанк), остановите сервер, выполните **`rm -rf .next`** в каталоге **`landing/`** и снова **`npm run dev`**.
+
 ## Сборка (`npm run build`)
 
 - Запуск из каталога **`landing/`**.

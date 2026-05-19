@@ -4,12 +4,10 @@ import { Inter } from "next/font/google";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
-import { routing } from "@/i18n/routing";
+import { type AppLocale, routing } from "@/i18n/routing";
 import { DebugProvider } from "@/components/DebugFAB";
 import { AuthProvider } from "@/context/AuthContext";
 import { GenerationProvider } from "@/context/GenerationContext";
-import { AuthModal } from "@/components/AuthModal";
-import { GenerationModal } from "@/components/GenerationModal";
 import { STV_APP_SHELL_CLASS } from "@/lib/stv-app-theme";
 
 const inter = Inter({
@@ -60,7 +58,7 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }>) {
   const { locale } = await params;
-  if (!routing.locales.includes(locale as "en" | "ru")) {
+  if (!routing.locales.includes(locale as AppLocale)) {
     notFound();
   }
   setRequestLocale(locale);
@@ -72,12 +70,8 @@ export default async function LocaleLayout({
         <NextIntlClientProvider messages={messages}>
           <AuthProvider>
             <DebugProvider>
-              <GenerationProvider>
-                {children}
-                <GenerationModal />
-              </GenerationProvider>
+              <GenerationProvider>{children}</GenerationProvider>
             </DebugProvider>
-            <AuthModal />
           </AuthProvider>
         </NextIntlClientProvider>
 

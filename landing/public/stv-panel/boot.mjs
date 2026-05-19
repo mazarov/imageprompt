@@ -1581,7 +1581,7 @@ function normalizeUiError(err, fallbackText) {
   const code = String(payload?.error || "").toLowerCase();
   const message = String(payload?.message || "").trim();
   const status = Number(err.status || 0);
-  if (status === 401 || status === 403 || code === "unauthorized") {
+  if (status === 401 || code === "unauthorized") {
     return t("err_session");
   }
   if (code === "insufficient_credits") {
@@ -2098,7 +2098,7 @@ async function api(path, init = {}) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       await clearAppJwtStorage();
       state.user = null;
       state.credits = 0;
@@ -2220,12 +2220,51 @@ async function loadConfig() {
   } catch {
   }
 }
+function uploadedStoragePathBelongsToUser(storagePath, userId) {
+  if (typeof storagePath !== "string" || typeof userId !== "string") return false;
+  const i = storagePath.indexOf("/");
+  if (i < 1) return false;
+  const folder = storagePath.slice(0, i);
+  return folder.toLowerCase() === userId.toLowerCase();
+}
+function prunePersistedUploadsNotOwnedByUser() {
+  const uid = state.user?.id;
+  if (!uid || rt().platform.id !== "chrome") return false;
+  const prevLen = state.userPhotos.length;
+  const refMustClear = Boolean(state.referencePhoto?.storagePath) && !uploadedStoragePathBelongsToUser(state.referencePhoto.storagePath, uid);
+  const nextPhotos = [];
+  for (const p of state.userPhotos) {
+    if (!p?.storagePath) {
+      nextPhotos.push(p);
+      continue;
+    }
+    if (uploadedStoragePathBelongsToUser(p.storagePath, uid)) {
+      nextPhotos.push(p);
+    } else if (p.previewObjectUrl) {
+      try {
+        URL.revokeObjectURL(p.previewObjectUrl);
+      } catch {
+      }
+    }
+  }
+  state.userPhotos = nextPhotos;
+  if (refMustClear) {
+    clearReferenceUpload();
+  }
+  return nextPhotos.length !== prevLen || refMustClear;
+}
 async function checkAuth() {
   try {
     const data = await api("/api/me");
     state.user = data.user || null;
     state.credits = Number(data.credits || 0);
     state.error = "";
+    if (state.user?.id) {
+      const pruned = prunePersistedUploadsNotOwnedByUser();
+      if (pruned) {
+        await persistState();
+      }
+    }
   } catch (err) {
     state.user = null;
     state.credits = 0;
@@ -2355,9 +2394,45 @@ async function resolveExtractImageUrl() {
   }
   return state.sourceImageUrl;
 }
+var MAX_CLIENT_IMAGE_BYTES = 10 * 1024 * 1024;
+async function tryFetchImageInlineClient(url) {
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8" },
+      signal: AbortSignal.timeout(15e3)
+    });
+    if (!res.ok) return null;
+    const ct = String(res.headers.get("content-type") || "");
+    if (!ct.startsWith("image/")) return null;
+    const cl = Number(res.headers.get("content-length") || 0);
+    if (cl > 0 && cl > MAX_CLIENT_IMAGE_BYTES) return null;
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength > MAX_CLIENT_IMAGE_BYTES) return null;
+    const raw = String(ct.split(";")[0].trim().toLowerCase());
+    const mimeType = raw === "image/png" || raw === "image/webp" ? raw : "image/jpeg";
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    const chunk = 8192;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + chunk, bytes.length)));
+    }
+    return { mimeType, base64: btoa(binary) };
+  } catch {
+    return null;
+  }
+}
 async function runExtract() {
   const imageUrl = await resolveExtractImageUrl();
   const extractBody = { imageUrl };
+  if (!state.referencePhoto?.storagePath && imageUrl) {
+    const inline = await tryFetchImageInlineClient(imageUrl);
+    if (inline) {
+      extractBody.imageBase64 = inline.base64;
+      extractBody.imageMimeType = inline.mimeType;
+    } else {
+      console.warn("[stv.extract] client_fetch_fallback \u2014 server will try", { imageUrl });
+    }
+  }
   const et = normalizePersistedExtractTemperature(state.extractTemperature);
   if (et !== null) {
     extractBody.extractTemperature = et;

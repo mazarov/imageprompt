@@ -3,10 +3,12 @@
   "name": "Ai Image Describer",
   "version": "0.1.0",
   "description": "Get a ready-to-use AI prompt from any image. One click, no signup.",
-  "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
+  "permissions": ["contextMenus", "storage", "activeTab", "scripting", "tabs"],
   "host_permissions": [
     "<all_urls>",
-    "https://imageprompt.tools/*"
+    "https://imageprompt.tools/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -15,5 +17,16 @@
   "action": {
     "default_popup": "popup.html",
     "default_title": "Ai Image Describer"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://imageprompt.tools/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["content-bridge.js"],
+      "run_at": "document_start"
+    }
+  ]
 }

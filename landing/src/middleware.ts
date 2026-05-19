@@ -4,7 +4,6 @@ import { routing } from "./i18n/routing";
 
 const intlMiddleware = createMiddleware(routing);
 
-const OLD_SLUG_RE = /^\/(?:ru\/)?p\/([^/]+)\/?$/;
 const DEFAULT_ALLOWED_METHODS = "GET, POST, OPTIONS";
 const DEFAULT_ALLOWED_HEADERS = "Content-Type, Authorization";
 
@@ -13,10 +12,12 @@ function parseAllowedOrigins(): string[] {
     .split(",")
     .map((v) => v.trim())
     .filter(Boolean);
-  const extensionId = (process.env.CHROME_EXTENSION_ID || "").trim();
-  const extensionOrigin = extensionId ? `chrome-extension://${extensionId}` : "";
+  const extIds = [process.env.CHROME_EXTENSION_ID, process.env.CHROME_EXTENSION_ID_LITE]
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter(Boolean);
+  const extensionOrigins = extIds.map((id) => `chrome-extension://${id}`);
 
-  return [...fromEnv, extensionOrigin].filter(Boolean);
+  return [...fromEnv, ...extensionOrigins].filter(Boolean);
 }
 
 function isApiRequest(request: NextRequest): boolean {
@@ -39,41 +40,12 @@ function applyCorsHeaders(request: NextRequest, response: NextResponse): NextRes
   return response;
 }
 
-async function resolveSlugRedirect(slug: string): Promise<string | null> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  try {
-    const res = await fetch(
-      `${url}/rest/v1/slug_redirects?old_slug=eq.${encodeURIComponent(slug)}&select=new_slug&limit=1`,
-      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
-    );
-    if (!res.ok) return null;
-    const rows = await res.json();
-    return rows[0]?.new_slug ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export async function middleware(request: NextRequest) {
   if (isApiRequest(request)) {
     if (request.method === "OPTIONS") {
       return applyCorsHeaders(request, new NextResponse(null, { status: 204 }));
     }
     return applyCorsHeaders(request, NextResponse.next({ request }));
-  }
-
-  const pathname = request.nextUrl.pathname;
-  const slugMatch = OLD_SLUG_RE.exec(pathname);
-  if (slugMatch) {
-    const slug = slugMatch[1];
-    const newSlug = await resolveSlugRedirect(slug);
-    if (newSlug) {
-      const isRu = pathname.startsWith("/ru/");
-      const prefix = isRu ? "/ru" : "";
-      return NextResponse.redirect(new URL(`${prefix}/p/${newSlug}`, request.url), 301);
-    }
   }
 
   return intlMiddleware(request);

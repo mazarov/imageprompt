@@ -5,7 +5,7 @@ import { ExtensionStvFaq } from "./ExtensionStvFaq";
 import { ExtensionStvHowItWorks } from "./ExtensionStvHowItWorks";
 import { ExtensionStvPricing } from "./ExtensionStvPricing";
 import { ExtensionStvTestimonials } from "./ExtensionStvTestimonials";
-import { PainReferenceVsDraftMock } from "./PainReferenceVsDraftMock";
+import { PromptSceneLiteWidget } from "./PromptSceneLiteWidget";
 
 const ANCHOR_SCROLL = "scroll-mt-[5.5rem]";
 
@@ -45,7 +45,7 @@ export async function ExtensionStvMarketingSections({
       <div id="stv-problem" className={ANCHOR_SCROLL}>
         <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
           <div className="flex flex-col gap-8 sm:gap-10 lg:gap-12">
-            <PainReferenceVsDraftMock />
+            <PromptSceneLiteWidget />
             <div className="max-w-3xl">
               <h2 className="text-2xl font-bold tracking-tight text-zinc-50 sm:text-3xl">{t("problem.title")}</h2>
               <ul className="mt-5 space-y-3 text-zinc-400">

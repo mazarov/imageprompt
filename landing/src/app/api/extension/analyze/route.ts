@@ -185,8 +185,98 @@ function extractBase64AndMime(dataUrl: string): { mimeType: string; data: string
   return { mimeType: match[1], data: match[2] };
 }
 
+const IMAGE_FETCH_TIMEOUT_MS = 20_000;
+const MAX_REDIRECTS = 5;
+
+/** Reduce SSRF risk: block obvious internal / cloud metadata targets (literal hostname only). */
+function isUrlHostAllowedForFetch(u: URL): boolean {
+  const h = u.hostname.toLowerCase();
+  if (h === "localhost" || h.endsWith(".localhost")) return false;
+  if (h === "0.0.0.0") return false;
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  if (ipv4) {
+    const a = Number(ipv4[1]);
+    const b = Number(ipv4[2]);
+    if (a === 10) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+    if (a === 127) return false;
+    if (a === 169 && b === 254) return false;
+    if (a === 100 && b >= 64 && b <= 127) return false;
+    if (a === 0) return false;
+  }
+  if (h === "169.254.169.254" || h.includes("metadata.google")) return false;
+  return true;
+}
+
+async function fetchImageBytesWithRedirects(startUrl: string): Promise<{ buffer: ArrayBuffer; contentType: string | null }> {
+  let url = startUrl.trim();
+  for (let hop = 0; hop < MAX_REDIRECTS; hop++) {
+    let u: URL;
+    try {
+      u = new URL(url);
+    } catch {
+      throw new Error("invalid_url");
+    }
+    if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("invalid_protocol");
+    if (!isUrlHostAllowedForFetch(u)) throw new Error("invalid_host");
+
+    const res = await fetch(u.toString(), {
+      method: "GET",
+      redirect: "manual",
+      signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+      headers: {
+        Accept: "image/*,*/*;q=0.8",
+        "User-Agent": "imageprompt-tools-image-fetch/1.0",
+      },
+    });
+
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) throw new Error("bad_redirect");
+      url = new URL(loc, u).toString();
+      continue;
+    }
+
+    if (!res.ok) throw new Error(`http_${res.status}`);
+
+    const len = res.headers.get("content-length");
+    if (len) {
+      const n = parseInt(len, 10);
+      if (Number.isFinite(n) && n > MAX_IMAGE_BYTES) throw new Error("too_large");
+    }
+
+    const contentType = res.headers.get("content-type");
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength > MAX_IMAGE_BYTES) throw new Error("too_large");
+    return { buffer: buf, contentType };
+  }
+  throw new Error("too_many_redirects");
+}
+
+function sniffImageMime(buffer: ArrayBuffer): "image/jpeg" | "image/png" | "image/webp" | "image/gif" | null {
+  const u8 = new Uint8Array(buffer.byteLength >= 12 ? buffer.slice(0, 12) : buffer);
+  if (u8.length >= 2 && u8[0] === 0xff && u8[1] === 0xd8) return "image/jpeg";
+  if (u8.length >= 8 && u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4e && u8[3] === 0x47) return "image/png";
+  if (u8.length >= 6 && u8[0] === 0x47 && u8[1] === 0x49 && u8[2] === 0x46) return "image/gif";
+  if (u8.length >= 12 && u8[0] === 0x52 && u8[1] === 0x49 && u8[2] === 0x46 && u8[8] === 0x57 && u8[9] === 0x45 && u8[10] === 0x42 && u8[11] === 0x50)
+    return "image/webp";
+  return null;
+}
+
+function resolveMimeFromFetch(contentType: string | null, buffer: ArrayBuffer): { mimeType: string; data: string } | null {
+  const headerMime = contentType?.split(";")[0]?.trim().toLowerCase() ?? "";
+  let mime: string | null = null;
+  if (["image/jpeg", "image/png", "image/webp", "image/gif"].includes(headerMime)) {
+    mime = headerMime;
+  }
+  if (!mime) mime = sniffImageMime(buffer);
+  if (!mime) return null;
+  return { mimeType: mime, data: Buffer.from(buffer).toString("base64") };
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  let body: { image_base64?: unknown; style?: unknown };
+  let body: { image_base64?: unknown; image_url?: unknown; style?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -196,26 +286,88 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { image_base64, style: rawStyle } = body;
+  const { image_base64: rawBase64, image_url: rawUrl, style: rawStyle } = body;
 
-  if (typeof image_base64 !== "string") {
+  const hasBase64 = typeof rawBase64 === "string" && rawBase64.trim().length > 0;
+  const hasUrl = typeof rawUrl === "string" && rawUrl.trim().length > 0;
+
+  if (hasBase64 && hasUrl) {
     return NextResponse.json(
-      { error: "invalid_image", message: "image_base64 must be a string." },
+      { error: "invalid_image", message: "Send either image_base64 or image_url, not both." },
       { status: 400 }
     );
   }
 
-  if (image_base64.length > MAX_BASE64_CHARS) {
+  if (!hasBase64 && !hasUrl) {
     return NextResponse.json(
-      { error: "invalid_image", message: "Image exceeds 10 MB limit." },
+      { error: "invalid_image", message: "Provide image_base64 (data URL) or image_url (https link to an image)." },
       { status: 400 }
     );
   }
 
-  const parsed = extractBase64AndMime(image_base64);
+  let parsed: { mimeType: string; data: string } | null = null;
+
+  if (hasUrl) {
+    const urlStr = String(rawUrl).trim();
+    try {
+      const { buffer, contentType } = await fetchImageBytesWithRedirects(urlStr);
+      parsed = resolveMimeFromFetch(contentType, buffer);
+      if (!parsed) {
+        return NextResponse.json(
+          {
+            error: "invalid_image",
+            message: "URL did not return a supported image (JPEG, PNG, WebP, or GIF).",
+          },
+          { status: 400 }
+        );
+      }
+    } catch (e) {
+      const code = e instanceof Error ? e.message : String(e);
+      if (code === "invalid_url" || code === "invalid_protocol") {
+        return NextResponse.json(
+          { error: "invalid_image", message: "Invalid image URL." },
+          { status: 400 }
+        );
+      }
+      if (code === "invalid_host") {
+        return NextResponse.json(
+          { error: "invalid_image", message: "This URL is not allowed." },
+          { status: 400 }
+        );
+      }
+      if (code === "too_large") {
+        return NextResponse.json(
+          { error: "invalid_image", message: "Image exceeds 10 MB limit." },
+          { status: 400 }
+        );
+      }
+      console.warn("[extension.analyze] image_url fetch failed", { code });
+      return NextResponse.json(
+        { error: "invalid_image", message: "Could not download the image from this URL." },
+        { status: 400 }
+      );
+    }
+  } else {
+    const image_base64 = String(rawBase64);
+    if (image_base64.length > MAX_BASE64_CHARS) {
+      return NextResponse.json(
+        { error: "invalid_image", message: "Image exceeds 10 MB limit." },
+        { status: 400 }
+      );
+    }
+
+    parsed = extractBase64AndMime(image_base64);
+    if (!parsed) {
+      return NextResponse.json(
+        { error: "invalid_image", message: "image_base64 must be a valid data URL (jpeg, png, webp, or gif)." },
+        { status: 400 }
+      );
+    }
+  }
+
   if (!parsed) {
     return NextResponse.json(
-      { error: "invalid_image", message: "image_base64 must be a valid data URL (jpeg, png, or webp)." },
+      { error: "invalid_image", message: "Could not read image bytes." },
       { status: 400 }
     );
   }

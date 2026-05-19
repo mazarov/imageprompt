@@ -17,14 +17,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "Meta" });
   const canonical = absoluteUrl(SITE_URL, "/privacy", locale);
   const enUrl = absoluteUrl(SITE_URL, "/privacy", "en");
-  const ruUrl = absoluteUrl(SITE_URL, "/privacy", "ru");
   return {
     title: t("privacyPageTitle"),
     description: t("privacyPageDescription"),
     robots: "noindex, nofollow",
     alternates: {
       canonical,
-      languages: { en: enUrl, ru: ruUrl },
+      languages: { en: enUrl },
     },
   };
 }

@@ -24,13 +24,15 @@ const errorMessage    = document.getElementById("error-message");
 const btnCopy         = document.getElementById("btn-copy");
 const btnRetry        = document.getElementById("btn-retry");
 const btnErrorRetry   = document.getElementById("btn-error-retry");
-const btnChooseFile   = document.getElementById("btn-choose-file");
+const btnOpenSite     = document.getElementById("btn-open-site");
 const fileInput       = document.getElementById("file-input");
 const dropzone        = document.getElementById("dropzone");
 const styleSelect     = document.getElementById("style-select");
 
 // ── State ──
 let currentPrompt = "";
+/** @type {"analyze" | "open_site"} */
+let filePickIntent = "analyze";
 
 // ── Init ──
 document.addEventListener("DOMContentLoaded", async () => {
@@ -67,13 +69,28 @@ async function checkPendingImage() {
 
 function bindEvents() {
   // Choose file button
-  btnChooseFile.addEventListener("click", () => fileInput.click());
+  btnChooseFile.addEventListener("click", () => {
+    filePickIntent = "analyze";
+    fileInput.click();
+  });
+
+  btnOpenSite.addEventListener("click", () => {
+    filePickIntent = "open_site";
+    fileInput.click();
+  });
 
   // File input change
   fileInput.addEventListener("change", async () => {
     const file = fileInput.files?.[0];
     fileInput.value = ""; // reset so same file can be re-selected
-    if (file) await handleFile(file);
+    if (!file) return;
+    const intent = filePickIntent;
+    filePickIntent = "analyze";
+    if (intent === "open_site") {
+      await handleFileForSite(file);
+      return;
+    }
+    await handleFile(file);
   });
 
   // Drag-and-drop on dropzone
@@ -128,6 +145,35 @@ function bindEvents() {
   // Try another image
   btnRetry.addEventListener("click", () => showPanel("empty"));
   btnErrorRetry.addEventListener("click", () => showPanel("empty"));
+}
+
+async function handleFileForSite(file) {
+  if (!file.type.startsWith("image/")) {
+    showInlineError("Please drop an image file (JPG or PNG).");
+    return;
+  }
+  if (file.size > MAX_FILE_BYTES) {
+    showInlineError("Image exceeds 10 MB limit. Please try a smaller file.");
+    return;
+  }
+
+  let dataUrl;
+  try {
+    dataUrl = await resizeImageInPopup(file, 1024, 0.85);
+  } catch {
+    showInlineError("Something went wrong reading the file. Please try another image.");
+    return;
+  }
+
+  try {
+    const res = await chrome.runtime.sendMessage({ type: "OPEN_SITE_WITH_IMAGE", dataUrl });
+    if (!res?.ok) {
+      showFullError(res?.error || "Could not open the site tab.");
+    }
+  } catch (e) {
+    console.error("[aid] sendMessage failed", e);
+    showFullError("Could not open imageprompt.tools.");
+  }
 }
 
 async function handleFile(file) {

@@ -2,25 +2,64 @@ import { resizeImageToDataUrl } from "./lib/image-utils.js";
 
 const PENDING_IMAGE_KEY = "pending_image";
 const CONTEXT_MENU_ID = "analyze-image";
+const CONTEXT_OPEN_SITE = "open-imageprompt-with-image";
+const WEB_PENDING_STORAGE_KEY = "extension_lite_web_pending";
 const MAX_SW_FETCH_BYTES = 10 * 1024 * 1024;
 
-// Register context menu once on install / service worker startup.
+const SITE_URL = "https://imageprompt.tools/";
+
+// Register context menus once on install / service worker startup.
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: CONTEXT_MENU_ID,
     title: "Get prompt for similar image",
     contexts: ["image"],
   });
+  chrome.contextMenus.create({
+    id: CONTEXT_OPEN_SITE,
+    title: "Open imageprompt.tools with this image",
+    contexts: ["image"],
+  });
 });
 
-// Re-register context menu on service-worker restart (MV3 SWs can be killed).
 chrome.contextMenus.onClicked.addListener(handleContextMenuClick);
 
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type === "OPEN_SITE_WITH_IMAGE" && typeof msg.dataUrl === "string") {
+    openSiteWithPendingImage(msg.dataUrl)
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    return true;
+  }
+  return false;
+});
+
+async function openSiteWithPendingImage(dataUrl) {
+  await chrome.storage.session.set({
+    [WEB_PENDING_STORAGE_KEY]: { dataUrl, ts: Date.now() },
+  });
+  await chrome.tabs.create({ url: SITE_URL });
+}
+
 async function handleContextMenuClick(info, tab) {
-  if (info.menuItemId !== CONTEXT_MENU_ID) return;
+  if (info.menuItemId !== CONTEXT_MENU_ID && info.menuItemId !== CONTEXT_OPEN_SITE) return;
 
   const srcUrl = info.srcUrl;
   if (!srcUrl) return;
+
+  if (info.menuItemId === CONTEXT_OPEN_SITE) {
+    try {
+      const dataUrl = await fetchAndResizeImage(srcUrl, tab?.id);
+      await openSiteWithPendingImage(dataUrl);
+    } catch (err) {
+      console.error("[ai-image-describer] open site: failed to process image", err?.message ?? err);
+      await chrome.storage.session.set({
+        [WEB_PENDING_STORAGE_KEY]: { error: "fetch_failed", ts: Date.now() },
+      });
+      await chrome.tabs.create({ url: SITE_URL });
+    }
+    return;
+  }
 
   try {
     const dataUrl = await fetchAndResizeImage(srcUrl, tab?.id);
@@ -29,13 +68,11 @@ async function handleContextMenuClick(info, tab) {
     });
   } catch (err) {
     console.error("[ai-image-describer] failed to process image", err?.message ?? err);
-    // Store error signal so popup can show a friendly message
     await chrome.storage.session.set({
       [PENDING_IMAGE_KEY]: { error: "fetch_failed", srcUrl, ts: Date.now() },
     });
   }
 
-  // Open popup (Chrome 127+). Silently ignore if unavailable.
   try {
     await chrome.action.openPopup();
   } catch {
@@ -49,7 +86,6 @@ async function handleContextMenuClick(info, tab) {
  * that fetches the image in the page context and returns the blob via messaging.
  */
 async function fetchAndResizeImage(srcUrl, tabId) {
-  // Attempt 1: direct fetch from service worker
   try {
     const res = await fetch(srcUrl, { credentials: "omit" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -59,7 +95,6 @@ async function fetchAndResizeImage(srcUrl, tabId) {
     if (blob.size > MAX_SW_FETCH_BYTES) throw new Error("image_too_large");
     return resizeImageToDataUrl(blob);
   } catch (directErr) {
-    // Attempt 2: CORS fallback via content script injection into the active tab
     if (!tabId) throw directErr;
     return fetchViaContentScript(srcUrl, tabId);
   }
@@ -68,7 +103,6 @@ async function fetchAndResizeImage(srcUrl, tabId) {
 /**
  * Inject a one-shot script into the page that fetches the image in the page's
  * origin context (bypasses CORS) and returns a base64 data URL.
- * Uses synchronous btoa() to avoid nested-Promise serialization issues.
  */
 function fetchViaContentScript(srcUrl, tabId) {
   return new Promise((resolve, reject) => {
@@ -84,14 +118,12 @@ function fetchViaContentScript(srcUrl, tabId) {
             if (!res.ok) return { error: `HTTP ${res.status}` };
             const arrayBuffer = await res.arrayBuffer();
             const bytes = new Uint8Array(arrayBuffer);
-            // Convert to base64 in chunks to avoid stack overflow on large arrays
             const CHUNK = 8192;
             let binary = "";
             for (let i = 0; i < bytes.length; i += CHUNK) {
               binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
             }
             const base64 = btoa(binary);
-            // Detect MIME from first bytes (magic numbers)
             const sig = bytes.slice(0, 4);
             let mime = "image/jpeg";
             if (sig[0] === 0x89 && sig[1] === 0x50) mime = "image/png";
@@ -114,7 +146,7 @@ function fetchViaContentScript(srcUrl, tabId) {
           return reject(new Error(result?.error ?? "no_result"));
         }
         resolve(result.dataUrl);
-      }
+      },
     );
   });
 }
