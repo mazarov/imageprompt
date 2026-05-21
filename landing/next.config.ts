@@ -67,7 +67,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/favicon.ico",
-        destination: "/favicon.svg",
+        destination: "/favicon.png",
         permanent: true,
       },
       // defaultLocale=en uses no URL prefix (`localePrefix: as-needed`); avoid duplicate `/en` URLs

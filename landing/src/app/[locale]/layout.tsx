@@ -44,8 +44,8 @@ export async function generateMetadata({
       follow: false,
     },
     icons: {
-      icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
-      apple: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+      icon: [{ url: "/favicon.png", type: "image/png", sizes: "128x128" }],
+      apple: [{ url: "/favicon.png", type: "image/png", sizes: "128x128" }],
     },
   };
 }

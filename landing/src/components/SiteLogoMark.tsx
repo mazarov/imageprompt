@@ -1,7 +1,7 @@
 import Image from "next/image";
 
-/** Публичный SVG бренда (совпадает с favicon). */
-export const SITE_LOGO_MARK_SRC = "/favicon.svg";
+/** Публичный марк бренда в шапке (тот же файл, что favicon). */
+export const SITE_LOGO_MARK_SRC = "/favicon.png";
 
 type SiteLogoMarkProps = {
   size: number;
