@@ -5,8 +5,11 @@
   "description": "Get a ready-to-use AI prompt from any image. One click, no signup.",
   "icons": {
     "16": "icons/icon16.png",
+    "24": "icons/icon24.png",
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
+    "64": "icons/icon64.png",
+    "96": "icons/icon96.png",
     "128": "icons/icon128.png"
   },
   "permissions": ["contextMenus", "storage", "activeTab", "scripting", "tabs"],
@@ -25,8 +28,11 @@
     "default_title": "AI Image Describer",
     "default_icon": {
       "16": "icons/icon16.png",
+      "24": "icons/icon24.png",
       "32": "icons/icon32.png",
       "48": "icons/icon48.png",
+      "64": "icons/icon64.png",
+      "96": "icons/icon96.png",
       "128": "icons/icon128.png"
     }
   },
