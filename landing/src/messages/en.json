@@ -46,7 +46,9 @@
     "favoritesPageTitle": "Favorites — ImagePrompt",
     "generationsPageTitle": "My generations — ImagePrompt",
     "privacyPageTitle": "Privacy policy — ImagePrompt",
-    "privacyPageDescription": "How ImagePrompt collects, stores, and processes personal data (English draft for legal review)."
+    "privacyPageDescription": "How ImagePrompt collects, stores, and processes personal data (English draft for legal review).",
+    "welcomePageTitle": "Welcome — Pin AI Image Describer | ImagePrompt",
+    "welcomePageDescription": "Quick steps to pin the AI Image Describer extension and open it from the Chrome toolbar."
   },
   "Common": {
     "brandWordmark": "image to prompt",
@@ -68,6 +70,26 @@
     "navTitle": "Navigation",
     "copyright": "All rights reserved.",
     "privacyLink": "Privacy policy"
+  },
+  "Welcome": {
+    "heroEyebrow": "AI Image Describer",
+    "heroTitle": "🎉 AI Image Describer is installed",
+    "heroSubtitle": "Pin the extension to your toolbar so one click opens the popup—fast prompts from any image, no signup.",
+    "bullet1": "Works from the toolbar popup and via right‑click on images",
+    "bullet2": "Sends photos to ImagePrompt when you choose “Open imageprompt.tools with this image”",
+    "bullet3": "You can revisit these steps anytime at this welcome page URL",
+    "step1Eyebrow": "Step 1",
+    "step1Title": "Pin the extension",
+    "step1Body": "Click the puzzle (extensions) icon in Chrome’s toolbar → find AI Image Describer in the list → pin it so the icon stays on the toolbar.",
+    "step2Eyebrow": "Step 2",
+    "step2Title": "Open it from the toolbar",
+    "step2Body": "Click the AI Image Describer icon on the toolbar to open the popup. Right‑click an image anytime for “Get prompt for similar image”.",
+    "imgPinPlaceholder": "Placeholder: Extensions menu → pin AI Image Describer (replace with a real screenshot)",
+    "imgToolbarPlaceholder": "Placeholder: Toolbar icon highlighted (replace with a real screenshot)",
+    "cta": "Continue to ImagePrompt",
+    "stepLabelChrome": "Chrome UI may look slightly different by version—the pin control is always in the extensions menu.",
+    "imgPinAlt": "Illustration: pin the AI Image Describer extension from Chrome’s puzzle menu",
+    "imgToolbarAlt": "Illustration: AI Image Describer icon pinned on the Chrome toolbar"
   },
   "Auth": {
     "title": "Sign in to Image to prompt",

@@ -20,7 +20,7 @@ function isLiteHost(hostname) {
 }
 
 // Register context menus once on install / service worker startup.
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   chrome.contextMenus.create({
     id: CONTEXT_MENU_ID,
     title: "Get prompt for similar image",
@@ -31,6 +31,11 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Open imageprompt.tools with this image",
     contexts: ["image"],
   });
+
+  if (details.reason === chrome.runtime.OnInstalledReason.INSTALL) {
+    const welcomeUrl = new URL("/welcome", SITE_URL).href;
+    chrome.tabs.create({ url: welcomeUrl }).catch(() => {});
+  }
 });
 
 chrome.contextMenus.onClicked.addListener(handleContextMenuClick);

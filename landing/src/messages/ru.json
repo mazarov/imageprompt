@@ -46,7 +46,9 @@
     "favoritesPageTitle": "Избранное — ImagePrompt",
     "generationsPageTitle": "Мои генерации — ImagePrompt",
     "privacyPageTitle": "Политика конфиденциальности — ImagePrompt",
-    "privacyPageDescription": "Политика конфиденциальности сервиса ImagePrompt: сбор, хранение и обработка данных."
+    "privacyPageDescription": "Политика конфиденциальности сервиса ImagePrompt: сбор, хранение и обработка данных.",
+    "welcomePageTitle": "Добро пожаловать — закрепите AI Image Describer | ImagePrompt",
+    "welcomePageDescription": "Короткая инструкция: закрепить расширение AI Image Describer и открывать его с панели Chrome."
   },
   "Common": {
     "brandWordmark": "image to prompt",
@@ -68,6 +70,26 @@
     "navTitle": "Навигация",
     "copyright": "Все права защищены.",
     "privacyLink": "Политика конфиденциальности"
+  },
+  "Welcome": {
+    "heroEyebrow": "AI Image Describer",
+    "heroTitle": "🎉 Расширение AI Image Describer установлено",
+    "heroSubtitle": "Закрепите его на панели инструментов — тогда промпт можно открыть в один клик: любое изображение, без регистрации.",
+    "bullet1": "Работает через значок на панели и через контекстное меню по картинке",
+    "bullet2": "Пункт «Open imageprompt.tools with this image» отправляет фото на ImagePrompt",
+    "bullet3": "Эту инструкцию всегда можно снова открыть по адресу страницы welcome",
+    "step1Eyebrow": "Шаг 1",
+    "step1Title": "Закрепите расширение",
+    "step1Body": "Нажмите иконку пазла (меню расширений) на панели Chrome → найдите AI Image Describer в списке → закрепите (pin), чтобы значок остался на панели.",
+    "step2Eyebrow": "Шаг 2",
+    "step2Title": "Открывайте с панели",
+    "step2Body": "Нажмите значок AI Image Describer на панели, чтобы открыть всплывающее окно. В любое время можно ПКМ по картинке → «Get prompt for similar image».",
+    "imgPinPlaceholder": "Плейсхолдер: меню расширений → pin AI Image Describer (замените скриншотом)",
+    "imgToolbarPlaceholder": "Плейсхолдер: значок на панели (замените скриншотом)",
+    "cta": "Перейти на ImagePrompt",
+    "stepLabelChrome": "Интерфейс Chrome может отличаться по версии — закрепление всегда в меню расширений.",
+    "imgPinAlt": "Иллюстрация: закрепить AI Image Describer в меню пазла Chrome",
+    "imgToolbarAlt": "Иллюстрация: значок AI Image Describer на панели Chrome"
   },
   "Auth": {
     "title": "Вход в Image to prompt",
