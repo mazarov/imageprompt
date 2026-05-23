@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { HOME_ANCHOR_IDS, HOME_ANCHOR_NAV } from "@/lib/home-anchor-nav";
+import { LANDING_BG_CANVAS, LANDING_BORDER_RAIL, LANDING_BORDER_SECTION_BOTTOM } from "@/lib/landing-design-tokens";
 
 /** Align with section `scroll-mt-[5.5rem]` (~88px) — active = last section whose top crossed this line */
 const ACTIVATION_OFFSET_PX = 88;
@@ -143,7 +144,7 @@ export function HomeAnchorSidebar() {
   return (
     <>
       <aside className="hidden w-60 flex-shrink-0 lg:block">
-        <div className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-white/[0.08] bg-[#09090b]">
+        <div className={`sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto ${LANDING_BORDER_RAIL} ${LANDING_BG_CANVAS}`}>
           <AnchorNavList activeId={activeId} onNavigate={scrollToId} />
         </div>
       </aside>
@@ -170,8 +171,8 @@ export function HomeAnchorSidebar() {
                   className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
                   onClick={() => setMobileOpen(false)}
                 />
-                <div className="relative z-10 flex h-full w-72 max-w-[85vw] flex-col border-r border-white/[0.08] bg-[#09090b] shadow-2xl shadow-black/50">
-                  <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-3">
+                <div className={`relative z-10 flex h-full w-72 max-w-[85vw] flex-col ${LANDING_BORDER_RAIL} ${LANDING_BG_CANVAS} shadow-2xl shadow-black/50`}>
+                  <div className={`flex items-center justify-between px-4 py-3 ${LANDING_BORDER_SECTION_BOTTOM}`}>
                     <span className="text-sm font-semibold text-zinc-50">{t("sections")}</span>
                     <button
                       type="button"

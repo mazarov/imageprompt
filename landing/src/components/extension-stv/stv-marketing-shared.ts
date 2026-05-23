@@ -1,25 +1,34 @@
-/** Общие константы для маркетинговых страниц /extension-stv/*. */
+/** Общие константы для маркетинговых секций главной и /extension-stv. */
+import {
+  LANDING_BORDER_SECTION_TOP,
+  LANDING_FOCUS_RING_OFFSET,
+  LANDING_SECTION_Y,
+  LANDING_SURFACE_SECTION_MUTED,
+  LANDING_TEXT_SECTION_META,
+} from "@/lib/landing-design-tokens";
+
 export const STV_CHROME_STORE_URL =
   process.env.NEXT_PUBLIC_STV_CHROME_STORE_URL || "#stv-chrome-store";
 
-export const STV_FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090b]";
+export const STV_FOCUS_RING = `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 ${LANDING_FOCUS_RING_OFFSET}`;
 
 /**
- * Единая система секций (отступы, ширина, типографика, «лавандовый» визуальный блок под моки).
- * Тёмная тема лендинга; акцент — violet/indigo как в референсах SaaS.
+ * Секции: единые отступы и разделители; акцент UI — indigo (CTA, focus, декор интерфейса).
+ * Лёгкий двухтоновый radial в hero — только атмосфера, см. ExtensionStvMarketingSections.
  */
 export const STV_SECTION_CONTAINER = "mx-auto max-w-6xl px-4 sm:px-6";
-export const STV_SECTION_PY = "py-14 sm:py-16";
-export const STV_SECTION_DIVIDER = "border-t border-white/[0.06]";
-export const STV_SECTION_BG_MUTED = "bg-[rgb(9_9_11/0.35)]";
+export const STV_SECTION_PY = LANDING_SECTION_Y;
+export const STV_SECTION_DIVIDER = LANDING_BORDER_SECTION_TOP;
+export const STV_SECTION_BG_MUTED = LANDING_SURFACE_SECTION_MUTED;
 export const STV_SECTION_TITLE =
   "text-center text-2xl font-bold tracking-tight text-zinc-50 sm:text-3xl text-balance";
-export const STV_SECTION_SUBTITLE =
-  "mx-auto mt-3 max-w-2xl text-center text-[15px] leading-relaxed text-zinc-500 sm:text-base text-pretty";
-/** Оболочка для иллюстраций: мягкий градиент + бордер (аналог светлой подложки в референсе). */
+
+export const STV_SECTION_SUBTITLE = `mx-auto mt-3 max-w-2xl ${LANDING_TEXT_SECTION_META}`;
+
+/** Оболочка иллюстрации — индиго, без смешения с violet в UI секций. */
 export const STV_VISUAL_SHELL =
-  "rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-500/[0.14] via-indigo-500/[0.07] to-transparent p-6 shadow-[0_24px_80px_-40px_rgba(99,102,241,0.35)] ring-1 ring-inset ring-white/[0.05] sm:p-8";
+  "rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/[0.14] via-indigo-600/[0.07] to-transparent p-6 shadow-[0_24px_80px_-40px_rgba(99,102,241,0.35)] ring-1 ring-inset ring-white/[0.05] sm:p-8";
+
 /** Подпись над моком (eyebrow). */
 export const STV_MOCK_EYEBROW =
-  "mb-3 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-300/80 lg:text-left";
+  "mb-3 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-300/80 lg:text-left";

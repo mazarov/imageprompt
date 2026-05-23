@@ -8,6 +8,19 @@ import {
   listLiteRecognitionHistory,
   type LiteRecognitionEntry,
 } from "@/lib/extension-lite-recognition-history";
+import {
+  LANDING_BORDER_CARD,
+  LANDING_BORDER_INPUT,
+  LANDING_BORDER_SECTION_TOP,
+  LANDING_RING_INSET_SOFT,
+  LANDING_RING_NEUTRAL,
+  LANDING_SURFACE_IMAGE_FRAME,
+  LANDING_SURFACE_WIDGET_INSET,
+  LANDING_SURFACE_WIDGET_INSET_SOLID,
+  LANDING_SURFACE_WIDGET_NESTED,
+  LANDING_SURFACE_WIDGET_OUTER,
+  LANDING_SURFACE_WIDGET_TAB_ROW,
+} from "@/lib/landing-design-tokens";
 import { STV_FOCUS_RING } from "./stv-marketing-shared";
 
 const HISTORY_HASH_PREFIX = "#extension-lite-history";
@@ -41,7 +54,7 @@ function ImagePreviewFrame({
 }) {
   return (
     <div
-      className={`mx-auto w-full max-w-[min(100%,18rem)] overflow-hidden rounded-xl bg-zinc-900/50 ring-1 ring-white/[0.08] sm:max-w-[20rem] ${
+      className={`mx-auto w-full max-w-[min(100%,18rem)] overflow-hidden rounded-xl ${LANDING_SURFACE_WIDGET_INSET} ${LANDING_RING_INSET_SOFT} sm:max-w-[20rem] ${
         variant === "dimmed" ? "opacity-75" : ""
       }`}
     >
@@ -415,8 +428,10 @@ export function PromptSceneLiteWidget() {
   );
 
   return (
-    <div className="w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-zinc-950/80 p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl shadow-black/30 backdrop-blur-sm sm:p-5">
-      <div className="mb-4 flex flex-wrap gap-1 rounded-lg bg-zinc-900/60 p-1 ring-1 ring-white/[0.06]">
+    <div
+      className={`w-full max-w-3xl rounded-2xl ${LANDING_BORDER_CARD} ${LANDING_SURFACE_WIDGET_OUTER} p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl shadow-black/30 backdrop-blur-sm sm:p-5`}
+    >
+      <div className={`mb-4 flex flex-wrap gap-1 rounded-lg ${LANDING_SURFACE_WIDGET_TAB_ROW} p-1 ${LANDING_RING_INSET_SOFT}`}>
         <button
           type="button"
           onClick={() => setMainTab("analyze")}
@@ -450,9 +465,11 @@ export function PromptSceneLiteWidget() {
             {historyItems.map((entry) => (
               <li
                 key={entry.id}
-                className="flex gap-3 rounded-xl border border-white/[0.08] bg-zinc-900/50 p-3 ring-1 ring-white/[0.04]"
+                className={`flex gap-3 rounded-xl ${LANDING_BORDER_CARD} ${LANDING_SURFACE_WIDGET_INSET} p-3 ${LANDING_RING_INSET_SOFT}`}
               >
-                <div className="relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-lg bg-zinc-950/80 ring-1 ring-white/[0.06]">
+                <div
+                  className={`relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-lg ${LANDING_SURFACE_IMAGE_FRAME} ${LANDING_RING_INSET_SOFT}`}
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={historyThumbnailSrc(entry)}
@@ -480,7 +497,7 @@ export function PromptSceneLiteWidget() {
                     <button
                       type="button"
                       onClick={() => void copyHistoryPrompt(entry.prompt)}
-                      className={`inline-flex min-h-9 items-center justify-center rounded-lg border border-white/[0.12] px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 ${STV_FOCUS_RING}`}
+                      className={`inline-flex min-h-9 items-center justify-center rounded-lg px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
                     >
                       {t("historyCopyPrompt")}
                     </button>
@@ -551,7 +568,7 @@ export function PromptSceneLiteWidget() {
             <select
               value={style}
               onChange={(e) => setStyle(e.target.value as AnalyzeStyle)}
-              className={`min-h-11 w-full rounded-lg border border-white/[0.1] bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 ${STV_FOCUS_RING}`}
+              className={`min-h-11 w-full rounded-lg px-3 py-2.5 text-sm text-zinc-100 ${LANDING_SURFACE_WIDGET_INSET_SOLID} ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
             >
               <option value="photoreal">{t("stylePhotoreal")}</option>
               <option value="midjourney">{t("styleMidjourney")}</option>
@@ -560,14 +577,14 @@ export function PromptSceneLiteWidget() {
             </select>
           </label>
 
-          <details className="group rounded-xl border border-white/[0.08] bg-zinc-900/40 sm:hidden">
+          <details className={`group rounded-xl ${LANDING_BORDER_CARD} ${LANDING_SURFACE_WIDGET_NESTED} sm:hidden`}>
             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium text-zinc-200 [&::-webkit-details-marker]:hidden">
               {t("urlSectionToggle")}
               <span className="shrink-0 text-zinc-500 transition-transform duration-200 group-open:rotate-180" aria-hidden>
                 ▼
               </span>
             </summary>
-            <div className="border-t border-white/[0.06] p-3 pt-2">
+            <div className={`${LANDING_BORDER_SECTION_TOP} p-3 pt-2`}>
               <div className="flex flex-col gap-2">
                 <input
                   type="url"
@@ -582,12 +599,12 @@ export function PromptSceneLiteWidget() {
                       void analyzeFromCurrentStyleUrl(urlInput);
                     }
                   }}
-                  className={`min-h-11 min-w-0 w-full rounded-lg border border-white/[0.1] bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 ${STV_FOCUS_RING}`}
+                  className={`min-h-11 min-w-0 w-full rounded-lg px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 ${LANDING_SURFACE_WIDGET_INSET_SOLID} ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
                 />
                 <button
                   type="button"
                   onClick={() => void analyzeFromCurrentStyleUrl(urlInput)}
-                  className={`inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-white/10 transition hover:bg-zinc-700 ${STV_FOCUS_RING}`}
+                  className={`inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-100 transition hover:bg-zinc-700 ${LANDING_RING_NEUTRAL} ${STV_FOCUS_RING}`}
                 >
                   {t("urlSubmit")}
                 </button>
@@ -612,12 +629,12 @@ export function PromptSceneLiteWidget() {
                       void analyzeFromCurrentStyleUrl(urlInput);
                     }
                   }}
-                  className={`min-h-11 min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 ${STV_FOCUS_RING}`}
+                  className={`min-h-11 min-w-0 flex-1 rounded-lg px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 ${LANDING_SURFACE_WIDGET_INSET_SOLID} ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
                 />
                 <button
                   type="button"
                   onClick={() => void analyzeFromCurrentStyleUrl(urlInput)}
-                  className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-white/10 transition hover:bg-zinc-700 ${STV_FOCUS_RING}`}
+                  className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-medium text-zinc-100 transition hover:bg-zinc-700 ${LANDING_RING_NEUTRAL} ${STV_FOCUS_RING}`}
                 >
                   {t("urlSubmit")}
                 </button>
@@ -646,7 +663,9 @@ export function PromptSceneLiteWidget() {
           <ImagePreviewFrame src={previewUrl} />
           <div className="min-h-0">
             <div className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">{t("resultTitle")}</div>
-            <pre className="max-h-[min(40vh,22rem)] min-h-0 overflow-auto whitespace-pre-wrap rounded-lg border border-white/[0.08] bg-zinc-900/80 p-3 text-xs leading-relaxed text-zinc-200 sm:text-sm">
+            <pre
+              className={`max-h-[min(40vh,22rem)] min-h-0 overflow-auto whitespace-pre-wrap rounded-lg ${LANDING_BORDER_CARD} bg-zinc-900/80 p-3 text-xs leading-relaxed text-zinc-200 sm:text-sm`}
+            >
               {promptText}
             </pre>
             <p className="mt-1.5 text-center text-[0.65rem] text-zinc-600 sm:hidden">{t("resultScrollHint")}</p>
@@ -662,7 +681,7 @@ export function PromptSceneLiteWidget() {
             <button
               type="button"
               onClick={resetEmpty}
-              className={`inline-flex min-h-11 items-center justify-center rounded-lg border border-white/[0.12] px-5 py-2.5 text-sm text-zinc-200 hover:bg-zinc-800 ${STV_FOCUS_RING}`}
+              className={`inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-2.5 text-sm text-zinc-200 hover:bg-zinc-800 ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
             >
               {t("tryAgain")}
             </button>

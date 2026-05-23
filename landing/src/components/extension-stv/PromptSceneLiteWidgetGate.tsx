@@ -2,12 +2,13 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { LANDING_BORDER_CARD, LANDING_SURFACE_WIDGET_OUTER } from "@/lib/landing-design-tokens";
 
 /** Static placeholder while the widget chunk loads or section is off-screen. */
 export function PromptSceneLiteSkeleton() {
   return (
     <div
-      className="mx-auto w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-zinc-950/80 p-4 shadow-xl shadow-black/30 backdrop-blur-sm sm:p-5"
+      className={`mx-auto w-full max-w-3xl rounded-2xl ${LANDING_BORDER_CARD} ${LANDING_SURFACE_WIDGET_OUTER} p-4 shadow-xl shadow-black/30 backdrop-blur-sm sm:p-5`}
       aria-hidden
     >
       <div className="space-y-4">

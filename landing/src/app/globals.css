@@ -42,6 +42,23 @@ p {
   50% { box-shadow: 0 0 20px 2px rgba(99, 102, 241, 0.08); }
 }
 
+/**
+ * Разово при монтировании: узкая подсветка проходит по обводке CTA, затем слой растворяется.
+ */
+@keyframes landingChromeBorderSweepOnce {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+    opacity: 1;
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+    opacity: 0;
+  }
+}
+
 @layer utilities {
   .text-gradient {
     background-clip: text;
@@ -67,6 +84,17 @@ p {
 
   .animate-pulse-glow {
     animation: pulseGlow 3s ease-in-out infinite;
+  }
+
+  .animate-landing-chrome-border-once {
+    animation: landingChromeBorderSweepOnce 1.6875s cubic-bezier(0.45, 0, 0.2, 1) forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-landing-chrome-border-once {
+      animation: none;
+      opacity: 0 !important;
+    }
   }
 
   .scrollbar-none {

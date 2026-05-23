@@ -3,6 +3,7 @@
 import { useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { LANDING_SURFACE_FOOTER } from "@/lib/landing-design-tokens";
 import { SiteLogoMark } from "./SiteLogoMark";
 import { useDebug } from "./DebugFAB";
 
@@ -31,7 +32,7 @@ export function Footer() {
   );
 
   return (
-    <footer className="mt-auto border-t border-white/[0.06] bg-[rgb(9_9_11/0.5)]">
+    <footer className={`mt-auto ${LANDING_SURFACE_FOOTER}`}>
       <div className="mx-auto max-w-7xl px-5 py-12">
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -61,7 +62,7 @@ export function Footer() {
             </div>
           </nav>
         </div>
-        <div className="mt-10 flex flex-col gap-3 border-t border-white/[0.06] pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-10 flex flex-col gap-3 pt-8 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-zinc-500">
             &copy; {new Date().getFullYear()} {tc("brandWordmark")}. {t("copyright")}
           </p>

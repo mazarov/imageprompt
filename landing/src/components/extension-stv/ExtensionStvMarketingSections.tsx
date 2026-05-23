@@ -1,11 +1,9 @@
 import { getTranslations } from "next-intl/server";
-import { ExtensionStvAccuracySection } from "./ExtensionStvAccuracySection";
-import { ExtensionStvChromeBadge } from "./ExtensionStvChromeBadge";
 import { ExtensionStvFaq } from "./ExtensionStvFaq";
 import { ExtensionStvHowItWorks } from "./ExtensionStvHowItWorks";
 import { ExtensionStvPricing } from "./ExtensionStvPricing";
-import { ExtensionStvTestimonials } from "./ExtensionStvTestimonials";
 import { PromptSceneLiteWidgetGate } from "./PromptSceneLiteWidgetGate";
+import { STV_SECTION_CONTAINER, STV_SECTION_PY } from "./stv-marketing-shared";
 
 const ANCHOR_SCROLL = "scroll-mt-[5.5rem]";
 
@@ -24,7 +22,7 @@ export async function ExtensionStvMarketingSections({
 }: MarketingSectionsProps) {
   const t = await getTranslations("Marketing");
   const heroTitle = heroVariant === "extension" ? t("heroExtension.title") : t("hero.title");
-  const heroSubtitle = heroVariant === "extension" ? t("heroExtension.subtitle") : t("hero.subtitle");
+  const heroSubtitle = heroVariant === "home" ? t("hero.subtitle") : null;
 
   return (
     <>
@@ -36,61 +34,44 @@ export async function ExtensionStvMarketingSections({
             <h1 className="mx-auto max-w-3xl text-balance text-3xl font-bold tracking-tight text-zinc-50 sm:text-4xl lg:text-[2.5rem] lg:leading-tight">
               {heroTitle}
             </h1>
-            <p className="mx-auto mt-3 max-w-2xl text-pretty text-base text-zinc-400 sm:text-lg">{heroSubtitle}</p>
-            <ExtensionStvChromeBadge className="mx-auto mt-4 justify-center" />
+            {heroSubtitle ? (
+              <p className="mx-auto mt-3 max-w-2xl text-pretty text-base text-zinc-400 sm:text-lg">{heroSubtitle}</p>
+            ) : null}
           </div>
         </section>
       </div>
 
       <div id="stv-problem" className={ANCHOR_SCROLL}>
-        <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
+        <section className={`${STV_SECTION_CONTAINER} ${STV_SECTION_PY}`}>
           <div className="flex flex-col gap-8 sm:gap-10 lg:gap-12">
-            <header className="mx-auto max-w-3xl text-center">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-indigo-400/95">
-                {t("problem.demoLabel")}
-              </p>
-              <h2 className="mt-2 text-2xl font-bold tracking-tight text-zinc-50 sm:text-3xl">{t("problem.title")}</h2>
-              <p className="mx-auto mt-3 max-w-2xl text-pretty text-base text-zinc-400">{t("problem.intro")}</p>
-            </header>
             <PromptSceneLiteWidgetGate />
-            <div className="mx-auto w-full max-w-3xl">
-              <ul className="space-y-3 text-zinc-400">
-                <li className="flex gap-3">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/80" />
-                  <span>
-                    {t.rich("problem.b1", {
-                      strong: (chunks) => <strong className="text-zinc-100">{chunks}</strong>,
-                    })}
-                  </span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/80" />
-                  <span>
-                    {t.rich("problem.b2", {
-                      strong: (chunks) => <strong className="text-zinc-100">{chunks}</strong>,
-                    })}
-                  </span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/80" />
-                  <span>
-                    {t.rich("problem.b3", {
-                      strong: (chunks) => <strong className="text-zinc-100">{chunks}</strong>,
-                    })}
-                  </span>
-                </li>
-              </ul>
+            <div className="mx-auto w-full max-w-3xl space-y-6 text-zinc-400">
+              <p className="text-pretty leading-relaxed">
+                <span aria-hidden className="mr-1 select-none">
+                  ✨{" "}
+                </span>
+                {t("problem.intro")}
+              </p>
+              <div>
+                <h3 className="text-base font-semibold text-zinc-100 sm:text-lg">{t("problem.featuresTitle")}</h3>
+                <ul className="mt-3 space-y-3">
+                  <li className="flex gap-3">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/80" aria-hidden />
+                    <span>{t("problem.f1")}</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/80" aria-hidden />
+                    <span>{t("problem.f2")}</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/80" aria-hidden />
+                    <span>{t("problem.f3")}</span>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </section>
-      </div>
-
-      <div id="stv-accuracy" className={ANCHOR_SCROLL}>
-        <ExtensionStvAccuracySection />
-      </div>
-
-      <div id="stv-reviews" className={ANCHOR_SCROLL}>
-        <ExtensionStvTestimonials />
       </div>
 
       <div id="stv-how" className={ANCHOR_SCROLL}>

@@ -2,13 +2,14 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { LANDING_HEADER_BACKDROP } from "@/lib/landing-design-tokens";
 import { SiteLogoMark } from "./SiteLogoMark";
 
 export function HeaderClient() {
   const t = useTranslations("Common");
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#09090b]/90 backdrop-blur-md">
+    <header className={`sticky top-0 z-40 ${LANDING_HEADER_BACKDROP}`}>
       <div className="relative flex h-14 items-center justify-center px-4 lg:justify-between lg:px-5">
         <Link
           href="/"

@@ -1,6 +1,14 @@
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import {
+  LANDING_BORDER_CARD,
+  LANDING_BORDER_INPUT,
+  LANDING_SECTION_Y,
+  LANDING_SURFACE_CARD,
+  LANDING_SURFACE_CARD_EMPHASIS,
+  LANDING_TEXT_SECTION_META,
+} from "@/lib/landing-design-tokens";
 import { STV_CHROME_STORE_URL, STV_FOCUS_RING } from "./stv-marketing-shared";
 
 function CheckIcon() {
@@ -22,7 +30,7 @@ export async function ExtensionStvPricing() {
   const strong = (chunks: ReactNode) => <strong className="font-medium text-zinc-300">{chunks}</strong>;
 
   return (
-    <section className="border-t border-white/[0.06] py-12 sm:py-14" aria-labelledby="extension-stv-pricing-heading">
+    <section className={LANDING_SECTION_Y} aria-labelledby="extension-stv-pricing-heading">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
         <h2
           id="extension-stv-pricing-heading"
@@ -30,10 +38,10 @@ export async function ExtensionStvPricing() {
         >
           {t("title")}
         </h2>
-        <p className="mx-auto mt-3 max-w-xl text-center text-sm text-zinc-500">{t("subtitle")}</p>
+        <p className={`mx-auto mt-3 max-w-xl ${LANDING_TEXT_SECTION_META}`}>{t("subtitle")}</p>
 
         <div className="mt-8 grid gap-5 md:grid-cols-2 md:items-stretch md:gap-6">
-          <article className="flex flex-col rounded-2xl border border-white/[0.1] bg-[rgb(24_24_27/0.4)] p-5 sm:p-6">
+          <article className={`flex flex-col rounded-2xl ${LANDING_BORDER_CARD} ${LANDING_SURFACE_CARD} p-5 sm:p-6`}>
             <h3 className="text-lg font-semibold text-zinc-100">{t("freeTitle")}</h3>
             <div className="mt-4 flex items-baseline gap-1">
               <span className="text-4xl font-bold tracking-tight text-zinc-50">$0</span>
@@ -57,13 +65,13 @@ export async function ExtensionStvPricing() {
 
             <a
               href={STV_CHROME_STORE_URL}
-              className={`mt-6 inline-flex w-full items-center justify-center rounded-full border border-white/15 bg-white/[0.06] px-5 py-2.5 text-sm font-semibold text-zinc-100 transition hover:border-white/25 hover:bg-white/[0.1] ${STV_FOCUS_RING}`}
+              className={`mt-6 inline-flex w-full items-center justify-center rounded-full bg-white/[0.06] px-5 py-2.5 text-sm font-semibold text-zinc-100 transition hover:border-white/20 hover:bg-white/[0.1] ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
             >
               {t("freeCta")}
             </a>
           </article>
 
-          <article className="relative flex flex-col rounded-2xl border border-indigo-500/35 bg-[rgb(24_24_27/0.55)] p-5 shadow-[0_0_40px_-12px_rgba(99,102,241,0.35)] ring-1 ring-inset ring-indigo-500/15 sm:p-6">
+          <article className={`relative flex flex-col rounded-2xl border border-indigo-500/35 ${LANDING_SURFACE_CARD_EMPHASIS} p-5 shadow-[0_0_40px_-12px_rgba(99,102,241,0.35)] ring-1 ring-inset ring-indigo-500/15 sm:p-6`}>
             <h3 className="text-lg font-semibold text-zinc-100">{t("stdTitle")}</h3>
             <div className="mt-4 flex items-baseline gap-1">
               <span className="text-4xl font-bold tracking-tight text-zinc-50">$14.99</span>
