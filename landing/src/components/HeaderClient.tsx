@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
+import { useAuth } from "@/context/AuthContext";
 import { LANDING_HEADER_BACKDROP } from "@/lib/landing-design-tokens";
 import { LandingDeveloperDiagnostics } from "@/components/LandingDeveloperDiagnostics";
 import { SiteLogoMark } from "./SiteLogoMark";
@@ -13,7 +14,9 @@ const BRAND_NAV_DELAY_MS = 220;
 
 export function HeaderClient() {
   const t = useTranslations("Common");
+  const ta = useTranslations("Auth");
   const router = useRouter();
+  const { user, loading: authLoading, signOut } = useAuth();
 
   const [devOpen, setDevOpen] = useState(false);
   const tapsRef = useRef(0);
@@ -60,6 +63,11 @@ export function HeaderClient() {
     }, BRAND_NAV_DELAY_MS);
   };
 
+  const signInWithGoogle = () => {
+    const nextPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.href = `/api/auth/google?next=${encodeURIComponent(nextPath)}`;
+  };
+
   return (
     <header className={`sticky top-0 z-40 ${LANDING_HEADER_BACKDROP}`}>
       <div className="relative flex h-14 items-center justify-center px-4 lg:justify-between lg:px-5">
@@ -72,6 +80,14 @@ export function HeaderClient() {
           <SiteLogoMark size={28} className="h-7 w-7 rounded-lg" />
           <span>{t("brandWordmark")}</span>
         </Link>
+        <button
+          type="button"
+          disabled={authLoading}
+          onClick={user ? () => void signOut() : signInWithGoogle}
+          className="absolute right-3 top-1/2 inline-flex min-h-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-zinc-950/60 px-3 text-xs font-semibold text-zinc-100 shadow-sm shadow-black/20 transition hover:border-white/15 hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 lg:right-5"
+        >
+          {user ? t("signOut") : ta("signInShort")}
+        </button>
       </div>
       <LandingDeveloperDiagnostics visible={devOpen} onDismiss={() => setDevOpen(false)} />
     </header>

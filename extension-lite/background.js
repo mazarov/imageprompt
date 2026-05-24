@@ -8,6 +8,7 @@ const HISTORY_QUEUE_KEY = "extension_lite_history_queue_v1";
 const ANALYSIS_JOB_KEY = "extension_lite_analysis_job_v1";
 const MAX_HISTORY_QUEUE_ENTRIES = 45;
 const MAX_SW_FETCH_BYTES = 10 * 1024 * 1024;
+const ANALYSIS_FETCH_TIMEOUT_MS = 45_000;
 
 const SITE_URL = "https://imageprompt.tools/";
 const LITE_ORIGIN = new URL("/", SITE_URL).origin;
@@ -342,7 +343,12 @@ async function startLiteAnalysisJob(dataUrl, styleValue) {
 }
 
 async function completeLiteAnalysisJob(startedJob) {
-  const result = await liteOverlayAnalyze(startedJob.dataUrl, startedJob.style);
+  let result;
+  try {
+    result = await liteOverlayAnalyze(startedJob.dataUrl, startedJob.style);
+  } catch (err) {
+    result = { ok: false, error: "request_failed", message: String(err?.message ?? err) };
+  }
   const current = await getAnalysisJob();
   if (!current || current.id !== startedJob.id) return;
 
@@ -392,8 +398,13 @@ async function liteOverlayAnalyze(dataUrl, style) {
       method: "POST",
       headers,
       body: JSON.stringify({ image_base64: dataUrl, style }),
+      signal: AbortSignal.timeout(ANALYSIS_FETCH_TIMEOUT_MS),
     });
   } catch (err) {
+    const errName = String(err?.name ?? "");
+    if (errName === "AbortError" || errName === "TimeoutError") {
+      return { ok: false, error: "timeout", message: "analysis_timeout" };
+    }
     return { ok: false, error: "fetch_failed", message: String(err?.message ?? err) };
   }
 

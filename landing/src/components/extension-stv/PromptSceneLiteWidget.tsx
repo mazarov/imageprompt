@@ -106,7 +106,7 @@ async function resizeImageFileToDataUrl(file: Blob, maxPx = 1024, quality = 0.85
 
 export function PromptSceneLiteWidget() {
   const t = useTranslations("PromptSceneLite");
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user } = useAuth();
   const fileInputId = useId();
   const [mainTab, setMainTab] = useState<MainTab>("analyze");
   const [panel, setPanel] = useState<Panel>("empty");
@@ -488,35 +488,6 @@ export function PromptSceneLiteWidget() {
             {t("tabHistory")}
           </button>
         ) : null}
-      </div>
-
-      <div className={`mb-4 flex flex-col gap-2 rounded-xl ${LANDING_BORDER_CARD} ${LANDING_SURFACE_WIDGET_NESTED} p-3 sm:flex-row sm:items-center sm:justify-between`}>
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            {authLoading ? t("authChecking") : user ? t("authSignedIn") : t("authGuest")}
-          </p>
-          <p className="mt-0.5 truncate text-xs text-zinc-400">
-            {user?.email || t("authHint")}
-          </p>
-        </div>
-        {user ? (
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            className={`inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg px-3 py-2 text-xs font-medium text-zinc-200 hover:bg-zinc-800 ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
-          >
-            {t("authSignOut")}
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={authLoading}
-            onClick={signInWithGoogle}
-            className={`inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 ${STV_FOCUS_RING}`}
-          >
-            {t("authSignIn")}
-          </button>
-        )}
       </div>
 
       {mainTab === "history" ? (

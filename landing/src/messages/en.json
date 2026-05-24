@@ -110,7 +110,8 @@
     "title": "Sign in to Image to prompt",
     "subtitle": "Like prompts and save them to your account",
     "envHint": "For local dev: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local at repo root or landing/ (or SUPABASE_URL + SUPABASE_ANON_KEY), then restart npm run dev.",
-    "continueGoogle": "Continue with Google"
+    "continueGoogle": "Continue with Google",
+    "signInShort": "Sign in"
   },
   "HomeSearch": {
     "placeholder": "Find a prompt — e.g. “portrait” or “at the sea”",

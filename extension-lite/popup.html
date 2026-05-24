@@ -16,7 +16,8 @@
         <img class="brand-mark" src="icons/icon32.png" width="26" height="26" alt="" />
         <span class="brand-name">AI Image Describer</span>
       </div>
-      <button class="topbar-close" id="btn-close-popup" type="button" aria-label="Close popup">&times;</button>
+      <button type="button" class="topbar-auth" id="btn-auth-google">Sign in</button>
+      <button type="button" class="topbar-auth" id="btn-auth-sign-out" hidden>Sign out</button>
     </header>
 
     <div class="shell-body">
@@ -37,15 +38,6 @@
       </div>
       <p id="dev-ip-hash-meta" class="dev-meta"></p>
       <p id="dev-ip-hash-error" class="dev-error" role="alert" hidden></p>
-    </section>
-
-    <section id="auth-card" class="auth-card" aria-label="Account">
-      <div class="auth-copy">
-        <p id="auth-title" class="auth-title">Guest mode</p>
-        <p id="auth-subtitle" class="auth-subtitle">Sign in to keep one daily free limit across the site and extension.</p>
-      </div>
-      <button type="button" class="auth-btn" id="btn-auth-google">Continue with Google</button>
-      <button type="button" class="auth-btn auth-btn-secondary" id="btn-auth-sign-out" hidden>Sign out</button>
     </section>
 
     <!-- ── EMPTY STATE ── -->
@@ -95,7 +87,7 @@
           <img id="draft-preview" class="preview-img" src="" alt="" />
         </div>
       </div>
-      <p class="draft-hint">Last added image is ready.</p>
+      <p id="draft-hint" class="draft-hint">Last added image is ready.</p>
       <button class="btn btn-primary btn-full" id="btn-analyze-draft" type="button">Analyze image</button>
       <button class="btn btn-secondary btn-full" id="btn-draft-another" type="button">Choose another image</button>
     </section>
@@ -112,6 +104,9 @@
         <div class="loading-bar-wrap">
           <div class="loading-bar-fill"></div>
         </div>
+        <button class="btn btn-secondary btn-full loading-cancel" id="btn-loading-cancel" type="button">
+          Try another image
+        </button>
       </div>
     </section>
 

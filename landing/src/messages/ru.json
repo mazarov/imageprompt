@@ -110,7 +110,8 @@
     "title": "Вход в Image to prompt",
     "subtitle": "Ставьте лайки промптам и сохраняйте их в аккаунте",
     "envHint": "Для локального dev добавьте в <code>landing/.env.local</code> пару <code>NEXT_PUBLIC_SUPABASE_URL</code> + <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> (из Supabase → Settings → API) или <code>SUPABASE_URL</code> + <code>SUPABASE_ANON_KEY</code>, затем перезапустите <code>npm run dev</code>.",
-    "continueGoogle": "Продолжить с Google"
+    "continueGoogle": "Продолжить с Google",
+    "signInShort": "Войти"
   },
   "HomeSearch": {
     "placeholder": "Найти промт — например, «портрет» или «на море»",

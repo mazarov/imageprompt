@@ -8,6 +8,9 @@ const SITE_PRICING_URL = "https://imageprompt.tools/#stv-pricing";
 const DEV_BRAND_TAP_WINDOW_MS = 2000;
 const DEV_BRAND_TAPS_TO_UNLOCK = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const ANALYSIS_STALE_AFTER_MS = 90_000;
+const DRAFT_HINT_DEFAULT = "Last added image is ready.";
+const ANALYSIS_TIMEOUT_MESSAGE = "Analysis took too long. Please try another image.";
 
 /** macOS / Chromium sometimes leave MIME empty for valid images from disk. */
 const IMAGE_FILENAME_RE = /\.(jpe?g|png|gif|webp|bmp|tiff?|svg|avif|heif|heic)$/i;
@@ -30,6 +33,7 @@ const panels = {
 };
 
 const draftPreview    = document.getElementById("draft-preview");
+const draftHint       = document.getElementById("draft-hint");
 const loadingPreview  = document.getElementById("loading-preview");
 const resultPreview   = document.getElementById("result-preview");
 const promptBox       = document.getElementById("prompt-box");
@@ -46,6 +50,7 @@ const btnErrorLimitDismiss = document.getElementById("btn-error-limit-dismiss");
 const btnChooseFile   = document.getElementById("btn-choose-file");
 const btnOpenSite     = document.getElementById("btn-open-site");
 const btnClosePopup   = document.getElementById("btn-close-popup");
+const btnLoadingCancel = document.getElementById("btn-loading-cancel");
 const btnAnalyzeDraft = document.getElementById("btn-analyze-draft");
 const btnDraftAnother = document.getElementById("btn-draft-another");
 const fileInput       = document.getElementById("file-input");
@@ -60,8 +65,6 @@ const devIpHashError  = document.getElementById("dev-ip-hash-error");
 const devHashRefresh  = document.getElementById("dev-hash-refresh");
 const devSettingsDismiss = document.getElementById("dev-settings-dismiss");
 const devHashCopy     = document.getElementById("dev-hash-copy");
-const authTitle       = document.getElementById("auth-title");
-const authSubtitle    = document.getElementById("auth-subtitle");
 const btnAuthGoogle   = document.getElementById("btn-auth-google");
 const btnAuthSignOut  = document.getElementById("btn-auth-sign-out");
 const btnErrorAuth    = document.getElementById("btn-error-auth");
@@ -87,6 +90,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       await restorePopupState();
     }
   }
+});
+
+window.addEventListener("pagehide", () => {
+  clearActiveLoadingState();
 });
 
 async function checkPendingImage() {
@@ -156,6 +163,9 @@ function bindEvents() {
   });
 
   btnClosePopup?.addEventListener("click", () => {
+    if (panels.loading?.classList.contains("active")) {
+      clearActiveLoadingState();
+    }
     window.close();
   });
 
@@ -260,6 +270,7 @@ function bindEvents() {
   btnRetry.addEventListener("click", () => resetToEmpty());
   btnErrorRetry?.addEventListener("click", () => resetToEmpty());
   btnErrorLimitDismiss?.addEventListener("click", () => resetToEmpty());
+  btnLoadingCancel?.addEventListener("click", () => resetToEmpty());
   btnAuthGoogle?.addEventListener("click", () => startGoogleAuth());
   btnErrorAuth?.addEventListener("click", () => startGoogleAuth());
   btnAuthSignOut?.addEventListener("click", () => signOutGoogle());
@@ -274,18 +285,9 @@ async function sendRuntimeMessage(message) {
 
 function applyAuthStatus(status) {
   const signedIn = status?.signedIn === true;
-  const label = typeof status?.email === "string" && status.email
-    ? status.email
-    : typeof status?.name === "string" && status.name
-      ? status.name
-      : "";
 
-  if (authTitle) authTitle.textContent = signedIn ? "Signed in with Google" : "Guest mode";
-  if (authSubtitle) {
-    authSubtitle.textContent = signedIn
-      ? label || "Your daily free limit is shared across the site and extension."
-      : "Sign in to keep one daily free limit across the site and extension.";
-  }
+  if (btnAuthGoogle) btnAuthGoogle.textContent = "Sign in";
+  if (btnAuthSignOut) btnAuthSignOut.textContent = "Sign out";
   if (btnAuthGoogle) btnAuthGoogle.hidden = signedIn;
   if (btnAuthSignOut) btnAuthSignOut.hidden = !signedIn;
   if (btnErrorAuth) btnErrorAuth.hidden = signedIn;
@@ -596,6 +598,12 @@ function handleAnalysisJob(job) {
     currentDataUrl = job.dataUrl;
     currentStyle = style;
     if (styleSelect) styleSelect.value = currentStyle;
+    const lastTouched = Number(job.updatedAt || job.createdAt || 0);
+    if (lastTouched > 0 && Date.now() - lastTouched > ANALYSIS_STALE_AFTER_MS) {
+      clearAnalysisJob();
+      showDraft(job.dataUrl, style, { persist: false, hint: "Analysis took too long. Try again." });
+      return true;
+    }
     showLoading(job.dataUrl);
     return true;
   }
@@ -630,6 +638,9 @@ function getJobErrorMessage(job) {
   if (job.error === "fetch_failed") {
     return "Connection failed. Check your internet connection and try again.";
   }
+  if (job.error === "timeout" || job.error === "AbortError" || job.error === "TimeoutError") {
+    return ANALYSIS_TIMEOUT_MESSAGE;
+  }
   return "Something went wrong. Please try another image.";
 }
 
@@ -646,6 +657,7 @@ function showDraft(dataUrl, styleUsed, opts = {}) {
   currentDataUrl = dataUrl;
   currentStyle = isValidStyle(styleUsed) ? styleUsed : "photoreal";
   if (styleSelect) styleSelect.value = currentStyle;
+  if (draftHint) draftHint.textContent = opts.hint || DRAFT_HINT_DEFAULT;
   draftPreview.src = dataUrl;
   showPanel("draft");
 
@@ -688,6 +700,19 @@ function resetToEmpty() {
   clearPopupState();
   clearAnalysisJob();
   showPanel("empty");
+}
+
+function clearActiveLoadingState() {
+  if (!panels.loading?.classList.contains("active")) return;
+  currentPrompt = "";
+  currentDataUrl = "";
+  clearPopupState();
+  try {
+    chrome.storage.local.remove(ANALYSIS_JOB_KEY).catch(() => {});
+  } catch {
+    /* noop */
+  }
+  clearAnalysisJob();
 }
 
 function clearAnalysisJob() {

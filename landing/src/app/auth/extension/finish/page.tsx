@@ -35,15 +35,15 @@ export default function AuthExtensionFinishPage() {
     const t1 = window.setTimeout(emit, 80);
     const t2 = window.setTimeout(emit, 400);
 
-    const closeT = window.setTimeout(() => {
-      window.close();
-    }, 2500);
+    const redirectT = window.setTimeout(() => {
+      window.location.replace("/");
+    }, 1200);
 
     return () => {
       window.clearTimeout(t0);
       window.clearTimeout(t1);
       window.clearTimeout(t2);
-      window.clearTimeout(closeT);
+      window.clearTimeout(redirectT);
     };
   }, []);
 
@@ -58,7 +58,7 @@ export default function AuthExtensionFinishPage() {
         minHeight: "100vh",
       }}
     >
-      <p>Signing in to the extension… You can close this tab.</p>
+      <p>Signing in to the extension… Redirecting to ImagePrompt.</p>
     </div>
   );
 }
