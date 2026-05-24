@@ -773,15 +773,10 @@ export function PromptSceneLiteWidget() {
         <div className="flex flex-col gap-5">
           {previewUrl ? <ImagePreviewFrame src={previewUrl} variant="dimmed" /> : null}
           {errorKind === "rate_limited" ? (
-            <div
-              className={`rounded-2xl border border-indigo-500/15 bg-gradient-to-b from-indigo-950/35 via-zinc-950/40 to-zinc-950/80 px-4 py-8 sm:px-6 ${LANDING_RING_INSET_SOFT}`}
-            >
-              <div
-                className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/15 ring-1 ring-indigo-400/25"
-                aria-hidden
-              >
+            <div className="flex flex-col items-center px-4 py-6">
+              <div className="text-zinc-300" aria-hidden>
                 <svg
-                  className="h-7 w-7 shrink-0 text-indigo-200/90"
+                  className="h-7 w-7"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -790,22 +785,22 @@ export function PromptSceneLiteWidget() {
                   strokeLinejoin="round"
                 >
                   <circle cx="12" cy="12" r="9" opacity="0.35" />
-                  <path d="M12 7v5l3.5 2" opacity="0.9" />
+                  <path d="M12 7v5l3.5 2" opacity="0.95" />
                 </svg>
               </div>
-              <h3 className="mt-5 text-center text-base font-semibold tracking-tight text-zinc-100 sm:text-lg">
+              <h3 className="mt-4 text-center text-base font-semibold tracking-tight text-zinc-100">
                 {t("limitTitle")}
               </h3>
               <p className="mx-auto mt-2 max-w-sm text-center text-sm leading-relaxed text-zinc-400">
                 {t("limitDescription")}
               </p>
-              <p className="mx-auto mt-3 max-w-sm text-center text-xs leading-relaxed text-zinc-500">
+              <p className="mx-auto mt-2 text-center text-xs leading-relaxed text-zinc-500">
                 {t("limitResetLine")}
               </p>
-              <div className="mx-auto mt-7 flex w-full max-w-xs flex-col gap-2.5 sm:max-w-sm">
+              <div className="mx-auto mt-6 flex w-full max-w-xs flex-col gap-2">
                 <a
                   href="#stv-pricing"
-                  className={`inline-flex min-h-11 w-full items-center justify-center rounded-lg px-5 py-2.5 text-center text-sm font-medium text-zinc-200 transition hover:bg-zinc-800/90 ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
+                  className={`inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500 ${STV_FOCUS_RING}`}
                 >
                   {t("limitViewPlans")}
                 </a>

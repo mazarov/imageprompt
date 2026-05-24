@@ -71,7 +71,6 @@ const errorLimitWrap  = document.getElementById("error-limit-wrap");
 const btnErrorPlans   = document.getElementById("btn-error-plans");
 const btnErrorLimitDismiss = document.getElementById("btn-error-limit-dismiss");
 const btnChooseFile   = document.getElementById("btn-choose-file");
-const btnOpenSite     = document.getElementById("btn-open-site");
 const btnClosePopup   = document.getElementById("btn-close-popup");
 const btnLoadingCancel = document.getElementById("btn-loading-cancel");
 const btnAnalyzeDraft = document.getElementById("btn-analyze-draft");
@@ -221,10 +220,6 @@ function bindEvents() {
     markFilePickerActive();
   });
 
-  btnOpenSite?.addEventListener("click", () => {
-    filePickIntent = "open_site";
-    openFilePicker();
-  });
 
   if (btnOpenHistorySite) {
     btnOpenHistorySite.addEventListener("click", () => {
