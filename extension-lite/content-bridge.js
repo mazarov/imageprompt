@@ -4,10 +4,38 @@
  * 2) Recognition history: merges extension -> page localStorage (canonical store).
  */
 const SESSION_KEY = "extension_lite_pending";
+const AUTH_EXCHANGE_MESSAGE = "IMAGEPROMPT_AUTH_EXCHANGE";
+const AUTH_EXCHANGE_EVENT = "imageprompt-tools-auth-exchange";
 
 const HISTORY_STORAGE_KEY = "extension_lite_recognition_history_v1";
 const MAX_HISTORY_ENTRIES = 35;
 const STYLES_OK = new Set(["photoreal", "midjourney", "sd", "flux"]);
+const consumedAuthCodes = new Set();
+
+function forwardAuthExchangeCode(code) {
+  if (typeof code !== "string" || !code || consumedAuthCodes.has(code)) return;
+  consumedAuthCodes.add(code);
+  chrome.runtime.sendMessage({ type: "LITE_AUTH_EXCHANGE_CODE", code }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.warn("[extension-lite] auth exchange:", chrome.runtime.lastError.message);
+      return;
+    }
+    if (!response?.ok) {
+      console.warn("[extension-lite] auth exchange failed:", response?.error || "unknown");
+    }
+  });
+}
+
+document.addEventListener(AUTH_EXCHANGE_EVENT, (event) => {
+  const detail = event instanceof CustomEvent ? event.detail : null;
+  forwardAuthExchangeCode(detail?.code);
+});
+
+window.addEventListener("message", (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type !== AUTH_EXCHANGE_MESSAGE) return;
+  forwardAuthExchangeCode(event.data.code);
+});
 
 chrome.runtime.sendMessage({ type: "CONSUME_WEB_PENDING" }, (response) => {
   if (chrome.runtime.lastError) {

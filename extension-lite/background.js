@@ -13,6 +13,8 @@ const SITE_URL = "https://imageprompt.tools/";
 const LITE_ORIGIN = new URL("/", SITE_URL).origin;
 const LITE_ANALYZE_API_URL = `${LITE_ORIGIN}/api/extension/analyze`;
 const LITE_DEV_IP_HASH_URL = `${LITE_ORIGIN}/api/extension/dev-ip-hash`;
+const LITE_AUTH_EXCHANGE_URL = `${LITE_ORIGIN}/api/auth/extension/exchange`;
+const APP_JWT_STORAGE_KEY = "ip_app_jwt";
 
 /** Hosts where lite content-script runs — keep in sync with manifest.json matches. */
 function isLiteHost(hostname) {
@@ -85,6 +87,30 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       sendResponse({ ok: true });
     });
+    return true;
+  }
+  if (msg?.type === "LITE_AUTH_STATUS") {
+    getLiteAuthStatus()
+      .then((status) => sendResponse({ ok: true, ...status }))
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    return true;
+  }
+  if (msg?.type === "LITE_AUTH_START") {
+    startLiteAuthFlow()
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    return true;
+  }
+  if (msg?.type === "LITE_AUTH_SIGN_OUT") {
+    clearLiteAuthToken()
+      .then(() => sendResponse({ ok: true, signedIn: false }))
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    return true;
+  }
+  if (msg?.type === "LITE_AUTH_EXCHANGE_CODE" && typeof msg.code === "string") {
+    exchangeLiteAuthCode(msg.code)
+      .then((status) => sendResponse({ ok: true, ...status }))
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
     return true;
   }
   if (msg?.type === "START_LITE_ANALYSIS" && typeof msg.dataUrl === "string") {
@@ -242,6 +268,61 @@ async function getAnalysisJob() {
   return data?.[ANALYSIS_JOB_KEY] ?? null;
 }
 
+async function getLiteAuthToken() {
+  const data = await chrome.storage.local.get(APP_JWT_STORAGE_KEY);
+  const token = data?.[APP_JWT_STORAGE_KEY];
+  return typeof token === "string" && token ? token : "";
+}
+
+async function clearLiteAuthToken() {
+  await chrome.storage.local.remove(APP_JWT_STORAGE_KEY);
+}
+
+function decodeJwtPayload(token) {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="));
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+async function getLiteAuthStatus() {
+  const token = await getLiteAuthToken();
+  if (!token) return { signedIn: false };
+  const payload = decodeJwtPayload(token);
+  return {
+    signedIn: true,
+    email: typeof payload?.email === "string" ? payload.email : "",
+    name: typeof payload?.name === "string" ? payload.name : "",
+  };
+}
+
+async function startLiteAuthFlow() {
+  const nextPath = "/auth/extension/finish";
+  const url = `${LITE_ORIGIN}/api/auth/google?flow=extension&next=${encodeURIComponent(nextPath)}`;
+  await chrome.tabs.create({ url });
+}
+
+async function exchangeLiteAuthCode(code) {
+  const res = await fetch(LITE_AUTH_EXCHANGE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || typeof data.accessToken !== "string" || !data.accessToken) {
+    throw new Error(data.error || "exchange_failed");
+  }
+  await chrome.storage.local.set({ [APP_JWT_STORAGE_KEY]: data.accessToken });
+  const status = await getLiteAuthStatus();
+  chrome.runtime.sendMessage({ type: "LITE_AUTH_UPDATED", ...status }).catch(() => {});
+  return status;
+}
+
 async function startLiteAnalysisJob(dataUrl, styleValue) {
   const style = isValidStyle(styleValue) ? styleValue : "photoreal";
   const job = {
@@ -304,9 +385,12 @@ function createLiteHistoryEntry(dataUrl, style, prompt) {
 async function liteOverlayAnalyze(dataUrl, style) {
   let res;
   try {
+    const token = await getLiteAuthToken();
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
     res = await fetch(LITE_ANALYZE_API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ image_base64: dataUrl, style }),
     });
   } catch (err) {
