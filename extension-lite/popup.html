@@ -12,7 +12,7 @@
 
     <!-- Top bar -->
     <header class="topbar">
-      <div class="topbar-brand">
+      <div class="topbar-brand" id="brand-dev-trigger">
         <img class="brand-mark" src="icons/icon32.png" width="26" height="26" alt="" />
         <span class="brand-name">AI Image Describer</span>
       </div>
@@ -20,6 +20,24 @@
     </header>
 
     <div class="shell-body">
+
+    <!-- Developer (⌗ 5 taps on logo) -->
+    <section id="dev-settings" class="dev-settings" hidden aria-label="Developer settings">
+      <div class="dev-settings-head">
+        <span class="dev-settings-title">Developer</span>
+        <span class="dev-settings-actions">
+          <button type="button" class="dev-settings-btn" id="dev-hash-refresh">Refresh</button>
+          <button type="button" class="dev-settings-dismiss" id="dev-settings-dismiss" aria-label="Hide developer settings">&times;</button>
+        </span>
+      </div>
+      <p class="dev-settings-hint">Rate-limit <code class="dev-code">ip_hash</code> — same computation as POST <code class="dev-code">/api/extension/analyze</code>.</p>
+      <div class="dev-hash-row">
+        <pre id="dev-ip-hash-value" class="dev-ip-hash-value" tabindex="0"></pre>
+        <button type="button" class="dev-settings-btn" id="dev-hash-copy">Copy</button>
+      </div>
+      <p id="dev-ip-hash-meta" class="dev-meta"></p>
+      <p id="dev-ip-hash-error" class="dev-error" role="alert" hidden></p>
+    </section>
 
     <!-- ── EMPTY STATE ── -->
     <section id="state-empty" class="panel active">
@@ -52,6 +70,18 @@
       </div>
 
       <p class="paste-hint">Paste a picture with ⌘V / Ctrl+V, or drop a file.</p>
+    </section>
+
+    <!-- ── DRAFT STATE ── -->
+    <section id="state-draft" class="panel">
+      <div class="preview-frame" aria-hidden="true">
+        <div class="preview-frame-inner">
+          <img id="draft-preview" class="preview-img" src="" alt="" />
+        </div>
+      </div>
+      <p class="draft-hint">Last added image is ready.</p>
+      <button class="btn btn-primary btn-full" id="btn-analyze-draft" type="button">Analyze image</button>
+      <button class="btn btn-secondary btn-full" id="btn-draft-another" type="button">Choose another image</button>
     </section>
 
     <!-- ── LOADING STATE ── -->

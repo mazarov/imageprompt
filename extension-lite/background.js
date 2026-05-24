@@ -5,11 +5,14 @@ const CONTEXT_MENU_ID = "analyze-image";
 const CONTEXT_OPEN_SITE = "open-imageprompt-with-image";
 const WEB_PENDING_STORAGE_KEY = "extension_lite_web_pending";
 const HISTORY_QUEUE_KEY = "extension_lite_history_queue_v1";
+const ANALYSIS_JOB_KEY = "extension_lite_analysis_job_v1";
 const MAX_HISTORY_QUEUE_ENTRIES = 45;
 const MAX_SW_FETCH_BYTES = 10 * 1024 * 1024;
 
 const SITE_URL = "https://imageprompt.tools/";
-const LITE_ANALYZE_API_URL = `${new URL("/", SITE_URL).origin}/api/extension/analyze`;
+const LITE_ORIGIN = new URL("/", SITE_URL).origin;
+const LITE_ANALYZE_API_URL = `${LITE_ORIGIN}/api/extension/analyze`;
+const LITE_DEV_IP_HASH_URL = `${LITE_ORIGIN}/api/extension/dev-ip-hash`;
 
 /** Hosts where lite content-script runs — keep in sync with manifest.json matches. */
 function isLiteHost(hostname) {
@@ -18,6 +21,16 @@ function isLiteHost(hostname) {
     hostname === "localhost" ||
     hostname === "127.0.0.1"
   );
+}
+
+function isValidStyle(style) {
+  return ["photoreal", "midjourney", "sd", "flux"].includes(style);
+}
+
+function createJobId() {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
 // Register context menus once on install / service worker startup.
@@ -52,6 +65,68 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     void relayOrQueueLiteHistoryEntry(msg.entry)
       .then(() => sendResponse({ ok: true }))
       .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    return true;
+  }
+  if (msg?.type === "GET_LITE_ANALYSIS_JOB") {
+    chrome.storage.local.get(ANALYSIS_JOB_KEY, (data) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError.message, job: null });
+        return;
+      }
+      sendResponse({ ok: true, job: data?.[ANALYSIS_JOB_KEY] ?? null });
+    });
+    return true;
+  }
+  if (msg?.type === "CLEAR_LITE_ANALYSIS_JOB") {
+    chrome.storage.local.remove(ANALYSIS_JOB_KEY, () => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+        return;
+      }
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+  if (msg?.type === "START_LITE_ANALYSIS" && typeof msg.dataUrl === "string") {
+    startLiteAnalysisJob(msg.dataUrl, msg.style)
+      .then((job) => sendResponse({ ok: true, job }))
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    return true;
+  }
+  if (msg?.type === "FETCH_LITE_DEV_IP_HASH") {
+    fetch(LITE_DEV_IP_HASH_URL, { method: "GET", cache: "no-store" })
+      .then(async (res) => {
+        let body = null;
+        try {
+          body = await res.json();
+        } catch {
+          body = null;
+        }
+        if (!res.ok) {
+          sendResponse({
+            ok: false,
+            status: res.status,
+            error:
+              typeof body?.message === "string"
+                ? body.message
+                : typeof body?.error === "string"
+                  ? body.error
+                  : "request_failed",
+          });
+          return;
+        }
+        if (!body || typeof body !== "object" || typeof body.ip_hash !== "string") {
+          sendResponse({ ok: false, error: "bad_response" });
+          return;
+        }
+        sendResponse({
+          ok: true,
+          ip_hash: body.ip_hash,
+          window_start: typeof body.window_start === "string" ? body.window_start : "",
+          utc_day_yyyymmdd: typeof body.utc_day_yyyymmdd === "string" ? body.utc_day_yyyymmdd : "",
+        });
+      })
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e ?? "fetch_failed") }));
     return true;
   }
   if (msg?.type === "CONSUME_LITE_HISTORY_QUEUE") {
@@ -127,23 +202,99 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
  * resize image -> store pending payload for popup.js -> open toolbar popup.
  */
 async function openToolbarPopupForImage(srcUrl, tabId) {
-  try {
-    const dataUrl = await fetchAndResizeImage(srcUrl, tabId);
-    await chrome.storage.session.set({
-      [PENDING_IMAGE_KEY]: { dataUrl, srcUrl, ts: Date.now(), source: "overlay" },
-    });
-  } catch (err) {
-    await chrome.storage.session.set({
-      [PENDING_IMAGE_KEY]: { error: "fetch_failed", srcUrl, ts: Date.now(), source: "overlay" },
-    });
-  }
+  const ts = Date.now();
+  const popupPromise = chrome.action.openPopup();
+
+  void chrome.storage.session.set({
+    [PENDING_IMAGE_KEY]: { status: "loading", srcUrl, ts, source: "overlay" },
+  });
 
   try {
-    await chrome.action.openPopup();
+    await popupPromise;
+    void preparePopupImage(srcUrl, tabId, ts);
     return { ok: true };
   } catch (err) {
+    void chrome.storage.session.remove(PENDING_IMAGE_KEY);
     return { ok: false, error: String(err?.message ?? err ?? "open_popup_failed") };
   }
+}
+
+async function preparePopupImage(srcUrl, tabId, ts) {
+  let pending;
+  try {
+    const dataUrl = await fetchAndResizeImage(srcUrl, tabId);
+    pending = { dataUrl, srcUrl, ts, source: "overlay" };
+  } catch {
+    pending = { error: "fetch_failed", srcUrl, ts, source: "overlay" };
+  }
+
+  await chrome.storage.session.set({ [PENDING_IMAGE_KEY]: pending });
+  chrome.runtime.sendMessage({ type: "LITE_PENDING_IMAGE_READY", pending }).catch(() => {});
+}
+
+async function setAnalysisJob(job) {
+  await chrome.storage.local.set({ [ANALYSIS_JOB_KEY]: job });
+  chrome.runtime.sendMessage({ type: "LITE_ANALYSIS_JOB_UPDATED", job }).catch(() => {});
+}
+
+async function getAnalysisJob() {
+  const data = await chrome.storage.local.get(ANALYSIS_JOB_KEY);
+  return data?.[ANALYSIS_JOB_KEY] ?? null;
+}
+
+async function startLiteAnalysisJob(dataUrl, styleValue) {
+  const style = isValidStyle(styleValue) ? styleValue : "photoreal";
+  const job = {
+    id: createJobId(),
+    status: "analyzing",
+    dataUrl,
+    style,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  await setAnalysisJob(job);
+  void completeLiteAnalysisJob(job).catch((e) =>
+    console.warn("[ai-image-describer] analysis job failed", e?.message ?? e),
+  );
+  return job;
+}
+
+async function completeLiteAnalysisJob(startedJob) {
+  const result = await liteOverlayAnalyze(startedJob.dataUrl, startedJob.style);
+  const current = await getAnalysisJob();
+  if (!current || current.id !== startedJob.id) return;
+
+  if (result.ok && typeof result.prompt === "string") {
+    const entry = createLiteHistoryEntry(startedJob.dataUrl, startedJob.style, result.prompt);
+    await setAnalysisJob({
+      ...startedJob,
+      status: "result",
+      prompt: result.prompt,
+      historyEntryId: entry.id,
+      updatedAt: Date.now(),
+    });
+    await relayOrQueueLiteHistoryEntry(entry);
+    return;
+  }
+
+  await setAnalysisJob({
+    ...startedJob,
+    status: "error",
+    error: result.error || "request_failed",
+    statusCode: result.status,
+    updatedAt: Date.now(),
+  });
+}
+
+function createLiteHistoryEntry(dataUrl, style, prompt) {
+  return {
+    id: createJobId(),
+    createdAt: new Date().toISOString(),
+    style,
+    prompt,
+    image: { mode: "data_url", dataUrl },
+  };
 }
 
 /**

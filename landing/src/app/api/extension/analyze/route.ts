@@ -1,5 +1,9 @@
-import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  extensionRateLimitDayWindowStartIso,
+  extensionRateLimitIpHash,
+  extensionRateLimitParsedIp,
+} from "@/lib/extension-rate-limit-ip";
 import { createSupabaseServer } from "@/lib/supabase";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -155,28 +159,6 @@ Be descriptive and use complete sentences. Output ONLY the prompt paragraph, no 
   };
 
   return styleInstructions[style];
-}
-
-function parseIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0].trim();
-    if (first) return first;
-  }
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp.trim();
-  return "unknown";
-}
-
-function hashIpForDay(ip: string): string {
-  const now = new Date();
-  const yyyymmdd = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}${String(now.getUTCDate()).padStart(2, "0")}`;
-  return createHash("sha256").update(`${ip}:${yyyymmdd}`).digest("hex");
-}
-
-function dayWindowStart(): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
 }
 
 function extractBase64AndMime(dataUrl: string): { mimeType: string; data: string } | null {
@@ -378,9 +360,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       : "photoreal";
 
   // Rate-limit check
-  const ip = parseIp(req);
-  const ipHash = hashIpForDay(ip);
-  const windowStart = dayWindowStart();
+  const ip = extensionRateLimitParsedIp(req.headers);
+  const ipHash = extensionRateLimitIpHash(ip);
+  const windowStart = extensionRateLimitDayWindowStartIso();
 
   const supabase = createSupabaseServer();
   const rateLimitPerDay = await getRateLimitPerDay(supabase);
