@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  extensionRateLimitDayWindowStartIso,
-  extensionRateLimitIpHash,
-  extensionRateLimitParsedIp,
-} from "@/lib/extension-rate-limit-ip";
+import { checkAndIncrementExtensionLimit } from "@/lib/extension-rate-limit";
 import { createSupabaseServer } from "@/lib/supabase";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -99,32 +95,7 @@ async function getGeminiBaseUrl(supabase: ReturnType<typeof createSupabaseServer
 
   return GEMINI_DIRECT_BASE_URL;
 }
-const RATE_LIMIT_PER_DAY_DEFAULT = 30;
 const GEMINI_TIMEOUT_MS = 30_000;
-
-async function getRateLimitPerDay(supabase: ReturnType<typeof createSupabaseServer>): Promise<number> {
-  try {
-    const { data, error } = await supabase
-      .from("aiid_app_config")
-      .select("value")
-      .eq("key", "extension_rate_limit_per_day")
-      .maybeSingle();
-
-    if (error) {
-      console.warn("[extension.analyze] aiid_app_config read failed", { message: error.message });
-      return RATE_LIMIT_PER_DAY_DEFAULT;
-    }
-
-    const parsed = parseInt(String(data?.value ?? ""), 10);
-    if (Number.isFinite(parsed) && parsed > 0) return parsed;
-  } catch (err) {
-    console.warn("[extension.analyze] aiid_app_config read threw", {
-      message: err instanceof Error ? err.message : String(err),
-    });
-  }
-
-  return RATE_LIMIT_PER_DAY_DEFAULT;
-}
 
 type Style = "photoreal" | "midjourney" | "sd" | "flux";
 const VALID_STYLES: Style[] = ["photoreal", "midjourney", "sd", "flux"];
@@ -359,37 +330,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? (rawStyle as Style)
       : "photoreal";
 
-  // Rate-limit check
-  const ip = extensionRateLimitParsedIp(req.headers);
-  const ipHash = extensionRateLimitIpHash(ip);
-  const windowStart = extensionRateLimitDayWindowStartIso();
-
   const supabase = createSupabaseServer();
-  const rateLimitPerDay = await getRateLimitPerDay(supabase);
-  let rateLimitResult: { allowed: boolean; count: number } | null = null;
-
-  try {
-    const { data, error } = await supabase.rpc("extension_rate_limit_check_and_increment", {
-      p_ip_hash: ipHash,
-      p_window_start: windowStart,
-      p_max_count: rateLimitPerDay,
-    });
-
-    if (error) {
-      console.error("[extension.analyze] rate_limit_rpc_error", { message: error.message });
-      // Fail open: if rate limit table not available, still allow the request
-    } else {
-      rateLimitResult = data as { allowed: boolean; count: number };
-    }
-  } catch (err) {
-    console.error("[extension.analyze] rate_limit_threw", {
-      message: err instanceof Error ? err.message : String(err),
-    });
-  }
+  const rateLimitResult = await checkAndIncrementExtensionLimit(req, supabase);
 
   if (rateLimitResult && !rateLimitResult.allowed) {
     return NextResponse.json(
-      { error: "rate_limited", message: "Daily limit reached. Try again in 24 hours." },
+      {
+        error: "rate_limited",
+        message: "Daily limit reached. Try again in 24 hours.",
+        limit_count: rateLimitResult.count,
+        limit_max: rateLimitResult.max,
+        authenticated: rateLimitResult.authenticated,
+        auth_required: !rateLimitResult.authenticated,
+      },
       { status: 429 }
     );
   }

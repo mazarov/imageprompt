@@ -13,6 +13,7 @@ import { signAppSessionToken, authJwtExpiresSeconds } from "@/lib/app-auth-jwt";
 import { getOAuthPublicOrigin } from "@/lib/app-auth-site";
 import { upsertAppUserFromGoogleIdToken } from "@/lib/app-auth-user";
 import { createExtensionExchange } from "@/lib/app-auth-extension-exchange";
+import { mergeExtensionIpLimitForRequest } from "@/lib/extension-rate-limit";
 import {
   oauthCallbackDebug,
   oauthCallbackError,
@@ -146,6 +147,8 @@ export async function GET(request: NextRequest) {
     });
     return errorRedirect(formatAuthStepError("user_db", e));
   }
+
+  await mergeExtensionIpLimitForRequest(request, user.id);
 
   let jwt: string;
   try {

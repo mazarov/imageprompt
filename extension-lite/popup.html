@@ -39,6 +39,15 @@
       <p id="dev-ip-hash-error" class="dev-error" role="alert" hidden></p>
     </section>
 
+    <section id="auth-card" class="auth-card" aria-label="Account">
+      <div class="auth-copy">
+        <p id="auth-title" class="auth-title">Guest mode</p>
+        <p id="auth-subtitle" class="auth-subtitle">Sign in to keep one daily free limit across the site and extension.</p>
+      </div>
+      <button type="button" class="auth-btn" id="btn-auth-google">Continue with Google</button>
+      <button type="button" class="auth-btn auth-btn-secondary" id="btn-auth-sign-out" hidden>Sign out</button>
+    </section>
+
     <!-- ── EMPTY STATE ── -->
     <section id="state-empty" class="panel active">
       <div
@@ -51,7 +60,14 @@
         <p class="dropzone-hint">JPG or PNG, up to 10 MB</p>
         <button class="btn btn-primary btn-inline" id="btn-choose-file" type="button">Choose file</button>
       </div>
-      <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" hidden />
+      <input
+        type="file"
+        id="file-input"
+        accept="image/*"
+        class="file-input-screen-only"
+        tabindex="-1"
+        aria-label="Choose image file"
+      />
 
       <button class="btn btn-secondary btn-full" id="btn-open-site" type="button" title="Resize and analyze on imageprompt.tools in a new tab">
         On imageprompt.tools
@@ -126,9 +142,29 @@
 
     <!-- ── ERROR STATE (fetch failed before result) ── -->
     <section id="state-error" class="panel">
-      <div class="error-full">
-        <p id="error-message" class="error-message"></p>
-        <button class="btn btn-primary btn-full" id="btn-error-retry" type="button">Try another image</button>
+      <div id="error-generic-wrap" class="error-generic-wrap">
+        <div class="error-full">
+          <p id="error-message" class="error-message"></p>
+          <button class="btn btn-primary btn-full" id="btn-error-retry" type="button">Try another image</button>
+        </div>
+      </div>
+      <div id="error-limit-wrap" class="error-limit-wrap" hidden>
+        <div class="error-full error-limit">
+          <div class="error-limit-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9" opacity="0.35" />
+              <path d="M12 7v5l3.5 2" opacity="0.95" />
+            </svg>
+          </div>
+          <h2 class="error-limit-title">Daily limit reached</h2>
+          <p class="error-limit-body">
+            You've used today's free analyses. Limits reset every 24 hours so the tool stays fast for everyone.
+          </p>
+          <p class="error-limit-meta">You'll be able to analyze again in about 24 hours.</p>
+          <button class="btn btn-primary btn-full" id="btn-error-auth" type="button">Continue with Google</button>
+          <a class="btn btn-primary btn-full" id="btn-error-plans" href="https://imageprompt.tools/#stv-pricing" target="_blank" rel="noopener noreferrer">View plans</a>
+          <button class="btn btn-secondary btn-full" id="btn-error-limit-dismiss" type="button">Got it</button>
+        </div>
       </div>
     </section>
 

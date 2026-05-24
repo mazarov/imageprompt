@@ -4,9 +4,21 @@ const PENDING_IMAGE_KEY = "pending_image";
 const POPUP_STATE_KEY = "extension_lite_popup_state_v1";
 const ANALYSIS_JOB_KEY = "extension_lite_analysis_job_v1";
 const SITE_HISTORY_URL = "https://imageprompt.tools/#extension-lite-history";
+const SITE_PRICING_URL = "https://imageprompt.tools/#stv-pricing";
 const DEV_BRAND_TAP_WINDOW_MS = 2000;
 const DEV_BRAND_TAPS_TO_UNLOCK = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+/** macOS / Chromium sometimes leave MIME empty for valid images from disk. */
+const IMAGE_FILENAME_RE = /\.(jpe?g|png|gif|webp|bmp|tiff?|svg|avif|heif|heic)$/i;
+
+/** @param {File} file */
+function looksLikeImageFileForUpload(file) {
+  if (file.type.startsWith("image/")) return true;
+  const extOk = IMAGE_FILENAME_RE.test(file.name);
+  const looseType = file.type === "" || file.type === "application/octet-stream";
+  return Boolean(extOk && looseType);
+}
 
 // ── DOM refs ──
 const panels = {
@@ -27,6 +39,10 @@ const btnCopy         = document.getElementById("btn-copy");
 const btnRetry        = document.getElementById("btn-retry");
 const btnOpenHistorySite = document.getElementById("btn-open-history-site");
 const btnErrorRetry   = document.getElementById("btn-error-retry");
+const errorGenericWrap = document.getElementById("error-generic-wrap");
+const errorLimitWrap  = document.getElementById("error-limit-wrap");
+const btnErrorPlans   = document.getElementById("btn-error-plans");
+const btnErrorLimitDismiss = document.getElementById("btn-error-limit-dismiss");
 const btnChooseFile   = document.getElementById("btn-choose-file");
 const btnOpenSite     = document.getElementById("btn-open-site");
 const btnClosePopup   = document.getElementById("btn-close-popup");
@@ -44,6 +60,11 @@ const devIpHashError  = document.getElementById("dev-ip-hash-error");
 const devHashRefresh  = document.getElementById("dev-hash-refresh");
 const devSettingsDismiss = document.getElementById("dev-settings-dismiss");
 const devHashCopy     = document.getElementById("dev-hash-copy");
+const authTitle       = document.getElementById("auth-title");
+const authSubtitle    = document.getElementById("auth-subtitle");
+const btnAuthGoogle   = document.getElementById("btn-auth-google");
+const btnAuthSignOut  = document.getElementById("btn-auth-sign-out");
+const btnErrorAuth    = document.getElementById("btn-error-auth");
 
 // ── State ──
 let currentPrompt = "";
@@ -116,6 +137,8 @@ function bindEvents() {
       void handlePendingImage(msg.pending);
     } else if (msg?.type === "LITE_ANALYSIS_JOB_UPDATED") {
       handleAnalysisJob(msg.job);
+    } else if (msg?.type === "LITE_AUTH_UPDATED") {
+      applyAuthStatus(msg);
     }
     return false;
   });
@@ -235,9 +258,72 @@ function bindEvents() {
 
   // Try another image
   btnRetry.addEventListener("click", () => resetToEmpty());
-  btnErrorRetry.addEventListener("click", () => resetToEmpty());
+  btnErrorRetry?.addEventListener("click", () => resetToEmpty());
+  btnErrorLimitDismiss?.addEventListener("click", () => resetToEmpty());
+  btnAuthGoogle?.addEventListener("click", () => startGoogleAuth());
+  btnErrorAuth?.addEventListener("click", () => startGoogleAuth());
+  btnAuthSignOut?.addEventListener("click", () => signOutGoogle());
 
   setupBrandTapDevUnlock();
+  void refreshAuthStatus();
+}
+
+async function sendRuntimeMessage(message) {
+  return chrome.runtime.sendMessage(message);
+}
+
+function applyAuthStatus(status) {
+  const signedIn = status?.signedIn === true;
+  const label = typeof status?.email === "string" && status.email
+    ? status.email
+    : typeof status?.name === "string" && status.name
+      ? status.name
+      : "";
+
+  if (authTitle) authTitle.textContent = signedIn ? "Signed in with Google" : "Guest mode";
+  if (authSubtitle) {
+    authSubtitle.textContent = signedIn
+      ? label || "Your daily free limit is shared across the site and extension."
+      : "Sign in to keep one daily free limit across the site and extension.";
+  }
+  if (btnAuthGoogle) btnAuthGoogle.hidden = signedIn;
+  if (btnAuthSignOut) btnAuthSignOut.hidden = !signedIn;
+  if (btnErrorAuth) btnErrorAuth.hidden = signedIn;
+}
+
+async function refreshAuthStatus() {
+  try {
+    const res = await sendRuntimeMessage({ type: "LITE_AUTH_STATUS" });
+    if (res?.ok) applyAuthStatus(res);
+  } catch {
+    applyAuthStatus({ signedIn: false });
+  }
+}
+
+async function startGoogleAuth() {
+  if (btnAuthGoogle) btnAuthGoogle.disabled = true;
+  if (btnErrorAuth) btnErrorAuth.disabled = true;
+  try {
+    const res = await sendRuntimeMessage({ type: "LITE_AUTH_START" });
+    if (!res?.ok) throw new Error(res?.error || "auth_start_failed");
+  } catch (e) {
+    showInlineError("Could not open Google sign-in. Please try again.");
+    console.warn("[aid] auth start failed", e);
+  } finally {
+    if (btnAuthGoogle) btnAuthGoogle.disabled = false;
+    if (btnErrorAuth) btnErrorAuth.disabled = false;
+  }
+}
+
+async function signOutGoogle() {
+  try {
+    const res = await sendRuntimeMessage({ type: "LITE_AUTH_SIGN_OUT" });
+    if (!res?.ok) throw new Error(res?.error || "sign_out_failed");
+    applyAuthStatus({ signedIn: false });
+  } catch (e) {
+    showInlineError("Could not sign out. Please try again.");
+    console.warn("[aid] sign out failed", e);
+  }
 }
 
 function scheduleDevLogoTapReset() {
@@ -363,7 +449,7 @@ async function refreshDevIpHash() {
 }
 
 async function handleFileForSite(file) {
-  if (!file.type.startsWith("image/")) {
+  if (!looksLikeImageFileForUpload(file)) {
     showInlineError("Please drop an image file (JPG or PNG).");
     return;
   }
@@ -392,7 +478,7 @@ async function handleFileForSite(file) {
 }
 
 async function handleFile(file) {
-  if (!file.type.startsWith("image/")) {
+  if (!looksLikeImageFileForUpload(file)) {
     showInlineError("Please drop an image file (JPG or PNG).");
     return;
   }
@@ -523,7 +609,11 @@ function handleAnalysisJob(job) {
     currentDataUrl = job.dataUrl;
     currentStyle = style;
     if (styleSelect) styleSelect.value = currentStyle;
-    showFullError(getJobErrorMessage(job));
+    if (job.error === "rate_limited" || String(job.statusCode) === "429") {
+      showRateLimitError();
+    } else {
+      showFullError(getJobErrorMessage(job));
+    }
     return true;
   }
 
@@ -608,8 +698,17 @@ function clearAnalysisJob() {
   }
 }
 
+function showRateLimitError() {
+  if (errorGenericWrap) errorGenericWrap.hidden = true;
+  if (errorLimitWrap) errorLimitWrap.hidden = false;
+  if (btnErrorPlans instanceof HTMLAnchorElement) btnErrorPlans.href = SITE_PRICING_URL;
+  showPanel("error");
+}
+
 function showFullError(message) {
-  errorMessage.textContent = message;
+  if (errorLimitWrap) errorLimitWrap.hidden = true;
+  if (errorGenericWrap) errorGenericWrap.hidden = false;
+  if (errorMessage) errorMessage.textContent = message;
   showPanel("error");
 }
 

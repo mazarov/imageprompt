@@ -17,6 +17,9 @@ const OBSERVER_DEBOUNCE_MS = 200;
 
 const STORAGE_KEY = "lite_overlay_fab_pos_v1";
 
+/** Deep link shown when the analyze API returns rate_limited (429). */
+const SITE_PRICING_URL = "https://imageprompt.tools/#stv-pricing";
+
 /** @typedef {{ anchorY: number, anchorRatio: number | null }} SavedFabState */
 
 if (typeof chrome === "undefined" || !chrome.runtime?.id || window.self !== window.top) {
@@ -246,7 +249,10 @@ async function initLiteOverlay() {
       }
 
       let msg = "Something went wrong. Try again.";
+      /** @type {"generic" | "rate_limited"} */
+      let errKind = "generic";
       if (r.error === "rate_limited" || String(r.status) === "429") {
+        errKind = "rate_limited";
         msg = "Daily limit reached. Try again in 24 hours.";
       } else if (r.error === "not_found" || r.status === 404) {
         msg = "Service not available yet.";
@@ -256,13 +262,22 @@ async function initLiteOverlay() {
         msg = "Extension updated. Refresh this page (F5) and try again.";
       }
 
-      showModalError(msg, { retryable: r.error !== "context_invalidated" });
+      const rateLimited = errKind === "rate_limited";
+      showModalError(msg, {
+        kind: rateLimited ? "rate_limited" : "generic",
+        retryable: !rateLimited && r.error !== "context_invalidated",
+      });
     })();
   }
 
   let modalPreviewImg = /** @type {HTMLImageElement | null} */ (null);
   let modalPromptPre = /** @type {HTMLElement | null} */ (null);
   let modalErrorEl = /** @type {HTMLElement | null} */ (null);
+  let modalErrorGeneric = /** @type {HTMLElement | null} */ (null);
+  let modalErrorLimit = /** @type {HTMLElement | null} */ (null);
+  let modalLimitPlans = /** @type {HTMLAnchorElement | null} */ (null);
+  let modalErrorActions = /** @type {HTMLElement | null} */ (null);
+  let modalLimitDismissBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalAnalyzeBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalCopyBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalRetryAnalyzeBtn = /** @type {HTMLButtonElement | null} */ (null);
@@ -327,10 +342,25 @@ async function initLiteOverlay() {
             </div>
           </div>
           <div class="lite-panel lite-hidden" data-lite-panel="error">
-            <p class="lite-modal-err-msg"></p>
+            <div class="lite-error-generic">
+              <p class="lite-modal-err-msg"></p>
+            </div>
+            <div class="lite-error-limit lite-hidden">
+              <div class="lite-limit-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="9" opacity="0.35" />
+                  <path d="M12 7v5l3.5 2" opacity="0.95" />
+                </svg>
+              </div>
+              <p class="lite-limit-title">Daily limit reached</p>
+              <p class="lite-limit-desc">You've used today's free analyses. We reset limits every 24 hours so the tool stays fast for everyone.</p>
+              <p class="lite-limit-meta">Try again in about 24 hours.</p>
+            </div>
             <div class="lite-error-actions">
+              <a class="lite-primary-btn lite-limit-plans lite-hidden" href="${SITE_PRICING_URL}" target="_blank" rel="noopener noreferrer">View plans</a>
               <button type="button" class="lite-secondary-btn lite-retry-analyze-btn lite-hidden">Try again</button>
               <button type="button" class="lite-primary-btn lite-retry-ready-btn lite-hidden">Close</button>
+              <button type="button" class="lite-secondary-btn lite-limit-dismiss lite-hidden">Got it</button>
             </div>
           </div>
         </div>
@@ -342,7 +372,7 @@ async function initLiteOverlay() {
       card.addEventListener("click", (e) => e.stopPropagation());
     }
 
-    const closeBtns = modalBackdrop.querySelectorAll(".lite-modal-close, .lite-retry-ready-btn");
+    const closeBtns = modalBackdrop.querySelectorAll(".lite-modal-close, .lite-retry-ready-btn, .lite-limit-dismiss");
     closeBtns.forEach((b) =>
       b.addEventListener("click", () => {
         closeModal();
@@ -354,6 +384,10 @@ async function initLiteOverlay() {
     modalPromptPre = q(modalBackdrop, ".lite-prompt-out");
 
     modalErrorEl = q(modalBackdrop, ".lite-modal-err-msg");
+    modalErrorGeneric = q(modalBackdrop, ".lite-error-generic");
+    modalErrorLimit = q(modalBackdrop, ".lite-error-limit");
+    modalLimitPlans = /** @type {HTMLAnchorElement | null} */ (modalBackdrop.querySelector(".lite-limit-plans"));
+    modalErrorActions = q(modalBackdrop, ".lite-error-actions");
 
     modalAnalyzeBtn = /** @type {HTMLButtonElement | null} */ (modalBackdrop.querySelector(".lite-analyze-btn"));
 
@@ -363,6 +397,9 @@ async function initLiteOverlay() {
     );
     modalErrorCloseBtn = /** @type {HTMLButtonElement | null} */ (
       modalBackdrop.querySelector(".lite-retry-ready-btn")
+    );
+    modalLimitDismissBtn = /** @type {HTMLButtonElement | null} */ (
+      modalBackdrop.querySelector(".lite-limit-dismiss")
     );
 
     modalAnalyzeBtn?.addEventListener("click", handleModalAnalyzeClick);
@@ -400,9 +437,16 @@ async function initLiteOverlay() {
       ])) {
         el.classList.toggle("lite-hidden", k !== name);
       }
-      const errBack = modalBackdrop?.querySelector(".lite-retry-ready-btn");
-      if (errBack instanceof HTMLElement) {
-        errBack.classList.toggle("lite-hidden", name !== "error");
+      if (name !== "error") {
+        for (const sel of /** @type {const} */ [
+          ".lite-retry-ready-btn",
+          ".lite-limit-dismiss",
+          ".lite-limit-plans",
+          ".lite-retry-analyze-btn",
+        ]) {
+          const el = modalBackdrop?.querySelector(sel);
+          if (el instanceof HTMLElement) el.classList.add("lite-hidden");
+        }
       }
       const retryBtn = modalBackdrop?.querySelector(".lite-retry-analyze-btn");
       if (retryBtn instanceof HTMLElement && name !== "error") {
@@ -432,10 +476,25 @@ async function initLiteOverlay() {
   }
 
   function showModalError(msg, opts = {}) {
-    if (modalErrorEl) modalErrorEl.textContent = msg;
-    const retryable = opts.retryable === true && !!modalCurrentDataUrl;
+    const isLimit = opts.kind === "rate_limited";
+    if (modalErrorGeneric) modalErrorGeneric.classList.toggle("lite-hidden", isLimit);
+    if (modalErrorLimit) modalErrorLimit.classList.toggle("lite-hidden", !isLimit);
+    if (!isLimit && modalErrorEl) modalErrorEl.textContent = msg;
+
+    const retryable = !isLimit && opts.retryable === true && !!modalCurrentDataUrl;
     if (modalRetryAnalyzeBtn) modalRetryAnalyzeBtn.classList.toggle("lite-hidden", !retryable);
-    if (modalErrorCloseBtn) modalErrorCloseBtn.classList.remove("lite-hidden");
+    if (modalLimitPlans) modalLimitPlans.classList.toggle("lite-hidden", !isLimit);
+
+    if (isLimit) {
+      if (modalErrorCloseBtn) modalErrorCloseBtn.classList.add("lite-hidden");
+      if (modalLimitDismissBtn) modalLimitDismissBtn.classList.remove("lite-hidden");
+    } else {
+      if (modalLimitDismissBtn) modalLimitDismissBtn.classList.add("lite-hidden");
+      if (modalErrorCloseBtn) modalErrorCloseBtn.classList.remove("lite-hidden");
+    }
+
+    if (modalErrorActions) modalErrorActions.classList.toggle("lite-error-actions-stack", !!isLimit);
+
     setModalUiState("error");
   }
 
@@ -1173,6 +1232,59 @@ function cssText() {
       font-size: 13px;
       color: #fecaca;
       line-height: 1.35;
+    }
+    .lite-error-limit {
+      text-align: center;
+      padding: 6px 2px 4px;
+    }
+    .lite-limit-icon {
+      margin: 0 auto 12px;
+      width: 48px;
+      height: 48px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      color: #a5b4fc;
+    }
+    .lite-limit-title {
+      margin: 0 0 8px;
+      font-size: 15px;
+      font-weight: 650;
+      color: #fafafa;
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+    }
+    .lite-limit-desc {
+      margin: 0 0 10px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #a1a1aa;
+    }
+    .lite-limit-meta {
+      margin: 0 0 4px;
+      font-size: 12px;
+      line-height: 1.35;
+      color: #71717a;
+    }
+    a.lite-primary-btn {
+      display: block;
+      box-sizing: border-box;
+      text-align: center;
+      text-decoration: none;
+      line-height: 1.25;
+    }
+    .lite-error-actions-stack {
+      flex-direction: column;
+      align-items: stretch;
+      margin-top: 8px;
+    }
+    .lite-error-actions-stack .lite-primary-btn,
+    .lite-error-actions-stack .lite-secondary-btn {
+      flex: none;
+      width: 100%;
     }
 `;
 }

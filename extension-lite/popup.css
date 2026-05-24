@@ -279,6 +279,88 @@ html, body {
     0 0 0 4px rgb(129 140 248 / 0.55);
 }
 
+/* ── Account ── */
+.auth-card {
+  flex-shrink: 0;
+  margin: 0 12px 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tab);
+  background: rgb(39 39 42 / 0.45);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--ring-inset);
+}
+
+.auth-copy {
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+.auth-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.auth-subtitle {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.auth-btn {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid rgb(99 102 241 / 0.35);
+  border-radius: 8px;
+  background: var(--indigo);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-btn:hover {
+  background: var(--indigo-hover);
+}
+
+.auth-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.auth-btn-secondary {
+  margin-top: 6px;
+  color: var(--text-muted);
+  background: transparent;
+  border-color: var(--border-input);
+}
+
+.auth-btn-secondary:hover {
+  color: var(--text);
+  background: rgb(255 255 255 / 0.06);
+}
+
+/*
+ * Visually hide the file input — `hidden` / display:none prevents reliable
+ * `change` events after picking a file in Safari and some Chromium builds.
+ */
+.file-input-screen-only {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  border: 0;
+  opacity: 0;
+}
+
 /* ── Panels ── */
 .panel {
   display: none;
@@ -671,6 +753,13 @@ html, body {
 }
 
 /* ── Full-page error ── */
+.error-generic-wrap,
+.error-limit-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .error-full {
   display: flex;
   flex-direction: column;
@@ -680,6 +769,48 @@ html, body {
   flex: 1;
   text-align: center;
   padding: 20px 0;
+}
+
+.error-limit {
+  gap: 14px;
+}
+
+.error-limit-icon {
+  margin: 0 auto;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(99 102 241 / 0.14);
+  border: 1px solid rgb(139 92 246 / 0.35);
+  color: rgb(165 180 252);
+}
+
+.error-limit-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text-primary, #fafafa);
+  line-height: 1.3;
+}
+
+.error-limit-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted, #a1a1aa);
+  max-width: 18rem;
+  align-self: center;
+}
+
+.error-limit-meta {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted2, #71717a);
 }
 
 .error-message {

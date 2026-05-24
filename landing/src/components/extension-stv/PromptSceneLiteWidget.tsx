@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useAuth } from "@/context/AuthContext";
 import {
   appendLiteRecognitionHistory,
   EXTENSION_LITE_RECOGNITION_HISTORY_KEY,
@@ -29,9 +30,21 @@ const STORAGE_KEY = "extension_lite_pending";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const API_PATH = "/api/extension/analyze";
 
+/** Some OS / browsers leave MIME empty or use octet-stream for valid images from disk. */
+const IMAGE_FILENAME_RE = /\.(jpe?g|png|gif|webp|bmp|tiff?|svg|avif|heif|heic)$/i;
+
+function looksLikeImageFileForUpload(file: File): boolean {
+  if (file.type.startsWith("image/")) return true;
+  const extOk = IMAGE_FILENAME_RE.test(file.name);
+  const looseType = file.type === "" || file.type === "application/octet-stream";
+  return Boolean(extOk && looseType);
+}
+
 type AnalyzeStyle = "photoreal" | "midjourney" | "sd" | "flux";
 
 type Panel = "empty" | "loading" | "result" | "error";
+
+type LiteErrorKind = "none" | "rate_limited" | "generic";
 
 type MainTab = "analyze" | "history";
 
@@ -93,11 +106,14 @@ async function resizeImageFileToDataUrl(file: Blob, maxPx = 1024, quality = 0.85
 
 export function PromptSceneLiteWidget() {
   const t = useTranslations("PromptSceneLite");
+  const { user, loading: authLoading, signOut } = useAuth();
+  const fileInputId = useId();
   const [mainTab, setMainTab] = useState<MainTab>("analyze");
   const [panel, setPanel] = useState<Panel>("empty");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [promptText, setPromptText] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [errorKind, setErrorKind] = useState<LiteErrorKind>("none");
   const [notice, setNotice] = useState("");
   const [style, setStyle] = useState<AnalyzeStyle>("photoreal");
   const [urlInput, setUrlInput] = useState("");
@@ -113,6 +129,11 @@ export function PromptSceneLiteWidget() {
   }, [historyTick]);
 
   const showHistoryTab = historyItems.length >= 1;
+
+  const signInWithGoogle = useCallback(() => {
+    const nextPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.href = `/api/auth/google?next=${encodeURIComponent(nextPath)}`;
+  }, []);
 
   /** Deep link from extension popup (same hash as production home). */
   useEffect(() => {
@@ -153,6 +174,7 @@ export function PromptSceneLiteWidget() {
       setPanel("loading");
       setPreviewUrl(dataUrl);
       setErrorMessage("");
+      setErrorKind("none");
 
       let res: Response;
       try {
@@ -160,9 +182,10 @@ export function PromptSceneLiteWidget() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image_base64: dataUrl, style: styleUsed }),
-          credentials: "omit",
+          credentials: "include",
         });
       } catch {
+        setErrorKind("generic");
         setErrorMessage(t("errorConnection"));
         setPanel("error");
         return;
@@ -172,6 +195,7 @@ export function PromptSceneLiteWidget() {
       try {
         data = await res.json();
       } catch {
+        setErrorKind("generic");
         setErrorMessage(t("errorGeneric"));
         setPanel("error");
         return;
@@ -179,8 +203,10 @@ export function PromptSceneLiteWidget() {
 
       if (!res.ok) {
         if (data?.error === "rate_limited") {
+          setErrorKind("rate_limited");
           setErrorMessage(data?.message || t("errorRateLimited"));
         } else {
+          setErrorKind("generic");
           setErrorMessage(data?.message || t("errorGeneric"));
         }
         setPanel("error");
@@ -188,6 +214,7 @@ export function PromptSceneLiteWidget() {
       }
 
       if (!data?.prompt) {
+        setErrorKind("generic");
         setErrorMessage(t("errorGeneric"));
         setPanel("error");
         return;
@@ -218,6 +245,7 @@ export function PromptSceneLiteWidget() {
       setPanel("loading");
       setPreviewUrl(trimmed);
       setErrorMessage("");
+      setErrorKind("none");
 
       let res: Response;
       try {
@@ -225,9 +253,10 @@ export function PromptSceneLiteWidget() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image_url: trimmed, style: styleUsed }),
-          credentials: "omit",
+          credentials: "include",
         });
       } catch {
+        setErrorKind("generic");
         setErrorMessage(t("errorConnection"));
         setPanel("error");
         return;
@@ -237,6 +266,7 @@ export function PromptSceneLiteWidget() {
       try {
         data = await res.json();
       } catch {
+        setErrorKind("generic");
         setErrorMessage(t("errorGeneric"));
         setPanel("error");
         return;
@@ -244,8 +274,10 @@ export function PromptSceneLiteWidget() {
 
       if (!res.ok) {
         if (data?.error === "rate_limited") {
+          setErrorKind("rate_limited");
           setErrorMessage(data?.message || t("errorRateLimited"));
         } else {
+          setErrorKind("generic");
           setErrorMessage(data?.message || t("errorGeneric"));
         }
         setPanel("error");
@@ -253,6 +285,7 @@ export function PromptSceneLiteWidget() {
       }
 
       if (!data?.prompt) {
+        setErrorKind("generic");
         setErrorMessage(t("errorGeneric"));
         setPanel("error");
         return;
@@ -344,7 +377,7 @@ export function PromptSceneLiteWidget() {
   const handleFile = useCallback(async (file: File) => {
     setMainTab("analyze");
     setNotice("");
-    if (!file.type.startsWith("image/")) {
+    if (!looksLikeImageFileForUpload(file)) {
       setNotice(t("invalidType"));
       return;
     }
@@ -388,6 +421,7 @@ export function PromptSceneLiteWidget() {
     setPreviewUrl(null);
     setPromptText("");
     setErrorMessage("");
+    setErrorKind("none");
     setNotice("");
     setUrlInput("");
   };
@@ -456,6 +490,35 @@ export function PromptSceneLiteWidget() {
         ) : null}
       </div>
 
+      <div className={`mb-4 flex flex-col gap-2 rounded-xl ${LANDING_BORDER_CARD} ${LANDING_SURFACE_WIDGET_NESTED} p-3 sm:flex-row sm:items-center sm:justify-between`}>
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            {authLoading ? t("authChecking") : user ? t("authSignedIn") : t("authGuest")}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-zinc-400">
+            {user?.email || t("authHint")}
+          </p>
+        </div>
+        {user ? (
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className={`inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg px-3 py-2 text-xs font-medium text-zinc-200 hover:bg-zinc-800 ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
+          >
+            {t("authSignOut")}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={authLoading}
+            onClick={signInWithGoogle}
+            className={`inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 ${STV_FOCUS_RING}`}
+          >
+            {t("authSignIn")}
+          </button>
+        )}
+      </div>
+
       {mainTab === "history" ? (
         <div className="flex flex-col gap-3">
           <p className="text-xs text-zinc-500">{t("historyIntro")}</p>
@@ -511,17 +574,30 @@ export function PromptSceneLiteWidget() {
 
           {panel === "empty" ? (
         <div className="flex flex-col gap-4">
-          <div
-            role="button"
+          <input
+            id={fileInputId}
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            aria-label={t("chooseFile")}
+            tabIndex={-1}
+            className="sr-only"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void handleFile(f);
+            }}
+          />
+          <label
+            htmlFor={fileInputId}
             tabIndex={0}
-            className={`flex min-h-[11rem] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 px-4 py-8 text-center transition-colors hover:border-indigo-500/50 hover:bg-zinc-900/80 sm:min-h-[10rem] ${STV_FOCUS_RING}`}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 fileInputRef.current?.click();
               }
             }}
-            onClick={() => fileInputRef.current?.click()}
+            className={`flex min-h-[11rem] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 px-4 py-8 text-center transition-colors hover:border-indigo-500/50 hover:bg-zinc-900/80 sm:min-h-[10rem] ${STV_FOCUS_RING}`}
             onDragOver={(e) => {
               e.preventDefault();
               e.currentTarget.classList.add("border-indigo-500/60");
@@ -538,28 +614,12 @@ export function PromptSceneLiteWidget() {
           >
             <p className="text-sm font-medium text-zinc-200">{t("emptyTitle")}</p>
             <p className="mt-1 text-xs text-zinc-500">{t("emptyHint")}</p>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                fileInputRef.current?.click();
-              }}
-              className={`mt-4 inline-flex min-h-11 min-w-[10rem] items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500 ${STV_FOCUS_RING}`}
+            <span
+              className={`pointer-events-none mt-4 inline-flex min-h-11 w-full max-w-[20rem] items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 ${STV_FOCUS_RING}`}
             >
               {t("chooseFile")}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (f) void handleFile(f);
-              }}
-            />
-          </div>
+            </span>
+          </label>
 
           <label className="block">
             <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500">{t("styleLabel")}</span>
@@ -668,18 +728,18 @@ export function PromptSceneLiteWidget() {
             </pre>
             <p className="mt-1.5 text-center text-[0.65rem] text-zinc-600 sm:hidden">{t("resultScrollHint")}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:flex-wrap">
             <button
               type="button"
               onClick={() => void copyPrompt()}
-              className={`inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 ${STV_FOCUS_RING}`}
+              className={`inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 sm:w-auto sm:min-w-[10rem] ${STV_FOCUS_RING}`}
             >
               {t("copy")}
             </button>
             <button
               type="button"
               onClick={resetEmpty}
-              className={`inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-2.5 text-sm text-zinc-200 hover:bg-zinc-800 ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
+              className={`inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-lg px-5 py-2.5 text-sm text-zinc-200 hover:bg-zinc-800 sm:w-auto sm:min-w-[10rem] ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
             >
               {t("tryAgain")}
             </button>
@@ -688,16 +748,75 @@ export function PromptSceneLiteWidget() {
       ) : null}
 
       {panel === "error" ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
           {previewUrl ? <ImagePreviewFrame src={previewUrl} variant="dimmed" /> : null}
-          <p className="text-sm text-red-400">{errorMessage || t("errorGeneric")}</p>
-          <button
-            type="button"
-            onClick={resetEmpty}
-            className={`inline-flex min-h-11 items-center justify-center self-start rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 ${STV_FOCUS_RING}`}
-          >
-            {t("tryAgain")}
-          </button>
+          {errorKind === "rate_limited" ? (
+            <div
+              className={`rounded-2xl border border-indigo-500/15 bg-gradient-to-b from-indigo-950/35 via-zinc-950/40 to-zinc-950/80 px-4 py-8 sm:px-6 ${LANDING_RING_INSET_SOFT}`}
+            >
+              <div
+                className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/15 ring-1 ring-indigo-400/25"
+                aria-hidden
+              >
+                <svg
+                  className="h-7 w-7 shrink-0 text-indigo-200/90"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.65"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="9" opacity="0.35" />
+                  <path d="M12 7v5l3.5 2" opacity="0.9" />
+                </svg>
+              </div>
+              <h3 className="mt-5 text-center text-base font-semibold tracking-tight text-zinc-100 sm:text-lg">
+                {t("limitTitle")}
+              </h3>
+              <p className="mx-auto mt-2 max-w-sm text-center text-sm leading-relaxed text-zinc-400">
+                {t("limitDescription")}
+              </p>
+              <p className="mx-auto mt-3 max-w-sm text-center text-xs leading-relaxed text-zinc-500">
+                {t("limitResetLine")}
+              </p>
+              <div className="mx-auto mt-7 flex w-full max-w-xs flex-col gap-2.5 sm:max-w-sm">
+                {!user ? (
+                  <button
+                    type="button"
+                    onClick={signInWithGoogle}
+                    className={`inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-center text-sm font-medium text-white transition hover:bg-indigo-500 ${STV_FOCUS_RING}`}
+                  >
+                    {t("limitSignIn")}
+                  </button>
+                ) : null}
+                <a
+                  href="#stv-pricing"
+                  className={`inline-flex min-h-11 w-full items-center justify-center rounded-lg px-5 py-2.5 text-center text-sm font-medium text-zinc-200 transition hover:bg-zinc-800/90 ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
+                >
+                  {t("limitViewPlans")}
+                </a>
+                <button
+                  type="button"
+                  onClick={resetEmpty}
+                  className={`inline-flex min-h-11 w-full items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800/90 ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
+                >
+                  {t("limitGotIt")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm leading-relaxed text-red-300/95">{errorMessage || t("errorGeneric")}</p>
+              <button
+                type="button"
+                onClick={resetEmpty}
+                className={`inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 sm:w-auto sm:min-w-[10rem] ${STV_FOCUS_RING}`}
+              >
+                {t("tryAgain")}
+              </button>
+            </>
+          )}
         </div>
       ) : null}
 
