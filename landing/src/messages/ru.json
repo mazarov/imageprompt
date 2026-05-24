@@ -131,8 +131,7 @@
   "HomeNav": {
     "sections": "Разделы",
     "onThisPage": "На этой странице",
-    "hero": "Главная",
-    "problem": "Промпт и сцена",
+    "describer": "AI Describer",
     "how": "Как это работает",
     "pricing": "Тарифы",
     "faq": "FAQ"

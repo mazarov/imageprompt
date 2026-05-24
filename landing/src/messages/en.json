@@ -131,8 +131,7 @@
   "HomeNav": {
     "sections": "Sections",
     "onThisPage": "On this page",
-    "hero": "Home",
-    "problem": "Prompt & scene",
+    "describer": "AI Describer",
     "how": "How it works",
     "pricing": "Pricing",
     "faq": "FAQ"
