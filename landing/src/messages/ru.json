@@ -433,7 +433,7 @@
     "urlSubmit": "Разобрать по URL",
     "errorInvalidUrl": "Введите корректную http(s)-ссылку на изображение.",
     "tabAnalyze": "Разбор",
-    "tabHistory": "История распознаваний",
+    "tabHistory": "История",
     "historyIntro": "Записи сохраняются в этом браузере на imageprompt.tools. Можно снова разобрать то же изображение в один клик.",
     "historyRecognizeAgain": "Распознать снова",
     "historyCopyPrompt": "Копировать промпт"

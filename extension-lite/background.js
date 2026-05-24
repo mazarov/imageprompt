@@ -9,6 +9,7 @@ const MAX_HISTORY_QUEUE_ENTRIES = 45;
 const MAX_SW_FETCH_BYTES = 10 * 1024 * 1024;
 
 const SITE_URL = "https://imageprompt.tools/";
+const LITE_ANALYZE_API_URL = `${new URL("/", SITE_URL).origin}/api/extension/analyze`;
 
 /** Hosts where lite content-script runs — keep in sync with manifest.json matches. */
 function isLiteHost(hostname) {
@@ -40,7 +41,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 chrome.contextMenus.onClicked.addListener(handleContextMenuClick);
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === "OPEN_SITE_WITH_IMAGE" && typeof msg.dataUrl === "string") {
     openSiteWithPendingImage(msg.dataUrl)
       .then(() => sendResponse({ ok: true }))
@@ -94,8 +95,100 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     });
     return true;
   }
+  if (msg?.type === "LITE_RESIZE_IMG_URL" && typeof msg.srcUrl === "string") {
+    const tabId = sender.tab?.id;
+    if (tabId == null) {
+      sendResponse({ ok: false, error: "no_tab" });
+      return false;
+    }
+    fetchAndResizeImage(msg.srcUrl, tabId)
+      .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    return true;
+  }
+  if (msg?.type === "LITE_OVERLAY_OPEN_TOOLBAR_POPUP" && typeof msg.srcUrl === "string") {
+    const tabId = sender.tab?.id;
+    openToolbarPopupForImage(msg.srcUrl, tabId)
+      .then(sendResponse)
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    return true;
+  }
+  if (msg?.type === "LITE_OVERLAY_ANALYZE" && typeof msg.dataUrl === "string" && typeof msg.style === "string") {
+    liteOverlayAnalyze(msg.dataUrl, msg.style).then(sendResponse).catch((e) =>
+      sendResponse({ ok: false, error: String(e?.message ?? e) }),
+    );
+    return true;
+  }
   return false;
 });
+
+/**
+ * Unified popup flow for overlay and action button:
+ * resize image -> store pending payload for popup.js -> open toolbar popup.
+ */
+async function openToolbarPopupForImage(srcUrl, tabId) {
+  try {
+    const dataUrl = await fetchAndResizeImage(srcUrl, tabId);
+    await chrome.storage.session.set({
+      [PENDING_IMAGE_KEY]: { dataUrl, srcUrl, ts: Date.now(), source: "overlay" },
+    });
+  } catch (err) {
+    await chrome.storage.session.set({
+      [PENDING_IMAGE_KEY]: { error: "fetch_failed", srcUrl, ts: Date.now(), source: "overlay" },
+    });
+  }
+
+  try {
+    await chrome.action.openPopup();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err?.message ?? err ?? "open_popup_failed") };
+  }
+}
+
+/**
+ * Analyze image from lite overlay/modal via service worker fetch (aligned with popup).
+ * @returns {Promise<{ ok: true; prompt: string } | { ok: false; status?: number; error?: string }>}
+ */
+async function liteOverlayAnalyze(dataUrl, style) {
+  let res;
+  try {
+    res = await fetch(LITE_ANALYZE_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_base64: dataUrl, style }),
+    });
+  } catch (err) {
+    return { ok: false, error: "fetch_failed", message: String(err?.message ?? err) };
+  }
+
+  /** @type {unknown} */
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    if (res.status === 404) {
+      return { ok: false, status: res.status, error: "not_found" };
+    }
+    return { ok: false, status: res.status, error: "bad_response" };
+  }
+
+  if (!res.ok) {
+    /** @type {{ error?: string }} */
+    const d = data && typeof data === "object" ? data : {};
+    return {
+      ok: false,
+      status: res.status,
+      error: d.error ?? "request_failed",
+    };
+  }
+
+  if (!data || typeof data !== "object" || typeof data.prompt !== "string" || !data.prompt) {
+    return { ok: false, error: "empty_prompt" };
+  }
+
+  return { ok: true, prompt: data.prompt };
+}
 
 /**
  * Persist recognition on the site origin: try all matching tabs via content-script;

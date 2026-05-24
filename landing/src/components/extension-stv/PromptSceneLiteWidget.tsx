@@ -118,18 +118,16 @@ export function PromptSceneLiteWidget() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const applyHash = () => {
-      if (
-        window.location.hash === HISTORY_HASH_PREFIX &&
-        showHistoryTab &&
-        mainTab !== "history"
-      ) {
+      // Do not depend on mainTab here: if URL hash stays #extension-lite-history while the user
+      // switches back to Analyze, re-running applyHash must not forcibly reopen History.
+      if (window.location.hash === HISTORY_HASH_PREFIX && showHistoryTab) {
         setMainTab("history");
       }
     };
     applyHash();
     window.addEventListener("hashchange", applyHash);
     return () => window.removeEventListener("hashchange", applyHash);
-  }, [showHistoryTab, mainTab]);
+  }, [showHistoryTab]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

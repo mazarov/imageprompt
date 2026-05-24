@@ -433,7 +433,7 @@
     "urlSubmit": "Analyze URL",
     "errorInvalidUrl": "Enter a valid http(s) link to an image.",
     "tabAnalyze": "Analyze",
-    "tabHistory": "Recognition history",
+    "tabHistory": "History",
     "historyIntro": "Runs saved in this browser on imageprompt.tools. Repeat an image with one click.",
     "historyRecognizeAgain": "Analyze again",
     "historyCopyPrompt": "Copy prompt"

@@ -28,9 +28,11 @@ const btnOpenHistorySite = document.getElementById("btn-open-history-site");
 const btnErrorRetry   = document.getElementById("btn-error-retry");
 const btnChooseFile   = document.getElementById("btn-choose-file");
 const btnOpenSite     = document.getElementById("btn-open-site");
+const btnClosePopup   = document.getElementById("btn-close-popup");
 const fileInput       = document.getElementById("file-input");
 const dropzone        = document.getElementById("dropzone");
 const styleSelect     = document.getElementById("style-select");
+const shellBody       = document.querySelector(".shell-body");
 
 // ── State ──
 let currentPrompt = "";
@@ -71,8 +73,17 @@ async function checkPendingImage() {
 }
 
 function bindEvents() {
-  // Choose file button
-  btnChooseFile.addEventListener("click", () => {
+  btnClosePopup?.addEventListener("click", () => {
+    window.close();
+  });
+
+  dropzone.addEventListener("click", () => {
+    filePickIntent = "analyze";
+    fileInput.click();
+  });
+
+  btnChooseFile.addEventListener("click", (e) => {
+    e.stopPropagation();
     filePickIntent = "analyze";
     fileInput.click();
   });
@@ -286,6 +297,7 @@ function showPanel(name) {
   Object.entries(panels).forEach(([key, el]) => {
     el.classList.toggle("active", key === name);
   });
+  if (shellBody) shellBody.scrollTop = 0;
 }
 
 function showLoading(dataUrl) {
@@ -297,6 +309,7 @@ function showResult(dataUrl, prompt, styleUsed) {
   currentPrompt = prompt;
   resultPreview.src = dataUrl;
   promptBox.textContent = prompt;
+  promptBox.scrollTop = 0;
   errorBanner.hidden = true;
   showPanel("result");
 

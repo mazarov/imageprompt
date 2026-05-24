@@ -16,33 +16,28 @@
         <img class="brand-mark" src="icons/icon32.png" width="26" height="26" alt="" />
         <span class="brand-name">AI Image Describer</span>
       </div>
+      <button class="topbar-close" id="btn-close-popup" type="button" aria-label="Close popup">&times;</button>
     </header>
+
+    <div class="shell-body">
 
     <!-- ── EMPTY STATE ── -->
     <section id="state-empty" class="panel active">
       <div
         class="dropzone"
         id="dropzone"
-        role="button"
         tabindex="0"
-        aria-label="Drop an image here or click to choose a file"
+        aria-label="Drop an image here, choose file, or paste from clipboard"
       >
-        <svg class="dropzone-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <rect x="4" y="4" width="40" height="40" rx="8" stroke="currentColor" stroke-width="2"/>
-          <path d="M24 16v16M16 24h16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-          <path d="M10 34l8-8 5 5 5-6 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
-        </svg>
         <p class="dropzone-title">Drop an image or paste from clipboard</p>
         <p class="dropzone-hint">JPG or PNG, up to 10 MB</p>
+        <button class="btn btn-primary btn-inline" id="btn-choose-file" type="button">Choose file</button>
       </div>
+      <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" hidden />
 
-      <div class="actions-row">
-        <button class="btn btn-secondary" id="btn-choose-file" type="button">Choose file</button>
-        <button class="btn btn-secondary" id="btn-open-site" type="button" title="Resize and analyze on imageprompt.tools in a new tab">
-          On imageprompt.tools
-        </button>
-        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" hidden />
-      </div>
+      <button class="btn btn-secondary btn-full" id="btn-open-site" type="button" title="Resize and analyze on imageprompt.tools in a new tab">
+        On imageprompt.tools
+      </button>
 
       <div id="empty-notice" class="empty-notice" role="status" hidden></div>
 
@@ -55,35 +50,47 @@
           <option value="flux">Flux</option>
         </select>
       </div>
+
+      <p class="paste-hint">Paste a picture with ⌘V / Ctrl+V, or drop a file.</p>
     </section>
 
     <!-- ── LOADING STATE ── -->
-    <section id="state-loading" class="panel">
-      <div class="preview-wrap">
-        <img id="loading-preview" class="preview-img" src="" alt="Image being analyzed" />
+    <section id="state-loading" class="panel" aria-busy="true">
+      <div class="preview-frame preview-frame-loading" aria-hidden="true">
+        <div class="preview-frame-inner">
+          <img id="loading-preview" class="preview-img" src="" alt="" />
+        </div>
       </div>
-      <div class="loading-status">
-        <span class="spinner" aria-hidden="true"></span>
-        <span class="loading-text">Analyzing image...</span>
+      <div class="loading-block">
+        <p class="loading-text">Analyzing image…</p>
+        <div class="loading-bar-wrap">
+          <div class="loading-bar-fill"></div>
+        </div>
       </div>
     </section>
 
     <!-- ── RESULT STATE ── -->
-    <section id="state-result" class="panel">
-      <div class="preview-wrap">
-        <img id="result-preview" class="preview-img" src="" alt="Analyzed image" />
+    <section id="state-result" class="panel panel-result">
+      <div class="preview-frame preview-frame-result" aria-hidden="true">
+        <div class="result-actions" role="group" aria-label="Prompt actions">
+          <button class="btn btn-overlay btn-overlay-primary" id="btn-copy" type="button">Copy</button>
+          <button class="btn btn-overlay" id="btn-open-history-site" type="button" title="Full history lives on imageprompt.tools">
+            History
+          </button>
+          <button class="btn btn-overlay" id="btn-retry" type="button">Another</button>
+        </div>
+        <div class="preview-frame-inner">
+          <img id="result-preview" class="preview-img" src="" alt="" />
+        </div>
       </div>
-      <div class="result-header">
-        <span class="result-title">Prompt</span>
-      </div>
-      <pre id="prompt-box" class="prompt-box" tabindex="0"></pre>
+
       <div id="error-banner" class="error-banner" role="alert" hidden></div>
-      <div class="result-actions">
-        <button class="btn btn-primary" id="btn-copy" type="button">Copy prompt</button>
-        <button class="btn btn-secondary" id="btn-open-history-site" type="button" title="Full history lives on imageprompt.tools">
-          Open recognition history…
-        </button>
-        <button class="btn btn-secondary" id="btn-retry" type="button">Try another image</button>
+
+      <div class="prompt-box-wrap">
+        <div class="result-header">
+          <span class="result-title">Prompt</span>
+        </div>
+        <pre id="prompt-box" class="prompt-box" tabindex="0"></pre>
       </div>
     </section>
 
@@ -91,9 +98,11 @@
     <section id="state-error" class="panel">
       <div class="error-full">
         <p id="error-message" class="error-message"></p>
-        <button class="btn btn-secondary" id="btn-error-retry" type="button">Try another image</button>
+        <button class="btn btn-primary btn-full" id="btn-error-retry" type="button">Try another image</button>
       </div>
     </section>
+
+    </div>
 
   </div>
 
