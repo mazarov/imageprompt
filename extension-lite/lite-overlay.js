@@ -276,12 +276,18 @@ async function initLiteOverlay() {
   let modalErrorGeneric = /** @type {HTMLElement | null} */ (null);
   let modalErrorLimit = /** @type {HTMLElement | null} */ (null);
   let modalLimitPlans = /** @type {HTMLAnchorElement | null} */ (null);
+  let modalLimitAuthBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalErrorActions = /** @type {HTMLElement | null} */ (null);
   let modalLimitDismissBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalAnalyzeBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalCopyBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalRetryAnalyzeBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalErrorCloseBtn = /** @type {HTMLButtonElement | null} */ (null);
+  let modalAuthTitle = /** @type {HTMLElement | null} */ (null);
+  let modalAuthSubtitle = /** @type {HTMLElement | null} */ (null);
+  let modalAuthBtn = /** @type {HTMLButtonElement | null} */ (null);
+  let modalSignOutBtn = /** @type {HTMLButtonElement | null} */ (null);
+  let modalSignedIn = false;
   /** @type {string} */
   let modalCurrentDataUrl = "";
   /** @type {string} */
@@ -308,6 +314,14 @@ async function initLiteOverlay() {
           <button type="button" class="lite-modal-close" aria-label="Close">&times;</button>
         </header>
         <div class="lite-modal-body">
+          <section class="lite-auth-card" aria-label="Account">
+            <div class="lite-auth-copy">
+              <p class="lite-auth-title">Guest mode</p>
+              <p class="lite-auth-subtitle">Sign in to keep one daily free limit across the site and extension.</p>
+            </div>
+            <button type="button" class="lite-primary-btn lite-auth-btn">Continue with Google</button>
+            <button type="button" class="lite-secondary-btn lite-auth-sign-out lite-hidden">Sign out</button>
+          </section>
           <div class="lite-panel" data-lite-panel="loading">
             <p class="lite-modal-status">Reading image…</p>
           </div>
@@ -357,6 +371,7 @@ async function initLiteOverlay() {
               <p class="lite-limit-meta">Try again in about 24 hours.</p>
             </div>
             <div class="lite-error-actions">
+              <button type="button" class="lite-primary-btn lite-limit-auth lite-hidden">Continue with Google</button>
               <a class="lite-primary-btn lite-limit-plans lite-hidden" href="${SITE_PRICING_URL}" target="_blank" rel="noopener noreferrer">View plans</a>
               <button type="button" class="lite-secondary-btn lite-retry-analyze-btn lite-hidden">Try again</button>
               <button type="button" class="lite-primary-btn lite-retry-ready-btn lite-hidden">Close</button>
@@ -382,11 +397,16 @@ async function initLiteOverlay() {
     modalPreviewImg = /** @type {HTMLImageElement | null} */ (modalBackdrop.querySelector(".lite-modal-preview-img"));
 
     modalPromptPre = q(modalBackdrop, ".lite-prompt-out");
+    modalAuthTitle = q(modalBackdrop, ".lite-auth-title");
+    modalAuthSubtitle = q(modalBackdrop, ".lite-auth-subtitle");
+    modalAuthBtn = /** @type {HTMLButtonElement | null} */ (modalBackdrop.querySelector(".lite-auth-btn"));
+    modalSignOutBtn = /** @type {HTMLButtonElement | null} */ (modalBackdrop.querySelector(".lite-auth-sign-out"));
 
     modalErrorEl = q(modalBackdrop, ".lite-modal-err-msg");
     modalErrorGeneric = q(modalBackdrop, ".lite-error-generic");
     modalErrorLimit = q(modalBackdrop, ".lite-error-limit");
     modalLimitPlans = /** @type {HTMLAnchorElement | null} */ (modalBackdrop.querySelector(".lite-limit-plans"));
+    modalLimitAuthBtn = /** @type {HTMLButtonElement | null} */ (modalBackdrop.querySelector(".lite-limit-auth"));
     modalErrorActions = q(modalBackdrop, ".lite-error-actions");
 
     modalAnalyzeBtn = /** @type {HTMLButtonElement | null} */ (modalBackdrop.querySelector(".lite-analyze-btn"));
@@ -404,6 +424,9 @@ async function initLiteOverlay() {
 
     modalAnalyzeBtn?.addEventListener("click", handleModalAnalyzeClick);
     modalRetryAnalyzeBtn?.addEventListener("click", handleModalAnalyzeClick);
+    modalAuthBtn?.addEventListener("click", () => void startModalAuth());
+    modalLimitAuthBtn?.addEventListener("click", () => void startModalAuth());
+    modalSignOutBtn?.addEventListener("click", () => void signOutModalAuth());
 
     modalCopyBtn?.addEventListener("click", async () => {
       if (!modalCurrentPrompt) return;
@@ -442,6 +465,7 @@ async function initLiteOverlay() {
           ".lite-retry-ready-btn",
           ".lite-limit-dismiss",
           ".lite-limit-plans",
+          ".lite-limit-auth",
           ".lite-retry-analyze-btn",
         ]) {
           const el = modalBackdrop?.querySelector(sel);
@@ -461,11 +485,64 @@ async function initLiteOverlay() {
     root.appendChild(modalBackdrop);
   }
 
+  function applyModalAuthStatus(status) {
+    modalSignedIn = status?.signedIn === true;
+    const label =
+      typeof status?.email === "string" && status.email
+        ? status.email
+        : typeof status?.name === "string" && status.name
+          ? status.name
+          : "";
+    if (modalAuthTitle) modalAuthTitle.textContent = modalSignedIn ? "Signed in with Google" : "Guest mode";
+    if (modalAuthSubtitle) {
+      modalAuthSubtitle.textContent = modalSignedIn
+        ? label || "Your daily free limit is shared across the site and extension."
+        : "Sign in to keep one daily free limit across the site and extension.";
+    }
+    modalAuthBtn?.classList.toggle("lite-hidden", modalSignedIn);
+    modalSignOutBtn?.classList.toggle("lite-hidden", !modalSignedIn);
+    modalLimitAuthBtn?.classList.toggle("lite-hidden", modalSignedIn);
+  }
+
+  async function refreshModalAuthStatus() {
+    try {
+      const res = await chrome.runtime.sendMessage({ type: "LITE_AUTH_STATUS" });
+      if (res?.ok) applyModalAuthStatus(res);
+    } catch {
+      applyModalAuthStatus({ signedIn: false });
+    }
+  }
+
+  async function startModalAuth() {
+    try {
+      if (modalAuthBtn) modalAuthBtn.disabled = true;
+      if (modalLimitAuthBtn) modalLimitAuthBtn.disabled = true;
+      const res = await chrome.runtime.sendMessage({ type: "LITE_AUTH_START" });
+      if (!res?.ok) throw new Error(res?.error || "auth_start_failed");
+    } catch {
+      showModalError("Could not open Google sign-in. Please try again.", { retryable: false });
+    } finally {
+      if (modalAuthBtn) modalAuthBtn.disabled = false;
+      if (modalLimitAuthBtn) modalLimitAuthBtn.disabled = false;
+    }
+  }
+
+  async function signOutModalAuth() {
+    try {
+      const res = await chrome.runtime.sendMessage({ type: "LITE_AUTH_SIGN_OUT" });
+      if (!res?.ok) throw new Error(res?.error || "sign_out_failed");
+      applyModalAuthStatus({ signedIn: false });
+    } catch {
+      showModalError("Could not sign out. Please try again.", { retryable: false });
+    }
+  }
+
   function showModal() {
     ensureDom();
     ensureModalBuilt();
     if (!modalBackdrop) return;
     modalBackdrop.hidden = false;
+    void refreshModalAuthStatus();
   }
 
   function closeModal() {
@@ -484,6 +561,7 @@ async function initLiteOverlay() {
     const retryable = !isLimit && opts.retryable === true && !!modalCurrentDataUrl;
     if (modalRetryAnalyzeBtn) modalRetryAnalyzeBtn.classList.toggle("lite-hidden", !retryable);
     if (modalLimitPlans) modalLimitPlans.classList.toggle("lite-hidden", !isLimit);
+    if (modalLimitAuthBtn) modalLimitAuthBtn.classList.toggle("lite-hidden", !isLimit || modalSignedIn);
 
     if (isLimit) {
       if (modalErrorCloseBtn) modalErrorCloseBtn.classList.add("lite-hidden");
@@ -1126,6 +1204,32 @@ function cssText() {
     .lite-modal-body {
       padding: 12px;
       overflow: auto;
+    }
+    .lite-auth-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      background: rgba(39, 39, 42, 0.45);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+    .lite-auth-title {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #a1a1aa;
+    }
+    .lite-auth-subtitle {
+      margin: 2px 0 0;
+      font-size: 11px;
+      line-height: 1.35;
+      color: #71717a;
+      word-break: break-word;
     }
     .lite-panel.lite-hidden { display: none; }
     .lite-modal-status {

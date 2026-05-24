@@ -132,10 +132,34 @@ Be descriptive and use complete sentences. Output ONLY the prompt paragraph, no 
   return styleInstructions[style];
 }
 
+function normalizeImageMimeSubtype(mime: string): string {
+  const lower = mime.trim().toLowerCase().replace(/\s+/g, "");
+  if (lower === "image/jpg" || lower === "image/pjpeg") return "image/jpeg";
+  return lower;
+}
+
 function extractBase64AndMime(dataUrl: string): { mimeType: string; data: string } | null {
-  const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,(.+)$/.exec(dataUrl);
+  const trimmed = dataUrl.trim();
+  const match = /^data:\s*([^;,]+)\s*;\s*base64\s*,\s*([\s\S]+)$/i.exec(trimmed);
   if (!match) return null;
-  return { mimeType: match[1], data: match[2] };
+
+  let mimeType = normalizeImageMimeSubtype(match[1]);
+  const compactB64 = match[2].replace(/\s/g, "");
+  if (!compactB64.length) return null;
+
+  try {
+    const buf = Buffer.from(compactB64, "base64");
+    const allowed = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+    if (!allowed.has(mimeType)) {
+      const sniffed = sniffImageMime(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+      if (!sniffed) return null;
+      mimeType = sniffed;
+    }
+    return { mimeType, data: compactB64 };
+  } catch {
+    return null;
+  }
 }
 
 const IMAGE_FETCH_TIMEOUT_MS = 20_000;
@@ -218,7 +242,7 @@ function sniffImageMime(buffer: ArrayBuffer): "image/jpeg" | "image/png" | "imag
 }
 
 function resolveMimeFromFetch(contentType: string | null, buffer: ArrayBuffer): { mimeType: string; data: string } | null {
-  const headerMime = contentType?.split(";")[0]?.trim().toLowerCase() ?? "";
+  const headerMime = normalizeImageMimeSubtype(contentType?.split(";")[0]?.trim().toLowerCase() ?? "");
   let mime: string | null = null;
   if (["image/jpeg", "image/png", "image/webp", "image/gif"].includes(headerMime)) {
     mime = headerMime;
