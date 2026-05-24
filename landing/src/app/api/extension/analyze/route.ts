@@ -149,13 +149,15 @@ function extractBase64AndMime(dataUrl: string): { mimeType: string; data: string
 
   try {
     const buf = Buffer.from(compactB64, "base64");
+    if (!buf.length) return null;
     const allowed = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+    const sniffed = sniffImageMime(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
 
-    if (!allowed.has(mimeType)) {
-      const sniffed = sniffImageMime(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-      if (!sniffed) return null;
-      mimeType = sniffed;
-    }
+    // Trust bytes over labels: browsers/exporters often produce image/jpg or
+    // octet-stream, and renamed/corrupt files can otherwise reach Gemini.
+    if (sniffed) mimeType = sniffed;
+    if (!allowed.has(mimeType)) return null;
+    if (!sniffed) return null;
     return { mimeType, data: compactB64 };
   } catch {
     return null;
@@ -241,15 +243,10 @@ function sniffImageMime(buffer: ArrayBuffer): "image/jpeg" | "image/png" | "imag
   return null;
 }
 
-function resolveMimeFromFetch(contentType: string | null, buffer: ArrayBuffer): { mimeType: string; data: string } | null {
-  const headerMime = normalizeImageMimeSubtype(contentType?.split(";")[0]?.trim().toLowerCase() ?? "");
-  let mime: string | null = null;
-  if (["image/jpeg", "image/png", "image/webp", "image/gif"].includes(headerMime)) {
-    mime = headerMime;
-  }
-  if (!mime) mime = sniffImageMime(buffer);
-  if (!mime) return null;
-  return { mimeType: mime, data: Buffer.from(buffer).toString("base64") };
+function resolveMimeFromFetch(_contentType: string | null, buffer: ArrayBuffer): { mimeType: string; data: string } | null {
+  const sniffed = sniffImageMime(buffer);
+  if (!sniffed) return null;
+  return { mimeType: sniffed, data: Buffer.from(buffer).toString("base64") };
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {

@@ -49,17 +49,19 @@
         aria-label="Drop an image here, choose file, or paste from clipboard"
       >
         <p class="dropzone-title">Drop an image or paste from clipboard</p>
-        <p class="dropzone-hint">JPG or PNG, up to 10 MB</p>
-        <button class="btn btn-primary btn-inline" id="btn-choose-file" type="button">Choose file</button>
+        <p class="dropzone-hint">JPG, PNG, or WebP, up to 10 MB</p>
+        <label class="btn btn-primary btn-inline" id="btn-choose-file">
+          Choose file
+          <input
+            type="file"
+            id="file-input"
+            accept=".jpg,.jpeg,.jpe,.png,.webp,image/jpeg,image/png,image/webp,image/*"
+            class="file-input-screen-only"
+            tabindex="-1"
+            aria-label="Choose image file"
+          />
+        </label>
       </div>
-      <input
-        type="file"
-        id="file-input"
-        accept="image/*"
-        class="file-input-screen-only"
-        tabindex="-1"
-        aria-label="Choose image file"
-      />
 
       <button class="btn btn-secondary btn-full" id="btn-open-site" type="button" title="Resize and analyze on imageprompt.tools in a new tab">
         On imageprompt.tools
@@ -156,7 +158,6 @@
             You've used today's free analyses. Limits reset every 24 hours so the tool stays fast for everyone.
           </p>
           <p class="error-limit-meta">You'll be able to analyze again in about 24 hours.</p>
-          <button class="btn btn-primary btn-full" id="btn-error-auth" type="button">Continue with Google</button>
           <a class="btn btn-primary btn-full" id="btn-error-plans" href="https://imageprompt.tools/#stv-pricing" target="_blank" rel="noopener noreferrer">View plans</a>
           <button class="btn btn-secondary btn-full" id="btn-error-limit-dismiss" type="button">Got it</button>
         </div>

@@ -115,6 +115,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg?.type === "START_LITE_ANALYSIS" && typeof msg.dataUrl === "string") {
+    console.debug("[aid-upload] START_LITE_ANALYSIS", {
+      style: msg.style,
+      dataUrlLen: msg.dataUrl.length,
+    });
     startLiteAnalysisJob(msg.dataUrl, msg.style)
       .then((job) => sendResponse({ ok: true, job }))
       .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));

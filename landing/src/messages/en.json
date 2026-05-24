@@ -442,10 +442,11 @@
     "limitResetLine": "Your limit resets on its own in about 24 hours.",
     "limitViewPlans": "See pricing",
     "limitGotIt": "Got it",
-    "invalidType": "Please use an image file (JPG or PNG).",
+    "invalidType": "Please use a JPG, PNG, or WebP image.",
     "tooLarge": "Image exceeds 10 MB. Try a smaller file.",
     "readFailed": "Could not read this file. Try another image.",
     "noticeFetchFailed": "Couldn't load the image automatically. Upload a file instead.",
+    "noticePickerRejected": "Browser did not accept the file. Try drag-and-drop instead.",
     "pasteHint": "Tip: paste a direct link to an image (https://…), or copy a picture and press Ctrl+V (⌘V on Mac).",
     "resultScrollHint": "Scroll to read the full prompt",
     "urlLabel": "Or paste image URL",
@@ -463,8 +464,7 @@
     "authSignedIn": "Signed in with Google",
     "authHint": "Sign in to keep one daily free limit across this site and the extension.",
     "authSignIn": "Continue with Google",
-    "authSignOut": "Sign out",
-    "limitSignIn": "Continue with Google"
+    "authSignOut": "Sign out"
   },
   "BlogAiPromptExamples": {
     "kicker": "Guide",

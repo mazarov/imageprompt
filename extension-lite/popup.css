@@ -300,15 +300,18 @@ html, body {
  * `change` events after picking a file in Safari and some Chromium builds.
  */
 .file-input-screen-only {
-  position: fixed;
+  position: absolute;
   width: 1px;
   height: 1px;
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip-path: inset(50%);
   border: 0;
   opacity: 0;
+}
+
+#btn-choose-file {
+  position: relative;
 }
 
 /* ── Panels ── */
@@ -352,6 +355,7 @@ html, body {
   text-align: center;
   outline: none;
   transition: border-color 0.15s ease, background 0.15s ease;
+  position: relative;
 }
 
 .dropzone:hover,
@@ -707,6 +711,12 @@ html, body {
 }
 
 /* ── Full-page error ── */
+/* UA [hidden] is not !important — our flex rule would otherwise keep the generic retry block visible. */
+.error-generic-wrap[hidden],
+.error-limit-wrap[hidden] {
+  display: none !important;
+}
+
 .error-generic-wrap,
 .error-limit-wrap {
   flex: 1;

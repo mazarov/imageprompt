@@ -1,4 +1,4 @@
-import { resizeImageInPopup } from "./lib/image-utils.js";
+import { prepareUploadFile } from "./lib/image-utils.js";
 
 const PENDING_IMAGE_KEY = "pending_image";
 const POPUP_STATE_KEY = "extension_lite_popup_state_v1";
@@ -7,20 +7,43 @@ const SITE_HISTORY_URL = "https://imageprompt.tools/#extension-lite-history";
 const SITE_PRICING_URL = "https://imageprompt.tools/#stv-pricing";
 const DEV_BRAND_TAP_WINDOW_MS = 2000;
 const DEV_BRAND_TAPS_TO_UNLOCK = 5;
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ANALYSIS_STALE_AFTER_MS = 90_000;
 const DRAFT_HINT_DEFAULT = "Last added image is ready.";
 const ANALYSIS_TIMEOUT_MESSAGE = "Analysis took too long. Please try another image.";
+const UNSUPPORTED_IMAGE_MESSAGE = "Please choose a JPG, PNG, or WebP image up to 10 MB.";
+const READ_FAILED_MESSAGE = "Something went wrong reading the file. Please try another image.";
+const TOO_LARGE_MESSAGE = "Image exceeds 10 MB limit. Please try a smaller file.";
+const NO_FILE_RECEIVED_MESSAGE =
+  "Browser did not accept the file. Try drag-and-drop instead.";
 
-/** macOS / Chromium sometimes leave MIME empty for valid images from disk. */
-const IMAGE_FILENAME_RE = /\.(jpe?g|png|gif|webp|bmp|tiff?|svg|avif|heif|heic)$/i;
+/** Clone before clearing `<input type="file">` — otherwise Chrome may invalidate the blob. */
+function clonePickerFile(file) {
+  const mime = file.type || "application/octet-stream";
+  return new File([file.slice(0, file.size, mime)], file.name, { type: mime });
+}
 
-/** @param {File} file */
-function looksLikeImageFileForUpload(file) {
-  if (file.type.startsWith("image/")) return true;
-  const extOk = IMAGE_FILENAME_RE.test(file.name);
-  const looseType = file.type === "" || file.type === "application/octet-stream";
-  return Boolean(extOk && looseType);
+/** @param {string} step @param {Record<string, unknown> | undefined} data */
+function uploadLog(step, data) {
+  let debug = false;
+  try {
+    debug = localStorage.getItem("aid_upload_debug") === "1";
+  } catch {
+    /* noop */
+  }
+  if (!debug && devSettings?.hidden !== false) return;
+  if (data) console.debug("[aid-upload]", step, data);
+  else console.debug("[aid-upload]", step);
+}
+
+function openFilePicker() {
+  if (!fileInput) return;
+  uploadLog("picker open", { intent: filePickIntent });
+  markFilePickerActive();
+  if (typeof fileInput.showPicker === "function") {
+    fileInput.showPicker();
+    return;
+  }
+  fileInput.click();
 }
 
 // ── DOM refs ──
@@ -67,7 +90,6 @@ const devSettingsDismiss = document.getElementById("dev-settings-dismiss");
 const devHashCopy     = document.getElementById("dev-hash-copy");
 const btnAuthGoogle   = document.getElementById("btn-auth-google");
 const btnAuthSignOut  = document.getElementById("btn-auth-sign-out");
-const btnErrorAuth    = document.getElementById("btn-error-auth");
 
 // ── State ──
 let currentPrompt = "";
@@ -79,6 +101,11 @@ let devLogoTaps = 0;
 let devLogoTapTimer = null;
 /** @type {"analyze" | "open_site"} */
 let filePickIntent = "analyze";
+/** Popup may unload while the native file picker is open. */
+let filePickerActive = false;
+/** @type {string | null} */
+let activeObjectPreviewUrl = null;
+let processingSelectedFile = false;
 
 // ── Init ──
 document.addEventListener("DOMContentLoaded", async () => {
@@ -93,6 +120,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 window.addEventListener("pagehide", () => {
+  if (filePickerActive) return;
   clearActiveLoadingState();
 });
 
@@ -129,9 +157,11 @@ async function handlePendingImage(pending) {
   }
 
   if (pending.dataUrl) {
-    saveDraftState(pending.dataUrl, currentStyle);
+    const style = isValidStyle(pending.style) ? pending.style : currentStyle;
+    if (styleSelect) styleSelect.value = style;
+    saveDraftState(pending.dataUrl, style);
     showLoading(pending.dataUrl);
-    await analyze(pending.dataUrl);
+    await analyze(pending.dataUrl, style);
     return true;
   }
 
@@ -177,20 +207,23 @@ function bindEvents() {
 
   btnDraftAnother?.addEventListener("click", () => resetToEmpty());
 
-  dropzone.addEventListener("click", () => {
+  dropzone.addEventListener("click", (e) => {
+    if (e.target === btnChooseFile || btnChooseFile?.contains(/** @type {Node} */ (e.target))) return;
+    if (e.target === fileInput) return;
+    e.preventDefault();
     filePickIntent = "analyze";
-    fileInput.click();
+    openFilePicker();
   });
 
-  btnChooseFile.addEventListener("click", (e) => {
-    e.stopPropagation();
+  btnChooseFile?.addEventListener("click", (e) => {
+    if (e.target === fileInput) return;
     filePickIntent = "analyze";
-    fileInput.click();
+    markFilePickerActive();
   });
 
-  btnOpenSite.addEventListener("click", () => {
+  btnOpenSite?.addEventListener("click", () => {
     filePickIntent = "open_site";
-    fileInput.click();
+    openFilePicker();
   });
 
   if (btnOpenHistorySite) {
@@ -203,21 +236,41 @@ function bindEvents() {
     });
   }
 
-  // File input change
-  fileInput.addEventListener("change", async () => {
-    const file = fileInput.files?.[0];
-    fileInput.value = ""; // reset so same file can be re-selected
-    if (!file) return;
-    const intent = filePickIntent;
-    filePickIntent = "analyze";
-    if (intent === "open_site") {
-      await handleFileForSite(file);
-      return;
-    }
-    await handleFile(file);
+  fileInput?.addEventListener("click", () => {
+    uploadLog("input click");
+    markFilePickerActive();
   });
 
-  // Drag-and-drop on dropzone
+  const onFileInputSelected = () => {
+    if (processingSelectedFile) return;
+    filePickerActive = false;
+    const file = fileInput?.files?.[0] ?? null;
+    uploadLog("input change", {
+      filesLength: file ? 1 : 0,
+      name: file?.name,
+      type: file?.type,
+      size: file?.size,
+    });
+    if (!file) {
+      if (fileInput) fileInput.value = "";
+      showNotice(NO_FILE_RECEIVED_MESSAGE);
+      return;
+    }
+    const stable = clonePickerFile(file);
+    const intent = filePickIntent;
+    filePickIntent = "analyze";
+    void processSelectedFile(stable, intent === "open_site");
+  };
+
+  fileInput?.addEventListener("change", onFileInputSelected);
+  fileInput?.addEventListener("input", onFileInputSelected);
+
+  fileInput?.addEventListener("cancel", () => {
+    uploadLog("input cancel");
+    filePickerActive = false;
+  });
+
+  // Drag-and-drop on dropzone (works inside popup without unloading it)
   dropzone.addEventListener("dragenter", (e) => { e.preventDefault(); dropzone.classList.add("drag-over"); });
   dropzone.addEventListener("dragover",  (e) => { e.preventDefault(); dropzone.classList.add("drag-over"); });
   dropzone.addEventListener("dragleave", (e) => {
@@ -227,12 +280,16 @@ function bindEvents() {
     e.preventDefault();
     dropzone.classList.remove("drag-over");
     const file = e.dataTransfer?.files?.[0];
-    if (file) await handleFile(file);
+    if (file) await ingestFile(file);
   });
 
   // Keyboard activation on dropzone
   dropzone.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      filePickIntent = "analyze";
+      openFilePicker();
+    }
   });
 
   // Paste from clipboard
@@ -240,7 +297,7 @@ function bindEvents() {
     const item = Array.from(e.clipboardData?.items ?? []).find((i) => i.type.startsWith("image/"));
     if (item) {
       const file = item.getAsFile();
-      if (file) await handleFile(file);
+      if (file) await ingestFile(file);
     }
   });
 
@@ -272,7 +329,6 @@ function bindEvents() {
   btnErrorLimitDismiss?.addEventListener("click", () => resetToEmpty());
   btnLoadingCancel?.addEventListener("click", () => resetToEmpty());
   btnAuthGoogle?.addEventListener("click", () => startGoogleAuth());
-  btnErrorAuth?.addEventListener("click", () => startGoogleAuth());
   btnAuthSignOut?.addEventListener("click", () => signOutGoogle());
 
   setupBrandTapDevUnlock();
@@ -290,7 +346,6 @@ function applyAuthStatus(status) {
   if (btnAuthSignOut) btnAuthSignOut.textContent = "Sign out";
   if (btnAuthGoogle) btnAuthGoogle.hidden = signedIn;
   if (btnAuthSignOut) btnAuthSignOut.hidden = !signedIn;
-  if (btnErrorAuth) btnErrorAuth.hidden = signedIn;
 }
 
 async function refreshAuthStatus() {
@@ -304,7 +359,6 @@ async function refreshAuthStatus() {
 
 async function startGoogleAuth() {
   if (btnAuthGoogle) btnAuthGoogle.disabled = true;
-  if (btnErrorAuth) btnErrorAuth.disabled = true;
   try {
     const res = await sendRuntimeMessage({ type: "LITE_AUTH_START" });
     if (!res?.ok) throw new Error(res?.error || "auth_start_failed");
@@ -313,7 +367,6 @@ async function startGoogleAuth() {
     console.warn("[aid] auth start failed", e);
   } finally {
     if (btnAuthGoogle) btnAuthGoogle.disabled = false;
-    if (btnErrorAuth) btnErrorAuth.disabled = false;
   }
 }
 
@@ -450,56 +503,97 @@ async function refreshDevIpHash() {
   }
 }
 
-async function handleFileForSite(file) {
-  if (!looksLikeImageFileForUpload(file)) {
-    showInlineError("Please drop an image file (JPG or PNG).");
-    return;
-  }
-  if (file.size > MAX_FILE_BYTES) {
-    showInlineError("Image exceeds 10 MB limit. Please try a smaller file.");
-    return;
-  }
-
-  let dataUrl;
+async function processSelectedFile(file, forSite = false) {
+  if (processingSelectedFile) return;
+  processingSelectedFile = true;
   try {
-    dataUrl = await resizeImageInPopup(file, 1024, 0.85);
-  } catch {
-    showInlineError("Something went wrong reading the file. Please try another image.");
-    return;
-  }
-
-  try {
-    const res = await chrome.runtime.sendMessage({ type: "OPEN_SITE_WITH_IMAGE", dataUrl });
-    if (!res?.ok) {
-      showFullError(res?.error || "Could not open the site tab.");
-    }
-  } catch (e) {
-    console.error("[aid] sendMessage failed", e);
-    showFullError("Could not open imageprompt.tools.");
+    await ingestFile(file, { forSite });
+  } finally {
+    processingSelectedFile = false;
+    if (fileInput) fileInput.value = "";
   }
 }
 
-async function handleFile(file) {
-  if (!looksLikeImageFileForUpload(file)) {
-    showInlineError("Please drop an image file (JPG or PNG).");
-    return;
-  }
-  if (file.size > MAX_FILE_BYTES) {
-    showInlineError("Image exceeds 10 MB limit. Please try a smaller file.");
-    return;
+function revokeActiveObjectPreview() {
+  if (!activeObjectPreviewUrl) return;
+  URL.revokeObjectURL(activeObjectPreviewUrl);
+  activeObjectPreviewUrl = null;
+}
+
+async function ingestFile(file, { forSite = false } = {}) {
+  uploadLog("ingestFile start", {
+    name: file.name,
+    type: file.type,
+    size: file.size,
+    forSite,
+  });
+
+  revokeActiveObjectPreview();
+  if (!forSite) {
+    clearEmptyNotice();
+    activeObjectPreviewUrl = URL.createObjectURL(file);
+    showLoading(activeObjectPreviewUrl);
   }
 
-  let dataUrl;
   try {
-    dataUrl = await resizeImageInPopup(file, 1024, 0.85);
-  } catch {
-    showInlineError("Something went wrong reading the file. Please try another image.");
+    const prepared = await prepareUploadFile(file);
+    if (!prepared.ok) {
+      uploadLog("ingestFile prepare failed", { error: prepared.error });
+      revokeActiveObjectPreview();
+      if (!forSite) showPanel("empty");
+      applyPreparedUploadError(prepared.error);
+      return;
+    }
+
+    revokeActiveObjectPreview();
+
+    if (forSite) {
+      try {
+        const res = await chrome.runtime.sendMessage({
+          type: "OPEN_SITE_WITH_IMAGE",
+          dataUrl: prepared.dataUrl,
+        });
+        if (!res?.ok) {
+          showFullError(res?.error || "Could not open the site tab.");
+        }
+      } catch (e) {
+        console.error("[aid] sendMessage failed", e);
+        showFullError("Could not open imageprompt.tools.");
+      }
+      uploadLog("ingestFile end", { ok: true, forSite: true });
+      return;
+    }
+
+    saveDraftState(prepared.dataUrl, styleSelect?.value || "photoreal");
+    showLoading(prepared.dataUrl);
+    await analyze(prepared.dataUrl);
+    uploadLog("ingestFile end", { ok: true });
+  } catch (err) {
+    uploadLog("ingestFile error", { message: err instanceof Error ? err.message : String(err) });
+    revokeActiveObjectPreview();
+    resetToEmpty();
+    showInlineError(READ_FAILED_MESSAGE);
+  }
+}
+
+function markFilePickerActive() {
+  filePickerActive = true;
+  window.setTimeout(() => {
+    filePickerActive = false;
+  }, 120_000);
+}
+
+function applyPreparedUploadError(error) {
+  uploadLog("applyPreparedUploadError", { error });
+  if (error === "too_large") {
+    showInlineError(TOO_LARGE_MESSAGE);
     return;
   }
-
-  saveDraftState(dataUrl, styleSelect?.value || "photoreal");
-  showLoading(dataUrl);
-  await analyze(dataUrl);
+  if (error === "read_failed") {
+    showInlineError(READ_FAILED_MESSAGE);
+    return;
+  }
+  showInlineError(UNSUPPORTED_IMAGE_MESSAGE);
 }
 
 async function analyze(dataUrl, styleOverride) {
@@ -667,6 +761,7 @@ function showDraft(dataUrl, styleUsed, opts = {}) {
 }
 
 function showLoading(dataUrl) {
+  uploadLog("showLoading", { hasPreview: Boolean(dataUrl) });
   currentDataUrl = dataUrl;
   if (dataUrl) {
     loadingPreview.src = dataUrl;
@@ -694,6 +789,7 @@ function showResult(dataUrl, prompt, styleUsed, opts = {}) {
 }
 
 function resetToEmpty() {
+  revokeActiveObjectPreview();
   currentPrompt = "";
   currentDataUrl = "";
   currentStyle = styleSelect?.value || "photoreal";
@@ -755,4 +851,12 @@ function showNotice(message) {
     notice.hidden = false;
   }
   showPanel("empty");
+}
+
+function clearEmptyNotice() {
+  const notice = document.getElementById("empty-notice");
+  if (notice) {
+    notice.textContent = "";
+    notice.hidden = true;
+  }
 }

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useAuth } from "@/context/AuthContext";
 import {
   appendLiteRecognitionHistory,
   EXTENSION_LITE_RECOGNITION_HISTORY_KEY,
@@ -22,22 +21,35 @@ import {
   LANDING_SURFACE_WIDGET_OUTER,
   LANDING_SURFACE_WIDGET_TAB_ROW,
 } from "@/lib/landing-design-tokens";
+import { prepareUploadFile, noticeForUploadError } from "@/lib/image-upload-prepare";
 import { STV_FOCUS_RING } from "./stv-marketing-shared";
 
 const HISTORY_HASH_PREFIX = "#extension-lite-history";
 
 const STORAGE_KEY = "extension_lite_pending";
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const API_PATH = "/api/extension/analyze";
 
-/** Some OS / browsers leave MIME empty or use octet-stream for valid images from disk. */
-const IMAGE_FILENAME_RE = /\.(jpe?g|png|gif|webp|bmp|tiff?|svg|avif|heif|heic)$/i;
+const FILE_INPUT_ACCEPT =
+  ".jpg,.jpeg,.jpe,.png,.webp,image/jpeg,image/png,image/webp,image/*";
 
-function looksLikeImageFileForUpload(file: File): boolean {
-  if (file.type.startsWith("image/")) return true;
-  const extOk = IMAGE_FILENAME_RE.test(file.name);
-  const looseType = file.type === "" || file.type === "application/octet-stream";
-  return Boolean(extOk && looseType);
+function isUploadDebugEnabled(): boolean {
+  if (process.env.NODE_ENV !== "production") return true;
+  try {
+    return localStorage.getItem("aid_upload_debug") === "1";
+  } catch {
+    return false;
+  }
+}
+
+function clonePickerFile(file: File): File {
+  const mime = file.type || "application/octet-stream";
+  return new File([file.slice(0, file.size, mime)], file.name, { type: mime });
+}
+
+function uploadLog(step: string, data?: Record<string, unknown>) {
+  if (!isUploadDebugEnabled()) return;
+  if (data) console.debug("[aid-upload]", step, data);
+  else console.debug("[aid-upload]", step);
 }
 
 type AnalyzeStyle = "photoreal" | "midjourney" | "sd" | "flux";
@@ -79,35 +91,8 @@ function ImagePreviewFrame({
   );
 }
 
-async function resizeImageFileToDataUrl(file: Blob, maxPx = 1024, quality = 0.85): Promise<string> {
-  try {
-    const bitmap = await createImageBitmap(file);
-    const { width: srcW, height: srcH } = bitmap;
-    const scale = Math.min(1, maxPx / Math.max(srcW, srcH));
-    const dstW = Math.round(srcW * scale);
-    const dstH = Math.round(srcH * scale);
-    const canvas = document.createElement("canvas");
-    canvas.width = dstW;
-    canvas.height = dstH;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("no canvas");
-    ctx.drawImage(bitmap, 0, 0, dstW, dstH);
-    bitmap.close();
-    return canvas.toDataURL("image/jpeg", quality);
-  } catch {
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-}
-
 export function PromptSceneLiteWidget() {
   const t = useTranslations("PromptSceneLite");
-  const { user } = useAuth();
-  const fileInputId = useId();
   const [mainTab, setMainTab] = useState<MainTab>("analyze");
   const [panel, setPanel] = useState<Panel>("empty");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -118,8 +103,28 @@ export function PromptSceneLiteWidget() {
   const [style, setStyle] = useState<AnalyzeStyle>("photoreal");
   const [urlInput, setUrlInput] = useState("");
   const [historyTick, setHistoryTick] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const ranPendingRef = useRef(false);
+  const fileInputId = useId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const objectPreviewRef = useRef<string | null>(null);
+  const processingFileRef = useRef(false);
+
+  const revokeObjectPreview = useCallback(() => {
+    if (!objectPreviewRef.current) return;
+    URL.revokeObjectURL(objectPreviewRef.current);
+    objectPreviewRef.current = null;
+  }, []);
+
+  const openFilePicker = useCallback(() => {
+    const el = fileInputRef.current;
+    if (!el) return;
+    uploadLog("picker open");
+    if (typeof el.showPicker === "function") {
+      void el.showPicker();
+      return;
+    }
+    el.click();
+  }, []);
 
   const bumpHistory = useCallback(() => setHistoryTick((n) => n + 1), []);
 
@@ -130,12 +135,6 @@ export function PromptSceneLiteWidget() {
 
   const showHistoryTab = historyItems.length >= 1;
 
-  const signInWithGoogle = useCallback(() => {
-    const nextPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.href = `/api/auth/google?next=${encodeURIComponent(nextPath)}`;
-  }, []);
-
-  /** Deep link from extension popup (same hash as production home). */
   useEffect(() => {
     if (typeof window === "undefined") return;
     const applyHash = () => {
@@ -168,6 +167,12 @@ export function PromptSceneLiteWidget() {
       window.removeEventListener("storage", onStorage);
     };
   }, [bumpHistory]);
+
+  useEffect(() => {
+    return () => {
+      revokeObjectPreview();
+    };
+  }, [revokeObjectPreview]);
 
   const analyzeDataUrlWithStyle = useCallback(
     async (dataUrl: string, styleUsed: AnalyzeStyle) => {
@@ -375,25 +380,75 @@ export function PromptSceneLiteWidget() {
   }, [tryConsumePendingFromStorage]);
 
   const handleFile = useCallback(async (file: File) => {
+    if (processingFileRef.current) return;
+    processingFileRef.current = true;
+    uploadLog("handleFile start", {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    });
+
     setMainTab("analyze");
     setNotice("");
-    if (!looksLikeImageFileForUpload(file)) {
-      setNotice(t("invalidType"));
-      return;
-    }
-    if (file.size > MAX_FILE_BYTES) {
-      setNotice(t("tooLarge"));
-      return;
-    }
-    let dataUrl: string;
+    revokeObjectPreview();
+    const previewObjectUrl = URL.createObjectURL(file);
+    objectPreviewRef.current = previewObjectUrl;
+    setPanel("loading");
+    setPreviewUrl(previewObjectUrl);
+
     try {
-      dataUrl = await resizeImageFileToDataUrl(file);
-    } catch {
+      uploadLog("prepare start");
+      const prepared = await prepareUploadFile(file);
+      uploadLog("prepare done", { ok: prepared.ok, error: prepared.ok ? undefined : prepared.error });
+      if (!prepared.ok) {
+        uploadLog("handleFile prepare failed", { error: prepared.error });
+        revokeObjectPreview();
+        setPanel("empty");
+        setPreviewUrl(null);
+        setNotice(noticeForUploadError(prepared.error, t));
+        return;
+      }
+
+      revokeObjectPreview();
+      setPreviewUrl(prepared.dataUrl);
+      uploadLog("analyze start");
+      await analyzeFromCurrentStyleDataUrl(prepared.dataUrl);
+      uploadLog("handleFile end", { ok: true });
+    } catch (err) {
+      uploadLog("handleFile error", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+      revokeObjectPreview();
+      setPanel("empty");
+      setPreviewUrl(null);
       setNotice(t("readFailed"));
-      return;
+    } finally {
+      processingFileRef.current = false;
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-    await analyzeFromCurrentStyleDataUrl(dataUrl);
-  }, [analyzeFromCurrentStyleDataUrl, t]);
+  }, [analyzeFromCurrentStyleDataUrl, revokeObjectPreview, t]);
+
+  const onFileInputEvent = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement> | React.FormEvent<HTMLInputElement>) => {
+      if (processingFileRef.current) return;
+      const input = e.currentTarget;
+      const f = input.files?.[0] ?? null;
+      uploadLog("input change", {
+        filesLength: f ? 1 : 0,
+        name: f?.name,
+        type: f?.type,
+        size: f?.size,
+      });
+      if (!f) {
+        input.value = "";
+        setNotice(t("noticePickerRejected"));
+        return;
+      }
+      const stable = clonePickerFile(f);
+      void handleFile(stable);
+    },
+    [handleFile, t],
+  );
 
   useEffect(() => {
     if (panel !== "empty" || mainTab !== "analyze") return;
@@ -417,6 +472,7 @@ export function PromptSceneLiteWidget() {
   }, [panel, mainTab, handleFile, analyzeFromCurrentStyleUrl]);
 
   const resetEmpty = () => {
+    revokeObjectPreview();
     setPanel("empty");
     setPreviewUrl(null);
     setPromptText("");
@@ -543,32 +599,27 @@ export function PromptSceneLiteWidget() {
         <>
           {notice ? <p className="mb-3 text-sm text-amber-400/90">{notice}</p> : null}
 
+          <input
+            ref={fileInputRef}
+            id={fileInputId}
+            type="file"
+            accept={FILE_INPUT_ACCEPT}
+            aria-label={t("chooseFile")}
+            className="sr-only"
+            onChange={onFileInputEvent}
+            onInput={onFileInputEvent}
+          />
+
           {panel === "empty" ? (
         <div className="flex flex-col gap-4">
-          <input
-            id={fileInputId}
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            aria-label={t("chooseFile")}
-            tabIndex={-1}
-            className="sr-only"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = "";
-              if (f) void handleFile(f);
-            }}
-          />
           <label
             htmlFor={fileInputId}
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                fileInputRef.current?.click();
-              }
+            className={`relative flex min-h-[11rem] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 px-4 py-8 text-center transition-colors hover:border-indigo-500/50 hover:bg-zinc-900/80 sm:min-h-[10rem] ${STV_FOCUS_RING}`}
+            onClick={(e) => {
+              if (e.target instanceof HTMLInputElement) return;
+              e.preventDefault();
+              openFilePicker();
             }}
-            className={`flex min-h-[11rem] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 px-4 py-8 text-center transition-colors hover:border-indigo-500/50 hover:bg-zinc-900/80 sm:min-h-[10rem] ${STV_FOCUS_RING}`}
             onDragOver={(e) => {
               e.preventDefault();
               e.currentTarget.classList.add("border-indigo-500/60");
@@ -583,10 +634,10 @@ export function PromptSceneLiteWidget() {
               if (f) void handleFile(f);
             }}
           >
-            <p className="text-sm font-medium text-zinc-200">{t("emptyTitle")}</p>
-            <p className="mt-1 text-xs text-zinc-500">{t("emptyHint")}</p>
+            <p className="pointer-events-none text-sm font-medium text-zinc-200">{t("emptyTitle")}</p>
+            <p className="pointer-events-none mt-1 text-xs text-zinc-500">{t("emptyHint")}</p>
             <span
-              className={`pointer-events-none mt-4 inline-flex min-h-11 w-full max-w-[20rem] items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 ${STV_FOCUS_RING}`}
+              className={`pointer-events-none relative z-0 mt-4 inline-flex min-h-11 w-full max-w-[20rem] items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 ${STV_FOCUS_RING}`}
             >
               {t("chooseFile")}
             </span>
@@ -752,15 +803,6 @@ export function PromptSceneLiteWidget() {
                 {t("limitResetLine")}
               </p>
               <div className="mx-auto mt-7 flex w-full max-w-xs flex-col gap-2.5 sm:max-w-sm">
-                {!user ? (
-                  <button
-                    type="button"
-                    onClick={signInWithGoogle}
-                    className={`inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-center text-sm font-medium text-white transition hover:bg-indigo-500 ${STV_FOCUS_RING}`}
-                  >
-                    {t("limitSignIn")}
-                  </button>
-                ) : null}
                 <a
                   href="#stv-pricing"
                   className={`inline-flex min-h-11 w-full items-center justify-center rounded-lg px-5 py-2.5 text-center text-sm font-medium text-zinc-200 transition hover:bg-zinc-800/90 ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}

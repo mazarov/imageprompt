@@ -276,7 +276,6 @@ async function initLiteOverlay() {
   let modalErrorGeneric = /** @type {HTMLElement | null} */ (null);
   let modalErrorLimit = /** @type {HTMLElement | null} */ (null);
   let modalLimitPlans = /** @type {HTMLAnchorElement | null} */ (null);
-  let modalLimitAuthBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalErrorActions = /** @type {HTMLElement | null} */ (null);
   let modalLimitDismissBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalAnalyzeBtn = /** @type {HTMLButtonElement | null} */ (null);
@@ -371,7 +370,6 @@ async function initLiteOverlay() {
               <p class="lite-limit-meta">Try again in about 24 hours.</p>
             </div>
             <div class="lite-error-actions">
-              <button type="button" class="lite-primary-btn lite-limit-auth lite-hidden">Continue with Google</button>
               <a class="lite-primary-btn lite-limit-plans lite-hidden" href="${SITE_PRICING_URL}" target="_blank" rel="noopener noreferrer">View plans</a>
               <button type="button" class="lite-secondary-btn lite-retry-analyze-btn lite-hidden">Try again</button>
               <button type="button" class="lite-primary-btn lite-retry-ready-btn lite-hidden">Close</button>
@@ -406,7 +404,6 @@ async function initLiteOverlay() {
     modalErrorGeneric = q(modalBackdrop, ".lite-error-generic");
     modalErrorLimit = q(modalBackdrop, ".lite-error-limit");
     modalLimitPlans = /** @type {HTMLAnchorElement | null} */ (modalBackdrop.querySelector(".lite-limit-plans"));
-    modalLimitAuthBtn = /** @type {HTMLButtonElement | null} */ (modalBackdrop.querySelector(".lite-limit-auth"));
     modalErrorActions = q(modalBackdrop, ".lite-error-actions");
 
     modalAnalyzeBtn = /** @type {HTMLButtonElement | null} */ (modalBackdrop.querySelector(".lite-analyze-btn"));
@@ -425,7 +422,6 @@ async function initLiteOverlay() {
     modalAnalyzeBtn?.addEventListener("click", handleModalAnalyzeClick);
     modalRetryAnalyzeBtn?.addEventListener("click", handleModalAnalyzeClick);
     modalAuthBtn?.addEventListener("click", () => void startModalAuth());
-    modalLimitAuthBtn?.addEventListener("click", () => void startModalAuth());
     modalSignOutBtn?.addEventListener("click", () => void signOutModalAuth());
 
     modalCopyBtn?.addEventListener("click", async () => {
@@ -465,7 +461,6 @@ async function initLiteOverlay() {
           ".lite-retry-ready-btn",
           ".lite-limit-dismiss",
           ".lite-limit-plans",
-          ".lite-limit-auth",
           ".lite-retry-analyze-btn",
         ]) {
           const el = modalBackdrop?.querySelector(sel);
@@ -501,7 +496,6 @@ async function initLiteOverlay() {
     }
     modalAuthBtn?.classList.toggle("lite-hidden", modalSignedIn);
     modalSignOutBtn?.classList.toggle("lite-hidden", !modalSignedIn);
-    modalLimitAuthBtn?.classList.toggle("lite-hidden", modalSignedIn);
   }
 
   async function refreshModalAuthStatus() {
@@ -516,14 +510,12 @@ async function initLiteOverlay() {
   async function startModalAuth() {
     try {
       if (modalAuthBtn) modalAuthBtn.disabled = true;
-      if (modalLimitAuthBtn) modalLimitAuthBtn.disabled = true;
       const res = await chrome.runtime.sendMessage({ type: "LITE_AUTH_START" });
       if (!res?.ok) throw new Error(res?.error || "auth_start_failed");
     } catch {
       showModalError("Could not open Google sign-in. Please try again.", { retryable: false });
     } finally {
       if (modalAuthBtn) modalAuthBtn.disabled = false;
-      if (modalLimitAuthBtn) modalLimitAuthBtn.disabled = false;
     }
   }
 
@@ -561,7 +553,6 @@ async function initLiteOverlay() {
     const retryable = !isLimit && opts.retryable === true && !!modalCurrentDataUrl;
     if (modalRetryAnalyzeBtn) modalRetryAnalyzeBtn.classList.toggle("lite-hidden", !retryable);
     if (modalLimitPlans) modalLimitPlans.classList.toggle("lite-hidden", !isLimit);
-    if (modalLimitAuthBtn) modalLimitAuthBtn.classList.toggle("lite-hidden", !isLimit || modalSignedIn);
 
     if (isLimit) {
       if (modalErrorCloseBtn) modalErrorCloseBtn.classList.add("lite-hidden");
