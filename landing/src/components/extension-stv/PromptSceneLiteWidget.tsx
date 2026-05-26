@@ -798,12 +798,14 @@ export function PromptSceneLiteWidget() {
                 {t("limitResetLine")}
               </p>
               <div className="mx-auto mt-6 flex w-full max-w-xs flex-col gap-2">
+                {/* Pricing — раскомментировать для показа
                 <a
                   href="#stv-pricing"
                   className={`inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500 ${STV_FOCUS_RING}`}
                 >
                   {t("limitViewPlans")}
                 </a>
+                */}
                 <button
                   type="button"
                   onClick={resetEmpty}

@@ -18,12 +18,14 @@ export async function ExtensionStvMarketingHeader() {
           <span className="truncate">{tc("brandWordmark")}</span>
         </Link>
         <nav className="flex shrink-0 items-center gap-3 sm:gap-5">
+          {/* Pricing — раскомментировать для показа
           <Link
             href="/extension-stv/pricing"
             className={`text-sm text-zinc-400 transition-colors hover:text-zinc-100 ${STV_FOCUS_RING} rounded-md px-1 py-1`}
           >
             {tc("pricing")}
           </Link>
+          */}
           <a
             href={STV_CHROME_STORE_URL}
             className={`whitespace-nowrap text-sm text-zinc-400 transition-colors hover:text-zinc-100 ${STV_FOCUS_RING} rounded-md px-1 py-1`}

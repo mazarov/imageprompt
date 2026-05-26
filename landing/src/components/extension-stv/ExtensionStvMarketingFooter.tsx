@@ -15,9 +15,11 @@ export async function ExtensionStvMarketingFooter() {
           <Link href="/" className={`hover:text-zinc-300 ${STV_FOCUS_RING} rounded-sm`}>
             {t("home")}
           </Link>
+          {/* Pricing — раскомментировать для показа
           <Link href="/extension-stv/pricing" className={`hover:text-zinc-300 ${STV_FOCUS_RING} rounded-sm`}>
             {t("pricing")}
           </Link>
+          */}
           <a href={STV_CHROME_STORE_URL} className={`hover:text-zinc-300 ${STV_FOCUS_RING} rounded-sm`}>
             {tc("chromeWebStore")}
           </a>

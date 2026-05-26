@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { ExtensionStvFaq } from "./ExtensionStvFaq";
 import { ExtensionStvHowItWorks } from "./ExtensionStvHowItWorks";
-import { ExtensionStvPricing } from "./ExtensionStvPricing";
+// import { ExtensionStvPricing } from "./ExtensionStvPricing";
 import { PromptSceneLiteWidgetGate } from "./PromptSceneLiteWidgetGate";
 import { STV_SECTION_CONTAINER, STV_SECTION_PY } from "./stv-marketing-shared";
 
@@ -78,9 +78,11 @@ export async function ExtensionStvMarketingSections({
         <ExtensionStvHowItWorks />
       </div>
 
+      {/* Pricing — раскомментировать для показа
       <div id="stv-pricing" className={ANCHOR_SCROLL}>
         <ExtensionStvPricing />
       </div>
+      */}
 
       <div id="stv-faq" className={ANCHOR_SCROLL}>
         <ExtensionStvFaq />

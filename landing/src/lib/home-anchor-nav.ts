@@ -2,7 +2,7 @@
 export const HOME_ANCHOR_NAV = [
   { id: "stv-hero", labelKey: "describer" },
   { id: "stv-how", labelKey: "how" },
-  { id: "stv-pricing", labelKey: "pricing" },
+  // { id: "stv-pricing", labelKey: "pricing" },
   { id: "stv-faq", labelKey: "faq" },
 ] as const;
 
