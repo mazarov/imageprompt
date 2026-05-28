@@ -9,13 +9,16 @@ import {
   getProduct,
   isProductSlug,
 } from "@/lib/products/registry";
+import { routing } from "@/i18n/routing";
 
 export const revalidate = 3600;
 
 type PageProps = { params: Promise<{ locale: string; productSlug: string }> };
 
 export function generateStaticParams() {
-  return generateStaticProductParams();
+  return routing.locales.flatMap((locale) =>
+    generateStaticProductParams().map((p) => ({ locale, ...p }))
+  );
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

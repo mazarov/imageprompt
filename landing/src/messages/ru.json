@@ -48,7 +48,13 @@
     "privacyPageTitle": "Политика конфиденциальности — ImagePrompt",
     "privacyPageDescription": "Политика конфиденциальности сервиса ImagePrompt: сбор, хранение и обработка данных.",
     "welcomePageTitle": "Добро пожаловать — закрепите AI Image Describer | ImagePrompt",
-    "welcomePageDescription": "Короткая инструкция: закрепить расширение AI Image Describer и открывать его с панели Chrome."
+    "welcomePageDescription": "Короткая инструкция: закрепить расширение AI Image Describer и открывать его с панели Chrome.",
+    "hubTitleAbsolute": "ImagePrompt — AI Image Tools Suite",
+    "hubDescription": "A complete suite of AI tools for image creation: describe photos, generate prompts, and create stunning visuals.",
+    "aiImageDescriberTitleAbsolute": "AI Image Describer — Image to Prompt Chrome Extension | ImagePrompt",
+    "aiImageDescriberDescription": "Turn any photo into a clean image-to-prompt result from any webpage. Chrome extension for Midjourney, DALL·E, Stable Diffusion, and more.",
+    "aiPhotoGeneratorTitleAbsolute": "AI Photo Generator — Coming Soon | ImagePrompt",
+    "aiPhotoGeneratorDescription": "Transform your prompts into stunning AI-generated photos. Coming soon on ImagePrompt."
   },
   "Common": {
     "brandWordmark": "AI Image Describer",
@@ -78,13 +84,19 @@
     "devGenBucketHint": "генерации и кредиты",
     "devGuestLabel": "Гость (не вошли на сайте)",
     "devGenRequiresSignInHint": "генерация только после входа",
-    "devExtensionBucketHint": "Этот хэш — анонимный лимит анализа расширения по вашему исходящему IP за сегодня (UTC)."
+    "devExtensionBucketHint": "Этот хэш — анонимный лимит анализа расширения по вашему исходящему IP за сегодня (UTC).",
+    "siteBrand": "ImagePrompt.tools",
+    "tryIt": "Try it",
+    "backToHub": "Back to ImagePrompt.tools"
   },
   "Footer": {
     "tagline": "Готовые промпты для создания фото с помощью нейросетей. Копируй и используй.",
     "navTitle": "Навигация",
     "copyright": "Все права защищены.",
-    "privacyLink": "Политика конфиденциальности"
+    "privacyLink": "Политика конфиденциальности",
+    "productsTitle": "Products",
+    "companyTitle": "Company",
+    "language": "Язык"
   },
   "Welcome": {
     "heroEyebrow": "AI Image Describer",
@@ -481,5 +493,27 @@
     "toolP": "Когда есть референс, но нет слов, image-to-prompt превращает пиксели в текст, который можно править. Вставьте черновик в Midjourney, SDXL или другой инструмент — и подстройте токены под то, что этот движок понимает.",
     "ctaSearch": "Поиск по библиотеке",
     "ctaHome": "Главная Image to prompt"
+  },
+  "Hub": {
+    "heroTitle": "AI-powered image tools",
+    "heroSubtitle": "Turn your ideas into perfect AI art",
+    "statusLive": "Live",
+    "statusComingSoon": "Coming soon",
+    "learnMore": "Learn more"
+  },
+  "Products": {
+    "aiImageDescriber": {
+      "title": "AI Image Describer",
+      "navLabel": "Image Describer",
+      "cardDescription": "Turn any photo into a clean image-to-prompt result from any webpage — fast, in your browser.",
+      "description": "Chrome extension that describes images and generates ready-to-use prompts for AI models."
+    },
+    "aiPhotoGenerator": {
+      "title": "AI Photo Generator",
+      "navLabel": "Photo Generator",
+      "cardDescription": "Transform text prompts into stunning AI-generated photos. Launching soon.",
+      "description": "We're building a powerful text-to-image tool. Check back soon for AI photo generation on ImagePrompt.",
+      "comingSoonBadge": "Coming soon"
+    }
   }
 }

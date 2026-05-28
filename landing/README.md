@@ -94,3 +94,15 @@ docker run -p 3001:3001 -e NEXT_PUBLIC_SUPABASE_URL=... -e SUPABASE_SERVICE_ROLE
 ```
 
 Не собирать **`docker build -f landing/Dockerfile .`** из корня репо — в контекст попадёт не тот **`package.json`**.
+
+## Локализация (52 языка для страницы AI Image Describer)
+
+Контент для `/ai-image-describer` (H1=appName, meta title=shortDesc, How it works, prompt, 5 шагов, 7 FAQ) берётся из Chrome Web Store переводов в `../extension-lite/_locales/*/messages.json`.
+
+- Скрипт синхронизации (базовые строки — из `en.json` + переопределения под продукт):
+  ```bash
+  cd landing && node scripts/ingest-extension-locales.mjs
+  ```
+- После запуска обнови массив `locales` в `src/i18n/routing.ts` (скрипт печатает готовый список).
+- Для `ru`/`en` переводы сайта не затираются (оставлены curated). Новые 50 локалей получают полный английский фолбэк для остального UI + локализованный контент дескрайбера.
+- После изменений в extension-lite локалях — прогоняй скрипт и коммить новые `src/messages/*.json`.

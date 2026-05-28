@@ -7,6 +7,7 @@ import { LANDING_SURFACE_FOOTER } from "@/lib/landing-design-tokens";
 import { FooterProductLinks } from "./FooterProductLinks";
 import { SiteLogoMark } from "./SiteLogoMark";
 import { useDebug } from "./DebugFAB";
+import { LocaleSwitcher } from "./LocaleSwitcher";
 
 export function Footer() {
   const t = useTranslations("Footer");
@@ -78,6 +79,11 @@ export function Footer() {
           <p className="text-xs text-zinc-500">
             &copy; {new Date().getFullYear()} {tc("siteBrand")}. {t("copyright")}
           </p>
+
+          <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+            {t("language")}
+            <LocaleSwitcher />
+          </div>
         </div>
       </div>
     </footer>

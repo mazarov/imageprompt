@@ -15,13 +15,17 @@ export async function buildProductMetadata(
   const pathname = `/${product.slug}`;
   const canonical = absoluteUrl(SITE_URL, pathname, locale);
   const enOnly = absoluteUrl(SITE_URL, pathname, "en");
+  const ogLocale = locale.replace(/-/g, "_");
 
   return {
     title: { absolute: titleAbsolute },
     description,
     alternates: {
       canonical,
-      languages: { en: enOnly },
+      languages: {
+        [locale]: canonical,
+        en: enOnly,
+      },
     },
     openGraph: {
       title: titleAbsolute,
@@ -29,7 +33,7 @@ export async function buildProductMetadata(
       url: canonical,
       type: "website",
       siteName: "ImagePrompt",
-      locale: "en",
+      locale: ogLocale,
     },
     twitter: {
       card: "summary_large_image",
@@ -45,13 +49,17 @@ export async function buildHubMetadata(locale: string): Promise<Metadata> {
   const description = t("hubDescription");
   const canonical = absoluteUrl(SITE_URL, "/", locale);
   const enOnly = absoluteUrl(SITE_URL, "/", "en");
+  const ogLocale = locale.replace(/-/g, "_");
 
   return {
     title: { absolute: titleAbsolute },
     description,
     alternates: {
       canonical,
-      languages: { en: enOnly },
+      languages: {
+        [locale]: canonical,
+        en: enOnly,
+      },
     },
     openGraph: {
       title: titleAbsolute,
@@ -59,7 +67,7 @@ export async function buildHubMetadata(locale: string): Promise<Metadata> {
       url: canonical,
       type: "website",
       siteName: "ImagePrompt",
-      locale: "en",
+      locale: ogLocale,
     },
     twitter: {
       card: "summary_large_image",

@@ -50,7 +50,8 @@
     "productsTitle": "Products",
     "companyTitle": "Company",
     "copyright": "All rights reserved.",
-    "privacyLink": "Privacy policy"
+    "privacyLink": "Privacy policy",
+    "language": "Language"
   },
   "Hub": {
     "heroTitle": "AI-powered image tools",
