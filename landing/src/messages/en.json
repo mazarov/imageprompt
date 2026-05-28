@@ -115,7 +115,8 @@
       "subtitle": "Try AI Image Describer, an image describer that turns any photo into a clean image to prompt result from any webpage fast."
     },
     "heroExtension": {
-      "title": "Image To Prompt for Chrome"
+      "title": "AI Image Describer",
+      "subtitle": "What you get with AI Image Describer: save your time — describe the image to text in one click and copy a ready prompt to generate a similar picture."
     },
     "problem": {
       "intro": "What you get with AI Image Describer: save your time — describe the image to text in one click and copy a ready prompt to generate a similar picture in any AI model.",
@@ -125,7 +126,7 @@
       "f3": "Works with any photo — no format gymnastics required."
     },
     "how": {
-      "title": "How to use Image to Prompt",
+      "title": "How it works",
       "subtitleP1": "AI Image Describer is a Chrome extension that turns any picture into a clean text description and a ready-to-use prompt for creative work in seconds. It is a fast image describer that lives right in your browser, so you can describe an image right inside your normal browser workflow without opening another tab, signing up, or pasting links into ten different tools.",
       "step1": "Pin AI Image Describer to your Chrome toolbar.",
       "step2": "Click the icon and upload or paste a picture to describe this photo.",
