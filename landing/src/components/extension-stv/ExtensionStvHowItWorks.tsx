@@ -2,7 +2,6 @@ import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { LANDING_BORDER_CARD } from "@/lib/landing-design-tokens";
 import { PAIN_REFERENCE_IMAGE_SRC } from "./stv-mock-shared";
-import widgetStarIcon from "../../../../extension-lite/icons/icon-widget-star.png";
 import {
   STV_SECTION_BG_MUTED,
   STV_SECTION_CONTAINER,
@@ -81,7 +80,7 @@ export async function ExtensionStvHowItWorks() {
                   </svg>
                   <div className="absolute inset-0 grid place-items-center">
                     <Image
-                      src={widgetStarIcon}
+                      src="/icons/icon-widget-star.png"
                       alt=""
                       width={18}
                       height={18}
