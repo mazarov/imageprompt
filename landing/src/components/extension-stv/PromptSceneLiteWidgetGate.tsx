@@ -2,7 +2,12 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { LANDING_BORDER_CARD, LANDING_SURFACE_WIDGET_OUTER } from "@/lib/landing-design-tokens";
+import {
+  LANDING_BORDER_CARD,
+  LANDING_RING_INSET_SOFT,
+  LANDING_SURFACE_WIDGET_OUTER,
+  LANDING_SURFACE_WIDGET_TAB_ROW,
+} from "@/lib/landing-design-tokens";
 
 /** Static placeholder while the widget chunk loads or section is off-screen. */
 export function PromptSceneLiteSkeleton() {
@@ -13,7 +18,15 @@ export function PromptSceneLiteSkeleton() {
     >
       <div className="space-y-4">
         <div className="h-3 w-24 rounded bg-zinc-800/90" />
-        <div className="h-10 w-full max-w-xs rounded-lg bg-zinc-800/90" />
+        <div
+          className={`h-10 w-full max-w-xs rounded-lg ${LANDING_SURFACE_WIDGET_TAB_ROW} p-1 ${LANDING_RING_INSET_SOFT}`}
+          aria-hidden
+        >
+          <div className="flex h-full gap-0.5">
+            <div className="flex-1 rounded-md bg-indigo-600/70" />
+            <div className="flex-1 rounded-md bg-zinc-800/50" />
+          </div>
+        </div>
         <div className="h-36 w-full rounded-xl bg-zinc-800/70" />
         <div className="h-11 w-full rounded-lg bg-zinc-800/80 sm:max-w-[12rem]" />
       </div>

@@ -50,7 +50,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   });
 
   if (details.reason === chrome.runtime.OnInstalledReason.INSTALL) {
-    const welcomeUrl = new URL("/welcome", SITE_URL).href;
+    const welcomeUrl = new URL("/ai-image-describer/welcome", SITE_URL).href;
     chrome.tabs.create({ url: welcomeUrl }).catch(() => {});
   }
 });

@@ -52,23 +52,20 @@ export async function ExtensionStvMarketingSections({
                 </span>
                 {t("problem.intro")}
               </p>
-              <div>
-                <h3 className="text-base font-semibold text-zinc-100 sm:text-lg">{t("problem.featuresTitle")}</h3>
-                <ul className="mt-3 space-y-3">
-                  <li className="flex gap-3">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/80" aria-hidden />
-                    <span>{t("problem.f1")}</span>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/80" aria-hidden />
-                    <span>{t("problem.f2")}</span>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/80" aria-hidden />
-                    <span>{t("problem.f3")}</span>
-                  </li>
-                </ul>
-              </div>
+              <ul className="space-y-2.5 text-zinc-300">
+                <li className="flex gap-3">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/80" aria-hidden />
+                  <span>{t("problem.f1")}</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/80" aria-hidden />
+                  <span>{t("problem.f2")}</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/80" aria-hidden />
+                  <span>{t("problem.f3")}</span>
+                </li>
+              </ul>
             </div>
           </div>
         </section>

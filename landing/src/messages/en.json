@@ -1,69 +1,34 @@
 {
-  "Menu": {
-    "more": "More",
-    "group": {
-      "all": "All",
-      "basic": "Basic",
-      "kids": "Kids",
-      "relationships": "Relationships",
-      "extended": "Extended",
-      "core": "Core",
-      "visual": "Visual",
-      "illustrative": "Illustrative",
-      "holidays": "Holidays",
-      "objects": "Objects",
-      "pose": "Look / pose",
-      "place": "Place / environment"
-    },
-    "section": {
-      "people": "People & relationships",
-      "styles": "Styles",
-      "events": "Events",
-      "scenes": "Scenes & objects"
-    }
-  },
-  "Dimensions": {
-    "audience_tag": "People & relationships",
-    "style_tag": "Styles",
-    "occasion_tag": "Events",
-    "object_tag": "Scenes & objects",
-    "doc_task_tag": "Tasks"
-  },
   "Meta": {
-    "rootTitle": "AI photo prompts — ready-made prompt library",
-    "rootDescription": "Upload a photo or browse prompts — copy structured prompts for Midjourney, Stable Diffusion, and more. Free prompt library plus Image To Prompt for Chrome.",
-    "rootTitleAbsolute": "Image to Prompt — Get AI Prompts from Any Photo | ImagePrompt",
+    "hubTitleAbsolute": "ImagePrompt — AI Image Tools Suite",
+    "hubDescription": "A complete suite of AI tools for image creation: describe photos, generate prompts, and create stunning visuals.",
+    "aiImageDescriberTitleAbsolute": "AI Image Describer — Image to Prompt Chrome Extension | ImagePrompt",
+    "aiImageDescriberDescription": "Turn any photo into a clean image-to-prompt result from any webpage. Chrome extension for Midjourney, DALL·E, Stable Diffusion, and more.",
+    "aiPhotoGeneratorTitleAbsolute": "AI Photo Generator — Coming Soon | ImagePrompt",
+    "aiPhotoGeneratorDescription": "Transform your prompts into stunning AI-generated photos. Coming soon on ImagePrompt.",
+    "rootTitle": "ImagePrompt — AI Image Tools",
+    "rootDescription": "AI-powered image tools: describe photos, generate prompts, and create visuals.",
+    "rootTitleAbsolute": "ImagePrompt — AI Image Tools Suite",
     "extensionStvTitleAbsolute": "Image to Prompt Chrome Extension — Copy Prompts from Images | ImagePrompt",
     "extensionStvDescription": "Get prompts from reference images while you browse. Works with your ImagePrompt library and Chrome overlay.",
     "extensionStvPricingTitleAbsolute": "Image to Prompt Pricing — Plans & Credits | ImagePrompt",
     "extensionStvPricingDescription": "Free and Standard plans for Image to Prompt: daily image-to-prompt limits and on-site generation credits on ImagePrompt.",
-    "blogAiPromptExamplesTitleAbsolute": "AI Image Prompt Examples That Work (2026) | ImagePrompt",
-    "blogAiPromptExamplesDescription": "Practical structure for AI image prompts, before/after thinking, and how image-to-prompt helps you start from a reference—not generic adjectives.",
-    "searchTitleDefault": "Search AI image prompts — ImagePrompt",
-    "searchDescriptionDefault": "Search the prompt library: long-tail ideas for Midjourney-style workflows, portraits, styles, and scenes.",
-    "searchTitleWithQuery": "Search: {query} — ImagePrompt",
-    "searchDescriptionWithQuery": "Search results for “{query}”. Ready-to-copy AI image prompts on ImagePrompt.",
-    "favoritesPageTitle": "Favorites — ImagePrompt",
-    "generationsPageTitle": "My generations — ImagePrompt",
     "privacyPageTitle": "Privacy policy — ImagePrompt",
     "privacyPageDescription": "How ImagePrompt collects, stores, and processes personal data (English draft for legal review).",
     "welcomePageTitle": "Welcome — Pin AI Image Describer | ImagePrompt",
     "welcomePageDescription": "Quick steps to pin the AI Image Describer extension and open it from the Chrome toolbar."
   },
   "Common": {
+    "siteBrand": "ImagePrompt.tools",
     "brandWordmark": "AI Image Describer",
     "signIn": "Sign in",
-    "favorites": "Favorites",
-    "myGenerations": "My generations",
     "signOut": "Sign out",
     "home": "Home",
     "privacy": "Privacy",
     "pricing": "Pricing",
     "chromeWebStore": "Chrome Web Store",
-    "localeEn": "EN",
-    "localeRu": "RU",
-    "catalog": "Catalog",
-    "close": "Close",
+    "tryIt": "Try it",
+    "backToHub": "Back to ImagePrompt.tools",
     "devSectionTitle": "Developer",
     "devSectionHint": "extension_rate_limit ip_hash — identical to POST /api/extension/analyze. Generations use your logged-in Supabase account (user id), not this hash.",
     "devRefresh": "Refresh",
@@ -81,10 +46,33 @@
     "devExtensionBucketHint": "This hash identifies the anonymous extension analyze quota for your egress IP today (UTC)."
   },
   "Footer": {
-    "tagline": "Ready-made prompts for creating photos with AI. Copy and use.",
-    "navTitle": "Navigation",
+    "tagline": "AI-powered tools for describing images and creating visuals.",
+    "productsTitle": "Products",
+    "companyTitle": "Company",
     "copyright": "All rights reserved.",
     "privacyLink": "Privacy policy"
+  },
+  "Hub": {
+    "heroTitle": "AI-powered image tools",
+    "heroSubtitle": "Turn your ideas into perfect AI art",
+    "statusLive": "Live",
+    "statusComingSoon": "Coming soon",
+    "learnMore": "Learn more"
+  },
+  "Products": {
+    "aiImageDescriber": {
+      "title": "AI Image Describer",
+      "navLabel": "Image Describer",
+      "cardDescription": "Turn any photo into a clean image-to-prompt result from any webpage — fast, in your browser.",
+      "description": "Chrome extension that describes images and generates ready-to-use prompts for AI models."
+    },
+    "aiPhotoGenerator": {
+      "title": "AI Photo Generator",
+      "navLabel": "Photo Generator",
+      "cardDescription": "Transform text prompts into stunning AI-generated photos. Launching soon.",
+      "description": "We're building a powerful text-to-image tool. Check back soon for AI photo generation on ImagePrompt.",
+      "comingSoonBadge": "Coming soon"
+    }
   },
   "Welcome": {
     "heroEyebrow": "AI Image Describer",
@@ -112,21 +100,6 @@
     "envHint": "For local dev: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local at repo root or landing/ (or SUPABASE_URL + SUPABASE_ANON_KEY), then restart npm run dev.",
     "continueGoogle": "Continue with Google",
     "signInShort": "Sign in"
-  },
-  "HomeSearch": {
-    "placeholder": "Find a prompt — e.g. “portrait” or “at the sea”",
-    "popular": "Popular:"
-  },
-  "SearchBar": {
-    "placeholder": "Search prompts…",
-    "mobilePlaceholder": "Find a prompt…",
-    "showAll": "Show all results",
-    "noResults": "Nothing found",
-    "noResultsHint": "Try a different query",
-    "mobileFindPrompt": "Find a prompt",
-    "mobileSearchAria": "Search",
-    "popularQueries": "Popular searches",
-    "untitled": "Untitled"
   },
   "HomeNav": {
     "sections": "Sections",
@@ -227,162 +200,6 @@
       "errorUnknown": "Something went wrong"
     }
   },
-  "CardSeo": {
-    "loadingAria": "Loading card",
-    "titleSuffix": " — AI photo prompt | ImagePrompt",
-    "promptFallback": "Prompt",
-    "untitled": "Untitled",
-    "defaultDescription": "Ready-to-use AI photo prompt. View the result and copy it.",
-    "descWithExcerpt": "Photo prompt: “{excerpt}{suffix}”. Copy and generate in your image model.",
-    "descWithTags": "Ready prompt “{title}” — {tags}. Copy and use with AI.",
-    "creativeWorkDescFallback": "AI photo prompt",
-    "collectionPartName": "ImagePrompt — AI photo prompts"
-  },
-  "Catalog": {
-    "loadingAria": "Loading catalog",
-    "promptsInCategorySr": "Prompts in this category",
-    "allPromptsForTag": "All prompts: {tag}",
-    "howToTitle": "How to use the prompt",
-    "faqTitle": "Frequently asked questions",
-    "moreSections": "More sections",
-    "moreWithTag": "More “{tag}”",
-    "showAllCount": "Show all ({count})",
-    "photoPromptAlt": "Photo prompt — {label}"
-  },
-  "Cards": {
-    "untitled": "Untitled",
-    "noPhoto": "No photo",
-    "beforeBadge": "BEFORE",
-    "draft": "Draft",
-    "copy": "Copy",
-    "copyPrompt": "Copy prompt",
-    "promptCopied": "Prompt copied",
-    "prevPhoto": "Previous photo",
-    "nextPhoto": "Next photo",
-    "close": "Close",
-    "promptRuYes": "RU: yes",
-    "enOnly": "EN only",
-    "noPrompt": "No prompt",
-    "variantAria": "Switch card variant: {current} of {total}",
-    "promptCount": "{count, plural, one {# prompt} other {# prompts}}"
-  },
-  "CardPage": {
-    "home": "Home",
-    "errorPrefix": "Error:",
-    "saved": "Saved",
-    "deleteConfirm": "Delete this card from the database? This cannot be undone.\n\nslug:\n{slug}",
-    "debugSetBefore": "Set “before”",
-    "debugSaving": "Saving…",
-    "debugDelete": "Delete card",
-    "debugDeleting": "Deleting…",
-    "debugBeforeYes": "present",
-    "debugPhotoCounter": "current photo {current}/{total}",
-    "noPhoto": "No photo",
-    "beforeBadge": "BEFORE",
-    "shareTitle": "Share",
-    "shareAria": "Share link to this card",
-    "authorFallback": "Author",
-    "draftOwnerOnly": "Draft — only you can see it",
-    "pubSaving": "Saving…",
-    "pubHide": "Unpublish",
-    "pubPublish": "Publish",
-    "views": "views",
-    "promptN": "Prompt {n}",
-    "copyTitle": "Copy",
-    "copyPromptN": "Copy prompt {n}",
-    "subtitle": "Ready-to-use prompt for AI photo generation. Copy and use in your image model.",
-    "copied": "Copied!",
-    "copyAll": "Copy all prompts",
-    "copyOne": "Copy prompt"
-  },
-  "Filters": {
-    "panelTitle": "Filters",
-    "ariaPanel": "Filters",
-    "reset": "Reset",
-    "apply": "Apply",
-    "findScene": "Find a scene…",
-    "findPlaceholder": "Search…",
-    "all": "All",
-    "withCount": "Filters ({count})"
-  },
-  "SearchResultsPage": {
-    "srTitle": "Search prompts",
-    "placeholder": "Enter a query — e.g. “portrait” or “GTA style”",
-    "submit": "Search",
-    "resultsFor": "Results for “{query}”",
-    "fuzzyBadge": "Fuzzy search",
-    "emptyTitle": "Nothing found for “{query}”",
-    "emptyHint": "Try a different query or browse categories on the home page.",
-    "backHome": "Back to home",
-    "introTitle": "Search prompts",
-    "introHint": "Enter a query — for example “portrait”, “3D style”, or “with a cat”."
-  },
-  "Favorites": {
-    "signInTitle": "Sign in to see favorites",
-    "signInHint": "Save prompts you like and come back to them anytime.",
-    "signInCta": "Sign in",
-    "emptyTitle": "No favorite prompts yet",
-    "emptyHint": "Tap the bookmark on a card to save a prompt.",
-    "goCatalog": "Browse catalog"
-  },
-  "Generations": {
-    "guestRich": "<link>Sign in</link> to see your generations.",
-    "loading": "Loading…",
-    "empty": "You don’t have generation cards yet. Open a prompt in the catalog and tap Generate — the result will appear here as a card."
-  },
-  "GenerationModal": {
-    "closePanelAria": "Close generation panel",
-    "iframeTitle": "ImagePrompt generation",
-    "close": "Close"
-  },
-  "DebugGrid": {
-    "searching": "Searching…",
-    "foundCount": "{count} found",
-    "statsListing": "{shown} ({groups, plural, one {# group} other {# groups}}) of {total}",
-    "searchingDb": "Searching database…",
-    "emptyFilter": "No cards match the selected filters.",
-    "emptyId": "No cards found.",
-    "panelTitle": "Filters",
-    "idLabel": "ID (database search)",
-    "warningsLabel": "Warnings",
-    "optAll": "All",
-    "optWithWarnings": "With warnings",
-    "optNoWarnings": "Without warnings",
-    "scoreLabel": "Score",
-    "promptRuLabel": "RU prompt",
-    "optYes": "Yes",
-    "optNo": "No",
-    "tagLabel": "Tag",
-    "allTags": "All tags",
-    "beforeLabel": "Before",
-    "beforeOnly": "Only with “before”",
-    "beforeShow": "Show with “before”",
-    "datasetLabel": "Dataset",
-    "allDatasets": "All datasets",
-    "reset": "Reset"
-  },
-  "ListingGrid": {
-    "loadingMore": "Loading more cards"
-  },
-  "Bookmark": {
-    "addTitle": "Add to favorites",
-    "removeTitle": "Remove from favorites",
-    "addAria": "Add to favorites",
-    "removeAria": "Remove from favorites"
-  },
-  "CardOverlay": {
-    "viewsAria": "{count} views"
-  },
-  "Reactions": {
-    "likeRemoveCount": "Remove like, currently {count}",
-    "likeRemove": "Remove like",
-    "likeWithCount": "Like, {count}",
-    "like": "Like",
-    "dislikeRemoveCount": "Remove dislike, currently {count}",
-    "dislikeRemove": "Remove dislike",
-    "dislikeWithCount": "Dislike, {count}",
-    "dislike": "Dislike"
-  },
   "Privacy": {
     "title": "Privacy policy",
     "effective": "Effective date: March 19, 2026",
@@ -446,36 +263,22 @@
     "readFailed": "Could not read this file. Try another image.",
     "noticeFetchFailed": "Couldn't load the image automatically. Upload a file instead.",
     "noticePickerRejected": "Browser did not accept the file. Try drag-and-drop instead.",
-    "pasteHint": "Tip: paste a direct link to an image (https://…), or copy a picture and press Ctrl+V (⌘V on Mac).",
+    "pasteHint": "Tip: copy a picture and press Ctrl+V (⌘V on Mac).",
     "resultScrollHint": "Scroll to read the full prompt",
-    "urlLabel": "Or paste image URL",
-    "urlSectionToggle": "Paste image URL (https://…)",
-    "urlPlaceholder": "https://example.com/image.jpg",
-    "urlSubmit": "Analyze URL",
     "errorInvalidUrl": "Enter a valid http(s) link to an image.",
     "tabAnalyze": "Analyze",
     "tabHistory": "History",
     "historyIntro": "Runs saved in this browser on imageprompt.tools. Repeat an image with one click.",
     "historyRecognizeAgain": "Analyze again",
     "historyCopyPrompt": "Copy prompt",
+    "historyEmptyTitle": "No analyses yet",
+    "historyEmptyDescription": "Analyze your first image to start building a local history of prompts. Everything stays in this browser.",
+    "historyEmptyCta": "Analyze an image",
     "authChecking": "Checking account",
     "authGuest": "Guest mode",
     "authSignedIn": "Signed in with Google",
     "authHint": "Sign in to keep one daily free limit across this site and the extension.",
     "authSignIn": "Continue with Google",
     "authSignOut": "Sign out"
-  },
-  "BlogAiPromptExamples": {
-    "kicker": "Guide",
-    "h1": "AI image prompt examples that actually work",
-    "intro": "Strong AI image prompts read like a tiny creative brief: subject, environment, light, color, lens or format, and style. Weak prompts stop at “cinematic, 8k, detailed”—they give the model too many equally likely directions.",
-    "h2_structure": "Structure of a high-signal prompt",
-    "structureP": "Start with who or what owns the frame, then place them in a setting. Add one or two lighting sentences (direction, softness, color temperature). Name materials and textures when they matter. Close with stylistic guardrails—film stock, painterly vs photographic, era—so the model does not drift.",
-    "h2_beforeAfter": "Before / after thinking",
-    "beforeAfterP": "Before: a bag of adjectives. After: a short stack of concrete cues tied to composition and mood. You can still iterate; you are just iterating from a prompt that already encodes the scene you liked.",
-    "h2_tool": "Image → prompt as a starting point",
-    "toolP": "When you have a reference but not the words, image-to-prompt turns pixels into language you can edit. Paste the draft into Midjourney, SDXL, or any tool you use—then adapt tokens to what that engine respects.",
-    "ctaSearch": "Search the library",
-    "ctaHome": "Image to prompt home"
   }
 }

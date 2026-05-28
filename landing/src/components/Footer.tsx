@@ -4,6 +4,7 @@ import { useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { LANDING_SURFACE_FOOTER } from "@/lib/landing-design-tokens";
+import { FooterProductLinks } from "./FooterProductLinks";
 import { SiteLogoMark } from "./SiteLogoMark";
 import { useDebug } from "./DebugFAB";
 
@@ -45,17 +46,28 @@ export function Footer() {
                 size={24}
                 className={`h-6 w-6 rounded-md ${debug?.debugOpen ? "ring-2 ring-amber-400/70" : ""}`}
               />
-              {tc("brandWordmark")}
+              {tc("siteBrand")}
             </button>
             <p className="mt-2 max-w-xs text-sm text-zinc-500">{t("tagline")}</p>
           </div>
           <nav className="flex gap-12">
             <div>
-              <div className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">{t("navTitle")}</div>
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">{t("productsTitle")}</div>
+              <ul className="space-y-2">
+                <FooterProductLinks />
+              </ul>
+            </div>
+            <div>
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">{t("companyTitle")}</div>
               <ul className="space-y-2">
                 <li>
                   <Link href="/" className="text-sm text-zinc-400 transition-colors hover:text-zinc-100">
                     {tc("home")}
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/privacy" className="text-sm text-zinc-400 transition-colors hover:text-zinc-100">
+                    {t("privacyLink")}
                   </Link>
                 </li>
               </ul>
@@ -64,11 +76,8 @@ export function Footer() {
         </div>
         <div className="mt-10 flex flex-col gap-3 pt-8 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-zinc-500">
-            &copy; {new Date().getFullYear()} {tc("brandWordmark")}. {t("copyright")}
+            &copy; {new Date().getFullYear()} {tc("siteBrand")}. {t("copyright")}
           </p>
-          <Link href="/privacy" className="text-xs text-zinc-500 transition-colors hover:text-zinc-300">
-            {t("privacyLink")}
-          </Link>
         </div>
       </div>
     </footer>

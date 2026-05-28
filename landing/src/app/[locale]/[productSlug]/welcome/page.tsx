@@ -1,18 +1,26 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { PageLayout } from "@/components/PageLayout";
 import { absoluteUrl } from "@/lib/locale-path";
+import { getProduct, isProductSlug, productHasSubRoute } from "@/lib/products/registry";
 import { WelcomeReveal } from "./welcome-reveal";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://imageprompt.tools";
 
-type Props = { params: Promise<{ locale: string }> };
+type Props = { params: Promise<{ locale: string; productSlug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await params;
+  const { locale, productSlug } = await params;
+  if (!isProductSlug(productSlug)) return {};
+
+  const product = getProduct(productSlug);
+  if (!product || !productHasSubRoute(product, "welcome")) return {};
+
   const t = await getTranslations({ locale, namespace: "Meta" });
-  const canonical = absoluteUrl(SITE_URL, "/welcome", locale);
-  const enUrl = absoluteUrl(SITE_URL, "/welcome", "en");
+  const pathname = `/${productSlug}/welcome`;
+  const canonical = absoluteUrl(SITE_URL, pathname, locale);
+  const enUrl = absoluteUrl(SITE_URL, pathname, "en");
 
   return {
     title: t("welcomePageTitle"),
@@ -25,12 +33,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function WelcomePage({ params }: Props) {
-  const { locale } = await params;
+export default async function ProductWelcomePage({ params }: Props) {
+  const { locale, productSlug } = await params;
+  if (!isProductSlug(productSlug)) notFound();
+
+  const product = getProduct(productSlug);
+  if (!product || !productHasSubRoute(product, "welcome")) notFound();
+
   setRequestLocale(locale);
 
   const t = await getTranslations({ locale, namespace: "Welcome" });
-
   const imgBase = `/welcome`;
 
   return (

@@ -35,9 +35,9 @@ export async function generateMetadata({
   return {
     title: {
       template: "%s · image to prompt",
-      default: t("rootTitle"),
+      default: t("hubTitleAbsolute"),
     },
-    description: t("rootDescription"),
+    description: t("hubDescription"),
     manifest: "/site.webmanifest",
     robots: {
       index: false,

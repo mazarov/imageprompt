@@ -73,6 +73,9 @@ const nextConfig: NextConfig = {
       // defaultLocale=en uses no URL prefix (`localePrefix: as-needed`); avoid duplicate `/en` URLs
       { source: "/en", destination: "/", permanent: true },
       { source: "/en/:path*", destination: "/:path*", permanent: true },
+      { source: "/extension-stv", destination: "/ai-image-describer", permanent: true },
+      { source: "/extension-stv/:path*", destination: "/ai-image-describer/:path*", permanent: true },
+      { source: "/welcome", destination: "/ai-image-describer/welcome", permanent: true },
     ];
   },
   images: {

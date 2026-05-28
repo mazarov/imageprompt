@@ -74,11 +74,11 @@ export function HeaderClient() {
         <Link
           href="/"
           onClick={onBrandNavClick}
-          title={t("brandWordmark")}
+          title={t("siteBrand")}
           className="-mx-2 flex items-center gap-2 rounded-xl px-2 py-1 text-lg font-bold tracking-tight text-zinc-50 transition hover:bg-zinc-900/55 lg:flex-shrink-0 select-none"
         >
           <SiteLogoMark size={28} className="h-7 w-7 rounded-lg" />
-          <span>{t("brandWordmark")}</span>
+          <span>{t("siteBrand")}</span>
         </Link>
         <button
           type="button"
