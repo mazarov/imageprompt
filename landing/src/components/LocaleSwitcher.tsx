@@ -87,6 +87,19 @@ export function LocaleSwitcher() {
 
   const allLocales: string[] = [...routing.locales];
 
+  // Guard against bad hook values during hydration (especially with 52 locales).
+  // A crash here takes down the footer and breaks client navigation on the whole page.
+  if (typeof current !== "string" || !current) {
+    // Render a minimal safe placeholder so the footer doesn't die.
+    return (
+      <div className="relative text-[11px] font-semibold">
+        <span className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-zinc-950/60 px-2.5 py-1 text-zinc-500">
+          —
+        </span>
+      </div>
+    );
+  }
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = allLocales;
@@ -106,8 +119,6 @@ export function LocaleSwitcher() {
       return la.localeCompare(lb);
     });
   }, [query, allLocales]);
-
-  const currentLabel = LABELS[current] || current.toUpperCase();
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {

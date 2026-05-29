@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, Component, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { LANDING_SURFACE_FOOTER } from "@/lib/landing-design-tokens";
@@ -8,6 +8,22 @@ import { FooterProductLinks } from "./FooterProductLinks";
 import { SiteLogoMark } from "./SiteLogoMark";
 import { useDebug } from "./DebugFAB";
 import { LocaleSwitcher } from "./LocaleSwitcher";
+
+// Lightweight boundary so a crash inside the language switcher (rare hydration edge case)
+// cannot take down the entire footer or break client navigation on the page.
+class SafeLanguageRow extends Component<{ children: ReactNode }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      // Graceful fallback: hide the language control instead of breaking the shell.
+      return null;
+    }
+    return this.props.children;
+  }
+}
 
 export function Footer() {
   const t = useTranslations("Footer");
@@ -80,10 +96,12 @@ export function Footer() {
             &copy; {new Date().getFullYear()} {tc("siteBrand")}. {t("copyright")}
           </p>
 
-          <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-            {t("language")}
-            <LocaleSwitcher />
-          </div>
+          <SafeLanguageRow>
+            <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+              {t("language")}
+              <LocaleSwitcher />
+            </div>
+          </SafeLanguageRow>
         </div>
       </div>
     </footer>
