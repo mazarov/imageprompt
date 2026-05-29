@@ -1,9 +1,19 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { routing } from "@/i18n/routing";
 import { absoluteUrl } from "@/lib/locale-path";
 import type { ProductDefinition } from "./registry";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://imageprompt.tools";
+
+function buildHreflangMap(pathname: string): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const loc of routing.locales) {
+    map[loc] = absoluteUrl(SITE_URL, pathname, loc);
+  }
+  map["x-default"] = absoluteUrl(SITE_URL, pathname, routing.defaultLocale);
+  return map;
+}
 
 export async function buildProductMetadata(
   product: ProductDefinition,
@@ -14,7 +24,6 @@ export async function buildProductMetadata(
   const description = t(product.metaDescriptionKey);
   const pathname = `/${product.slug}`;
   const canonical = absoluteUrl(SITE_URL, pathname, locale);
-  const enOnly = absoluteUrl(SITE_URL, pathname, "en");
   const ogLocale = locale.replace(/-/g, "_");
 
   return {
@@ -22,10 +31,7 @@ export async function buildProductMetadata(
     description,
     alternates: {
       canonical,
-      languages: {
-        [locale]: canonical,
-        en: enOnly,
-      },
+      languages: buildHreflangMap(pathname),
     },
     openGraph: {
       title: titleAbsolute,
@@ -48,7 +54,6 @@ export async function buildHubMetadata(locale: string): Promise<Metadata> {
   const titleAbsolute = t("hubTitleAbsolute");
   const description = t("hubDescription");
   const canonical = absoluteUrl(SITE_URL, "/", locale);
-  const enOnly = absoluteUrl(SITE_URL, "/", "en");
   const ogLocale = locale.replace(/-/g, "_");
 
   return {
@@ -56,10 +61,7 @@ export async function buildHubMetadata(locale: string): Promise<Metadata> {
     description,
     alternates: {
       canonical,
-      languages: {
-        [locale]: canonical,
-        en: enOnly,
-      },
+      languages: buildHreflangMap("/"),
     },
     openGraph: {
       title: titleAbsolute,

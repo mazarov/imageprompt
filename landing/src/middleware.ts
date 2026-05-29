@@ -48,7 +48,17 @@ export async function middleware(request: NextRequest) {
     return applyCorsHeaders(request, NextResponse.next({ request }));
   }
 
-  return intlMiddleware(request);
+  const response = intlMiddleware(request);
+
+  // next-intl emits a Link header with hreflang for every locale (~52 entries).
+  // With long URL paths the header easily exceeds 4 KB — the default
+  // proxy_buffer_size in many Nginx/reverse-proxy setups — causing the proxy
+  // to hang or return 502.  The same alternates are already rendered as
+  // <link rel="alternate"> tags inside <head> by generateMetadata(), so
+  // removing the HTTP header has zero SEO impact.
+  response.headers.delete("link");
+
+  return response;
 }
 
 export const config = {
