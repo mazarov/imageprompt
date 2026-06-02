@@ -52,16 +52,30 @@ npm start
 - `140_landing_vibe_saves.sql`
 - `142_landing_vibe_saves_auto_seo_tags.sql`
 
-### CORS для extension
+### CORS для extension и cross-origin embeds
 
-API вызывается из origin `chrome-extension://<id>`, поэтому в `landing/.env.local` обязательно:
+API вызывается из origin `chrome-extension://<id>` и с **promptshot.ru** (`/foto-v-promt/` → `POST /api/extension/analyze`), поэтому в env обязательно:
 
 ```bash
 CHROME_EXTENSION_ID=<id из chrome://extensions>
-# или CORS_ALLOWED_ORIGINS=chrome-extension://<id1>,chrome-extension://<id2>
+# promptshot.ru live widget (Dockhost: разделитель «;» если запятые не проходят):
+CORS_ALLOWED_ORIGINS=https://promptshot.ru;https://www.promptshot.ru
+# или явный CSV: chrome-extension://<id1>,chrome-extension://<id2>
 ```
 
-Без этого браузер заблокирует запросы в API из extension.
+`middleware.ts` matcher включает `/api/:path*` — без этого CORS-заголовки на API не выставляются.
+
+**Smoke после деплоя:**
+
+```bash
+curl -sI -X OPTIONS 'https://imageprompt.tools/api/extension/analyze' \
+  -H 'Origin: https://promptshot.ru' \
+  -H 'Access-Control-Request-Method: POST' \
+  -H 'Access-Control-Request-Headers: content-type' | grep -i access-control
+# ожидается: Access-Control-Allow-Origin: https://promptshot.ru
+```
+
+Без allowlist браузер заблокирует cross-origin запросы из extension и с promptshot.ru.
 
 ### Try this look на карточках
 

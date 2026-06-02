@@ -9,7 +9,7 @@ const DEFAULT_ALLOWED_HEADERS = "Content-Type, Authorization";
 
 function parseAllowedOrigins(): string[] {
   const fromEnv = (process.env.CORS_ALLOWED_ORIGINS || "")
-    .split(",")
+    .split(/[,;\n]+/)
     .map((v) => v.trim())
     .filter(Boolean);
   const extIds = [process.env.CHROME_EXTENSION_ID, process.env.CHROME_EXTENSION_ID_LITE]
@@ -63,6 +63,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/api/:path*",
     "/((?!api|_next|_vercel|embed|auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|webmanifest)).*)",
   ],
 };
