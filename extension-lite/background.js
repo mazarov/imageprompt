@@ -30,6 +30,19 @@ function isValidStyle(style) {
   return ["photoreal", "midjourney", "sd", "flux"].includes(style);
 }
 
+// ── Side panel ──
+// Opens the side panel instead of a default_popup so it stays visible
+// until the user explicitly closes it.
+async function openSidePanel(windowId) {
+  try {
+    await chrome.sidePanel.open(windowId != null ? { windowId } : {});
+  } catch (e) {
+    console.warn("[aid] sidePanel.open failed", e?.message ?? e);
+  }
+}
+
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+
 function createJobId() {
   return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
@@ -87,6 +100,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return;
       }
       sendResponse({ ok: true });
+    });
+    return true;
+  }
+  if (msg?.type === "GET_LITE_HISTORY_QUEUE") {
+    chrome.storage.local.get(HISTORY_QUEUE_KEY, (data) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError.message, entries: [] });
+        return;
+      }
+      const entries = Array.isArray(data?.[HISTORY_QUEUE_KEY]?.entries)
+        ? data[HISTORY_QUEUE_KEY].entries
+        : [];
+      sendResponse({ ok: true, entries });
     });
     return true;
   }
@@ -234,19 +260,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
  */
 async function openToolbarPopupForImage(srcUrl, tabId) {
   const ts = Date.now();
-  const popupPromise = chrome.action.openPopup();
 
   void chrome.storage.session.set({
     [PENDING_IMAGE_KEY]: { status: "loading", srcUrl, ts, source: "overlay" },
   });
 
   try {
-    await popupPromise;
+    const tab = tabId != null ? await chrome.tabs.get(tabId).catch(() => null) : null;
+    await openSidePanel(tab?.windowId);
     void preparePopupImage(srcUrl, tabId, ts);
     return { ok: true };
   } catch (err) {
     void chrome.storage.session.remove(PENDING_IMAGE_KEY);
-    return { ok: false, error: String(err?.message ?? err ?? "open_popup_failed") };
+    return { ok: false, error: String(err?.message ?? err ?? "open_side_panel_failed") };
   }
 }
 
@@ -540,9 +566,9 @@ async function handleContextMenuClick(info, tab) {
   }
 
   try {
-    await chrome.action.openPopup();
+    await openSidePanel(tab?.windowId);
   } catch {
-    // Pre-127 Chrome or programmatic call outside user gesture — user can click the icon.
+    // Fallback — user can click the icon manually.
   }
 }
 

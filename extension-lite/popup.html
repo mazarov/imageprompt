@@ -20,7 +20,13 @@
       <button type="button" class="topbar-auth" id="btn-auth-sign-out" hidden>Sign out</button>
     </header>
 
-    <div class="shell-body">
+    <!-- Analyze / History tabs -->
+    <nav class="tab-bar" aria-label="Main navigation">
+      <button type="button" class="tab-btn active" data-tab="analyze">Analyze</button>
+      <button type="button" class="tab-btn" data-tab="history">History</button>
+    </nav>
+
+    <div class="shell-body" id="body-analyze">
 
     <!-- Developer (⌗ 5 taps on logo) -->
     <section id="dev-settings" class="dev-settings" hidden aria-label="Developer settings">
@@ -65,15 +71,15 @@
 
       <div id="empty-notice" class="empty-notice" role="status" hidden></div>
 
-      <div class="field-row">
-        <label class="field-label" for="style-select">Style preset</label>
-        <select class="field-select" id="style-select">
-          <option value="photoreal">Photo-real</option>
-          <option value="midjourney">Midjourney</option>
-          <option value="sd">Stable Diffusion</option>
-          <option value="flux">Flux</option>
-        </select>
-      </div>
+      <fieldset class="style-preset-group">
+        <legend class="field-label">Style preset</legend>
+        <div class="style-preset-row" id="style-preset-row" role="radiogroup">
+          <button type="button" class="style-pill active" data-style="photoreal" role="radio" aria-checked="true">Photo-real</button>
+          <button type="button" class="style-pill" data-style="midjourney" role="radio" aria-checked="false">Midjourney</button>
+          <button type="button" class="style-pill" data-style="sd" role="radio" aria-checked="false">Stable Diffusion</button>
+          <button type="button" class="style-pill" data-style="flux" role="radio" aria-checked="false">Flux</button>
+        </div>
+      </fieldset>
 
       <p class="paste-hint">Paste a picture with ⌘V / Ctrl+V, or drop a file.</p>
     </section>
@@ -113,9 +119,6 @@
       <div class="preview-frame preview-frame-result" aria-hidden="true">
         <div class="result-actions" role="group" aria-label="Prompt actions">
           <button class="btn btn-overlay btn-overlay-primary" id="btn-copy" type="button">Copy</button>
-          <button class="btn btn-overlay" id="btn-open-history-site" type="button" title="Full history lives on imageprompt.tools">
-            History
-          </button>
           <button class="btn btn-overlay" id="btn-retry" type="button">Another</button>
         </div>
         <div class="preview-frame-inner">
@@ -160,6 +163,12 @@
       </div>
     </section>
 
+    </div>
+
+    <!-- History tab body -->
+    <div class="shell-body" id="body-history" hidden>
+      <div id="history-list" class="history-list"></div>
+      <p id="history-empty" class="history-empty">No analyses yet.</p>
     </div>
 
   </div>

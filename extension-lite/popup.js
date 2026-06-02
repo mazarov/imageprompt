@@ -3,7 +3,6 @@ import { prepareUploadFile } from "./lib/image-utils.js";
 const PENDING_IMAGE_KEY = "pending_image";
 const POPUP_STATE_KEY = "extension_lite_popup_state_v1";
 const ANALYSIS_JOB_KEY = "extension_lite_analysis_job_v1";
-const SITE_HISTORY_URL = "https://imageprompt.tools/#extension-lite-history";
 const SITE_PRICING_URL = "https://imageprompt.tools/#stv-pricing";
 const DEV_BRAND_TAP_WINDOW_MS = 2000;
 const DEV_BRAND_TAPS_TO_UNLOCK = 5;
@@ -64,7 +63,6 @@ const errorBanner     = document.getElementById("error-banner");
 const errorMessage    = document.getElementById("error-message");
 const btnCopy         = document.getElementById("btn-copy");
 const btnRetry        = document.getElementById("btn-retry");
-const btnOpenHistorySite = document.getElementById("btn-open-history-site");
 const btnErrorRetry   = document.getElementById("btn-error-retry");
 const errorGenericWrap = document.getElementById("error-generic-wrap");
 const errorLimitWrap  = document.getElementById("error-limit-wrap");
@@ -77,8 +75,12 @@ const btnAnalyzeDraft = document.getElementById("btn-analyze-draft");
 const btnDraftAnother = document.getElementById("btn-draft-another");
 const fileInput       = document.getElementById("file-input");
 const dropzone        = document.getElementById("dropzone");
-const styleSelect     = document.getElementById("style-select");
-const shellBody       = document.querySelector(".shell-body");
+const stylePresetRow  = document.getElementById("style-preset-row");
+const shellBody       = document.getElementById("body-analyze");
+const bodyHistory     = document.getElementById("body-history");
+const historyList     = document.getElementById("history-list");
+const historyEmpty    = document.getElementById("history-empty");
+const tabBar          = document.querySelector(".tab-bar");
 const brandDevTrigger = document.getElementById("brand-dev-trigger");
 const devSettings     = document.getElementById("dev-settings");
 const devIpHashValue  = document.getElementById("dev-ip-hash-value");
@@ -89,6 +91,23 @@ const devSettingsDismiss = document.getElementById("dev-settings-dismiss");
 const devHashCopy     = document.getElementById("dev-hash-copy");
 const btnAuthGoogle   = document.getElementById("btn-auth-google");
 const btnAuthSignOut  = document.getElementById("btn-auth-sign-out");
+
+// ── Style pill helpers ──
+function getSelectedStyle() {
+  return stylePresetRow?.querySelector(".style-pill.active")?.dataset.style || "photoreal";
+}
+
+function setSelectedStyle(value) {
+  if (!stylePresetRow) return;
+  for (const pill of stylePresetRow.querySelectorAll(".style-pill")) {
+    const match = pill.dataset.style === value;
+    pill.classList.toggle("active", match);
+    pill.setAttribute("aria-checked", String(match));
+  }
+}
+
+// ── Style label map ──
+const STYLE_LABELS = { photoreal: "Photo-real", midjourney: "Midjourney", sd: "Stable Diffusion", flux: "Flux" };
 
 // ── State ──
 let currentPrompt = "";
@@ -157,7 +176,7 @@ async function handlePendingImage(pending) {
 
   if (pending.dataUrl) {
     const style = isValidStyle(pending.style) ? pending.style : currentStyle;
-    if (styleSelect) styleSelect.value = style;
+    setSelectedStyle(style);
     saveDraftState(pending.dataUrl, style);
     showLoading(pending.dataUrl);
     await analyze(pending.dataUrl, style);
@@ -173,6 +192,7 @@ function bindEvents() {
       void handlePendingImage(msg.pending);
     } else if (msg?.type === "LITE_ANALYSIS_JOB_UPDATED") {
       handleAnalysisJob(msg.job);
+      if (msg.job?.status === "result") historyLoaded = false;
     } else if (msg?.type === "LITE_AUTH_UPDATED") {
       applyAuthStatus(msg);
     }
@@ -220,16 +240,6 @@ function bindEvents() {
     markFilePickerActive();
   });
 
-
-  if (btnOpenHistorySite) {
-    btnOpenHistorySite.addEventListener("click", () => {
-      try {
-        chrome.tabs.create({ url: SITE_HISTORY_URL });
-      } catch (e) {
-        console.warn("[aid] open history tab", e);
-      }
-    });
-  }
 
   fileInput?.addEventListener("click", () => {
     uploadLog("input click");
@@ -325,6 +335,21 @@ function bindEvents() {
   btnLoadingCancel?.addEventListener("click", () => resetToEmpty());
   btnAuthGoogle?.addEventListener("click", () => startGoogleAuth());
   btnAuthSignOut?.addEventListener("click", () => signOutGoogle());
+
+  // Style preset pills
+  stylePresetRow?.addEventListener("click", (e) => {
+    const pill = /** @type {HTMLElement} */ (e.target).closest(".style-pill");
+    if (!pill?.dataset.style) return;
+    setSelectedStyle(pill.dataset.style);
+    currentStyle = pill.dataset.style;
+  });
+
+  // Tab switching (Analyze / History)
+  tabBar?.addEventListener("click", (e) => {
+    const btn = /** @type {HTMLElement} */ (e.target).closest(".tab-btn");
+    if (!btn?.dataset.tab) return;
+    switchTab(btn.dataset.tab);
+  });
 
   setupBrandTapDevUnlock();
   void refreshAuthStatus();
@@ -559,7 +584,7 @@ async function ingestFile(file, { forSite = false } = {}) {
       return;
     }
 
-    saveDraftState(prepared.dataUrl, styleSelect?.value || "photoreal");
+    saveDraftState(prepared.dataUrl, getSelectedStyle());
     showLoading(prepared.dataUrl);
     await analyze(prepared.dataUrl);
     uploadLog("ingestFile end", { ok: true });
@@ -592,7 +617,7 @@ function applyPreparedUploadError(error) {
 }
 
 async function analyze(dataUrl, styleOverride) {
-  const style = styleOverride || styleSelect?.value || "photoreal";
+  const style = styleOverride || getSelectedStyle();
   currentDataUrl = dataUrl;
   currentStyle = style;
 
@@ -686,7 +711,7 @@ function handleAnalysisJob(job) {
   if (job.status === "analyzing") {
     currentDataUrl = job.dataUrl;
     currentStyle = style;
-    if (styleSelect) styleSelect.value = currentStyle;
+    setSelectedStyle(currentStyle);
     const lastTouched = Number(job.updatedAt || job.createdAt || 0);
     if (lastTouched > 0 && Date.now() - lastTouched > ANALYSIS_STALE_AFTER_MS) {
       clearAnalysisJob();
@@ -705,7 +730,7 @@ function handleAnalysisJob(job) {
   if (job.status === "error") {
     currentDataUrl = job.dataUrl;
     currentStyle = style;
-    if (styleSelect) styleSelect.value = currentStyle;
+    setSelectedStyle(currentStyle);
     if (job.error === "rate_limited" || String(job.statusCode) === "429") {
       showRateLimitError();
     } else {
@@ -745,7 +770,7 @@ function showDraft(dataUrl, styleUsed, opts = {}) {
   currentPrompt = "";
   currentDataUrl = dataUrl;
   currentStyle = isValidStyle(styleUsed) ? styleUsed : "photoreal";
-  if (styleSelect) styleSelect.value = currentStyle;
+  setSelectedStyle(currentStyle);
   if (draftHint) draftHint.textContent = opts.hint || DRAFT_HINT_DEFAULT;
   draftPreview.src = dataUrl;
   showPanel("draft");
@@ -770,7 +795,7 @@ function showResult(dataUrl, prompt, styleUsed, opts = {}) {
   currentPrompt = prompt;
   currentDataUrl = dataUrl;
   currentStyle = isValidStyle(styleUsed) ? styleUsed : "photoreal";
-  if (styleSelect) styleSelect.value = currentStyle;
+  setSelectedStyle(currentStyle);
   resultPreview.src = dataUrl;
   promptBox.textContent = prompt;
   promptBox.scrollTop = 0;
@@ -787,7 +812,7 @@ function resetToEmpty() {
   revokeActiveObjectPreview();
   currentPrompt = "";
   currentDataUrl = "";
-  currentStyle = styleSelect?.value || "photoreal";
+  currentStyle = getSelectedStyle();
   clearPopupState();
   clearAnalysisJob();
   showPanel("empty");
@@ -854,4 +879,106 @@ function clearEmptyNotice() {
     notice.textContent = "";
     notice.hidden = true;
   }
+}
+
+// ── Tab switching ──
+function switchTab(tab) {
+  if (!tabBar) return;
+  for (const btn of tabBar.querySelectorAll(".tab-btn")) {
+    btn.classList.toggle("active", btn.dataset.tab === tab);
+  }
+  const isHistory = tab === "history";
+  if (shellBody) shellBody.hidden = isHistory;
+  if (bodyHistory) bodyHistory.hidden = !isHistory;
+  if (isHistory) void loadHistory();
+}
+
+// ── History ──
+let historyLoaded = false;
+
+async function loadHistory() {
+  if (historyLoaded) return;
+  try {
+    const res = await chrome.runtime.sendMessage({ type: "GET_LITE_HISTORY_QUEUE" });
+    if (res?.ok && Array.isArray(res.entries)) {
+      renderHistoryList(res.entries);
+    }
+  } catch {
+    /* noop */
+  }
+  historyLoaded = true;
+}
+
+function renderHistoryList(entries) {
+  if (!historyList || !historyEmpty) return;
+  historyList.innerHTML = "";
+  const valid = entries.filter(
+    (e) => e && typeof e.prompt === "string" && e.prompt,
+  );
+  if (valid.length === 0) {
+    historyEmpty.hidden = false;
+    return;
+  }
+  historyEmpty.hidden = true;
+
+  for (const entry of valid) {
+    const card = document.createElement("div");
+    card.className = "history-card";
+
+    const imgSrc =
+      entry.image?.mode === "data_url" && entry.image.dataUrl
+        ? entry.image.dataUrl
+        : entry.image?.mode === "image_url" && entry.image.imageUrl
+          ? entry.image.imageUrl
+          : "";
+
+    const styleLabel = STYLE_LABELS[entry.style] || entry.style || "";
+    const timeStr = formatRelativeTime(entry.createdAt);
+
+    card.innerHTML = `
+      ${imgSrc ? `<img class="history-card-thumb" src="${imgSrc}" alt="" loading="lazy" />` : ""}
+      <div class="history-card-body">
+        <div class="history-card-meta">
+          ${styleLabel ? `<span class="history-card-style">${styleLabel}</span>` : ""}
+          ${timeStr ? `<span class="history-card-time">${timeStr}</span>` : ""}
+        </div>
+        <p class="history-card-prompt">${escapeHtml(entry.prompt)}</p>
+        <div class="history-card-actions">
+          <button type="button" class="history-card-copy">Copy</button>
+        </div>
+      </div>
+    `;
+
+    const copyBtn = card.querySelector(".history-card-copy");
+    copyBtn?.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(entry.prompt);
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
+      } catch { /* noop */ }
+    });
+
+    historyList.appendChild(card);
+  }
+}
+
+function escapeHtml(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function formatRelativeTime(isoString) {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  const diff = Date.now() - date.getTime();
+  if (diff < 0) return "";
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
 }

@@ -24,6 +24,8 @@ export function ExtensionStvFloatingCtaChrome({ label }: { label: string }) {
 
             <a
               href={STV_CHROME_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
               className={`pointer-events-auto relative z-[1] inline-flex items-center justify-center gap-2 rounded-full border border-white/[0.1] bg-[#09090b]/93 px-6 py-2.5 text-sm font-semibold text-zinc-100 backdrop-blur-md transition-colors duration-200 hover:border-white/[0.16] hover:bg-[#09090b]/96 ${STV_FOCUS_RING}`}
             >
               <ExtensionStvChromeMark className="h-5 w-5 shrink-0" />

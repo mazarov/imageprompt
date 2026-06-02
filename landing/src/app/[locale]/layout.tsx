@@ -40,8 +40,8 @@ export async function generateMetadata({
     description: t("hubDescription"),
     manifest: "/site.webmanifest",
     robots: {
-      index: false,
-      follow: false,
+      index: true,
+      follow: true,
     },
     icons: {
       icon: [{ url: "/favicon.png", type: "image/png", sizes: "128x128" }],
