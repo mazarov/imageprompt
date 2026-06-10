@@ -2,8 +2,6 @@ export type ProductSlug = "ai-image-describer" | "ai-photo-generator";
 
 export type ProductTemplate = "extension-marketing" | "coming-soon";
 
-export type ProductSubRoute = "welcome";
-
 export interface ProductDefinition {
   slug: ProductSlug;
   template: ProductTemplate;
@@ -12,7 +10,6 @@ export interface ProductDefinition {
   messageNamespace: string;
   metaTitleKey: string;
   metaDescriptionKey: string;
-  subRoutes?: ProductSubRoute[];
 }
 
 export const PRODUCTS: ProductDefinition[] = [
@@ -24,7 +21,6 @@ export const PRODUCTS: ProductDefinition[] = [
     messageNamespace: "Products.aiImageDescriber",
     metaTitleKey: "aiImageDescriberTitleAbsolute",
     metaDescriptionKey: "aiImageDescriberDescription",
-    subRoutes: ["welcome"],
   },
   {
     slug: "ai-photo-generator",
@@ -49,10 +45,6 @@ export function isProductSlug(slug: string): slug is ProductSlug {
 
 export function productPath(slug: ProductSlug): string {
   return `/${slug}`;
-}
-
-export function productHasSubRoute(product: ProductDefinition, route: ProductSubRoute): boolean {
-  return product.subRoutes?.includes(route) ?? false;
 }
 
 export function generateStaticProductParams(): { productSlug: ProductSlug }[] {

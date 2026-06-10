@@ -1,6 +1,7 @@
 import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
-import { routing } from "./i18n/routing";
+import { GONE_HTML, shouldReturnGone } from "./lib/gsc-gone-paths";
+import { type AppLocale, routing } from "./i18n/routing";
 
 const intlMiddleware = createMiddleware(routing);
 
@@ -22,6 +23,47 @@ function parseAllowedOrigins(): string[] {
 
 function isApiRequest(request: NextRequest): boolean {
   return request.nextUrl.pathname.startsWith("/api/");
+}
+
+/** English-only pages at a single canonical path; locale-prefixed URLs redirect there. */
+function singleCanonicalRedirect(request: NextRequest, suffix: string): NextResponse | null {
+  const escaped = suffix.replace(/\//g, "\\/");
+  const localeMatch = request.nextUrl.pathname.match(new RegExp(`^\\/([^/]+)${escaped}\\/?$`));
+  if (localeMatch && routing.locales.includes(localeMatch[1] as AppLocale)) {
+    const url = request.nextUrl.clone();
+    url.pathname = suffix;
+    return NextResponse.redirect(url, 308);
+  }
+  return null;
+}
+
+function privacyCanonicalRedirect(request: NextRequest): NextResponse | null {
+  return singleCanonicalRedirect(request, "/privacy");
+}
+
+function welcomeCanonicalRedirect(request: NextRequest): NextResponse | null {
+  const welcomeRedirect = singleCanonicalRedirect(request, "/welcome");
+  if (welcomeRedirect) return welcomeRedirect;
+
+  if (request.nextUrl.pathname.match(/^\/ai-image-describer\/welcome\/?$/)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/welcome";
+    return NextResponse.redirect(url, 308);
+  }
+
+  const localeProductWelcome = request.nextUrl.pathname.match(
+    /^\/([^/]+)\/ai-image-describer\/welcome\/?$/,
+  );
+  if (
+    localeProductWelcome &&
+    routing.locales.includes(localeProductWelcome[1] as AppLocale)
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/welcome";
+    return NextResponse.redirect(url, 308);
+  }
+
+  return null;
 }
 
 function applyCorsHeaders(request: NextRequest, response: NextResponse): NextResponse {
@@ -47,6 +89,22 @@ export async function middleware(request: NextRequest) {
     }
     return applyCorsHeaders(request, NextResponse.next({ request }));
   }
+
+  if (shouldReturnGone(request.nextUrl.pathname)) {
+    return new NextResponse(GONE_HTML, {
+      status: 410,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "public, max-age=3600",
+      },
+    });
+  }
+
+  const privacyRedirect = privacyCanonicalRedirect(request);
+  if (privacyRedirect) return privacyRedirect;
+
+  const welcomeRedirect = welcomeCanonicalRedirect(request);
+  if (welcomeRedirect) return welcomeRedirect;
 
   const response = intlMiddleware(request);
 

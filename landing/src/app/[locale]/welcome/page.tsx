@@ -1,48 +1,38 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { PageLayout } from "@/components/PageLayout";
+import { routing } from "@/i18n/routing";
 import { absoluteUrl } from "@/lib/locale-path";
-import { getProduct, isProductSlug, productHasSubRoute } from "@/lib/products/registry";
 import { WelcomeReveal } from "./welcome-reveal";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://imageprompt.tools";
+const WELCOME_LOCALE = routing.defaultLocale;
 
-type Props = { params: Promise<{ locale: string; productSlug: string }> };
+type Props = { params: Promise<{ locale: string }> };
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale, productSlug } = await params;
-  if (!isProductSlug(productSlug)) return {};
-
-  const product = getProduct(productSlug);
-  if (!product || !productHasSubRoute(product, "welcome")) return {};
-
-  const t = await getTranslations({ locale, namespace: "Meta" });
-  const pathname = `/${productSlug}/welcome`;
-  const canonical = absoluteUrl(SITE_URL, pathname, locale);
-  const enUrl = absoluteUrl(SITE_URL, pathname, "en");
-
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations({ locale: WELCOME_LOCALE, namespace: "Meta" });
+  const canonical = absoluteUrl(SITE_URL, "/welcome", WELCOME_LOCALE);
   return {
     title: t("welcomePageTitle"),
     description: t("welcomePageDescription"),
     robots: "noindex, nofollow",
     alternates: {
       canonical,
-      languages: { en: enUrl },
     },
   };
 }
 
-export default async function ProductWelcomePage({ params }: Props) {
-  const { locale, productSlug } = await params;
-  if (!isProductSlug(productSlug)) notFound();
+export default async function WelcomePage({ params }: Props) {
+  const { locale } = await params;
+  if (locale !== WELCOME_LOCALE) {
+    redirect("/welcome");
+  }
 
-  const product = getProduct(productSlug);
-  if (!product || !productHasSubRoute(product, "welcome")) notFound();
+  setRequestLocale(WELCOME_LOCALE);
 
-  setRequestLocale(locale);
-
-  const t = await getTranslations({ locale, namespace: "Welcome" });
+  const t = await getTranslations({ locale: WELCOME_LOCALE, namespace: "Welcome" });
   const imgBase = `/welcome`;
 
   return (

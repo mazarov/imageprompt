@@ -75,7 +75,7 @@ const nextConfig: NextConfig = {
       { source: "/en/:path*", destination: "/:path*", permanent: true },
       { source: "/extension-stv", destination: "/ai-image-describer", permanent: true },
       { source: "/extension-stv/:path*", destination: "/ai-image-describer/:path*", permanent: true },
-      { source: "/welcome", destination: "/ai-image-describer/welcome", permanent: true },
+      { source: "/ai-image-describer/welcome", destination: "/welcome", permanent: true },
     ];
   },
   images: {

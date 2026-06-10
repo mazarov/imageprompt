@@ -5,6 +5,9 @@ import { PRODUCTS } from "@/lib/products/registry";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://imageprompt.tools";
 
+/** Canonical English-only pages: one sitemap entry each, no hreflang cluster. */
+const SINGLE_CANONICAL_PATHS = ["/privacy", "/welcome"] as const;
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const locales = routing.locales;
   const entries: MetadataRoute.Sitemap = [];
@@ -23,7 +26,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     });
   }
 
-  // Product pages (ai-image-describer + ai-photo-generator) + their sub-routes
+  // Product pages (ai-image-describer + ai-photo-generator)
   for (const product of PRODUCTS) {
     const basePath = `/${product.slug}`;
     for (const locale of locales) {
@@ -37,24 +40,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
         lastModified: new Date(),
         alternates: { languages },
       });
-
-      // sub-routes (e.g. /welcome for the describer)
-      if (product.subRoutes && product.subRoutes.length > 0) {
-        for (const sub of product.subRoutes) {
-          const subPath = `${basePath}/${sub}`;
-          const subUrl = absoluteUrl(SITE_URL, subPath, locale);
-          const subLangs: Record<string, string> = {};
-          for (const l of locales) {
-            subLangs[l] = absoluteUrl(SITE_URL, subPath, l);
-          }
-          entries.push({
-            url: subUrl,
-            lastModified: new Date(),
-            alternates: { languages: subLangs },
-          });
-        }
-      }
     }
+  }
+
+  for (const pathname of SINGLE_CANONICAL_PATHS) {
+    entries.push({
+      url: absoluteUrl(SITE_URL, pathname, routing.defaultLocale),
+      lastModified: new Date(),
+    });
   }
 
   return entries;
