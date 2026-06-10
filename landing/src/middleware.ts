@@ -1,9 +1,12 @@
 import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
-import { GONE_HTML, shouldReturnGone } from "./lib/gsc-gone-paths";
+import { GONE_HTML, normalizePathname, shouldReturnGone } from "./lib/gsc-gone-paths";
 import { type AppLocale, routing } from "./i18n/routing";
 
 const intlMiddleware = createMiddleware(routing);
+
+/** English-only pages served at a single unprefixed URL. */
+const CANONICAL_EN_ONLY_PATHS = new Set(["/privacy", "/welcome"]);
 
 const DEFAULT_ALLOWED_METHODS = "GET, POST, OPTIONS";
 const DEFAULT_ALLOWED_HEADERS = "Content-Type, Authorization";
@@ -66,6 +69,25 @@ function welcomeCanonicalRedirect(request: NextRequest): NextResponse | null {
   return null;
 }
 
+/**
+ * Serve /privacy and /welcome without next-intl locale redirects.
+ * Users with NEXT_LOCALE=ru otherwise loop: /privacy → /ru/privacy → /privacy.
+ */
+function canonicalEnOnlyRewrite(request: NextRequest): NextResponse | null {
+  const pathname = normalizePathname(request.nextUrl.pathname);
+  if (!CANONICAL_EN_ONLY_PATHS.has(pathname)) return null;
+
+  const url = request.nextUrl.clone();
+  url.pathname = `/en${pathname}`;
+  const response = NextResponse.rewrite(url);
+  response.cookies.set("NEXT_LOCALE", routing.defaultLocale, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+  });
+  return response;
+}
+
 function applyCorsHeaders(request: NextRequest, response: NextResponse): NextResponse {
   const origin = request.headers.get("origin");
   const allowedOrigins = parseAllowedOrigins();
@@ -105,6 +127,9 @@ export async function middleware(request: NextRequest) {
 
   const welcomeRedirect = welcomeCanonicalRedirect(request);
   if (welcomeRedirect) return welcomeRedirect;
+
+  const canonicalRewrite = canonicalEnOnlyRewrite(request);
+  if (canonicalRewrite) return canonicalRewrite;
 
   const response = intlMiddleware(request);
 
