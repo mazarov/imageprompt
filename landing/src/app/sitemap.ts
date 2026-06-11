@@ -26,8 +26,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     });
   }
 
-  // Product pages (ai-image-describer + ai-photo-generator)
-  for (const product of PRODUCTS) {
+  // Product pages — only live products (ai-image-describer); coming-soon omitted from sitemap
+  for (const product of PRODUCTS.filter((p) => p.status === "live")) {
     const basePath = `/${product.slug}`;
     for (const locale of locales) {
       const url = absoluteUrl(SITE_URL, basePath, locale);
