@@ -6,6 +6,7 @@ const CONTEXT_OPEN_SITE = "open-imageprompt-with-image";
 const WEB_PENDING_STORAGE_KEY = "extension_lite_web_pending";
 const HISTORY_QUEUE_KEY = "extension_lite_history_queue_v1";
 const HISTORY_STORE_KEY = "extension_lite_history_store_v1";
+const QUOTA_KEY = "extension_lite_quota_v1";
 const ANALYSIS_JOB_KEY = "extension_lite_analysis_job_v1";
 const MAX_HISTORY_QUEUE_ENTRIES = 45;
 const MAX_SW_FETCH_BYTES = 10 * 1024 * 1024;
@@ -135,6 +136,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         ? data[HISTORY_STORE_KEY].entries
         : [];
       sendResponse({ ok: true, entries });
+    });
+    return true;
+  }
+  if (msg?.type === "GET_LITE_QUOTA") {
+    chrome.storage.local.get(QUOTA_KEY, (data) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError.message, quota: null });
+        return;
+      }
+      sendResponse({ ok: true, quota: data?.[QUOTA_KEY] ?? null });
     });
     return true;
   }
@@ -418,6 +429,11 @@ async function completeLiteAnalysisJob(startedJob) {
     });
     await relayOrQueueLiteHistoryEntry(entry);
     await appendLiteHistoryStore(entry);
+    if (typeof result.remaining === "number") {
+      const quota = { remaining: result.remaining, max: result.max ?? null, ts: Date.now() };
+      await chrome.storage.local.set({ [QUOTA_KEY]: quota });
+      chrome.runtime.sendMessage({ type: "LITE_QUOTA_UPDATED", ...quota }).catch(() => {});
+    }
     return;
   }
 
@@ -489,7 +505,12 @@ async function liteOverlayAnalyze(dataUrl, style) {
     return { ok: false, error: "empty_prompt" };
   }
 
-  return { ok: true, prompt: data.prompt };
+  return {
+    ok: true,
+    prompt: data.prompt,
+    remaining: typeof data.remaining === "number" ? data.remaining : null,
+    max: typeof data.max === "number" ? data.max : null,
+  };
 }
 
 /**

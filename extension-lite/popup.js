@@ -3,6 +3,7 @@ import { prepareUploadFile } from "./lib/image-utils.js";
 const PENDING_IMAGE_KEY = "pending_image";
 const POPUP_STATE_KEY = "extension_lite_popup_state_v1";
 const ANALYSIS_JOB_KEY = "extension_lite_analysis_job_v1";
+const QUOTA_KEY = "extension_lite_quota_v1";
 const SITE_PRICING_URL = "https://imageprompt.tools/#stv-pricing";
 const DEV_BRAND_TAP_WINDOW_MS = 2000;
 const DEV_BRAND_TAPS_TO_UNLOCK = 5;
@@ -91,6 +92,7 @@ const devSettingsDismiss = document.getElementById("dev-settings-dismiss");
 const devHashCopy     = document.getElementById("dev-hash-copy");
 const btnAuthGoogle   = document.getElementById("btn-auth-google");
 const btnAuthSignOut  = document.getElementById("btn-auth-sign-out");
+const topbarQuota     = document.getElementById("topbar-quota");
 
 // ── Style pill helpers ──
 function getSelectedStyle() {
@@ -195,6 +197,8 @@ function bindEvents() {
       if (msg.job?.status === "result") historyLoaded = false;
     } else if (msg?.type === "LITE_AUTH_UPDATED") {
       applyAuthStatus(msg);
+    } else if (msg?.type === "LITE_QUOTA_UPDATED") {
+      renderQuota(msg);
     }
     return false;
   });
@@ -353,6 +357,7 @@ function bindEvents() {
 
   setupBrandTapDevUnlock();
   void refreshAuthStatus();
+  void loadQuota();
 }
 
 async function sendRuntimeMessage(message) {
@@ -891,6 +896,41 @@ function switchTab(tab) {
   if (shellBody) shellBody.hidden = isHistory;
   if (bodyHistory) bodyHistory.hidden = !isHistory;
   if (isHistory) void loadHistory();
+}
+
+// ── Quota counter ──
+function isQuotaFresh(quota) {
+  if (!quota || typeof quota.ts !== "number") return false;
+  const now = new Date();
+  const saved = new Date(quota.ts);
+  return (
+    now.getUTCFullYear() === saved.getUTCFullYear() &&
+    now.getUTCMonth() === saved.getUTCMonth() &&
+    now.getUTCDate() === saved.getUTCDate()
+  );
+}
+
+function renderQuota(quota) {
+  if (!topbarQuota) return;
+  if (!quota || typeof quota.remaining !== "number" || !isQuotaFresh(quota)) {
+    topbarQuota.hidden = true;
+    topbarQuota.className = "topbar-quota";
+    return;
+  }
+  const { remaining } = quota;
+  const low = remaining <= 3;
+  topbarQuota.className = "topbar-quota" + (low ? " quota-low" : "");
+  topbarQuota.textContent = `${remaining} left`;
+  topbarQuota.hidden = false;
+}
+
+async function loadQuota() {
+  try {
+    const res = await sendRuntimeMessage({ type: "GET_LITE_QUOTA" });
+    if (res?.ok) renderQuota(res.quota);
+  } catch {
+    /* noop */
+  }
 }
 
 // ── History ──

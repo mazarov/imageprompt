@@ -100,6 +100,21 @@ html, body {
   min-width: 0;
 }
 
+/* ── Quota counter ── */
+.topbar-quota {
+  margin-left: auto;
+  font-size: 11.5px;
+  line-height: 1;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.topbar-quota.quota-low {
+  color: var(--amber-soft);
+}
+
 /* Easter egg target: consecutive taps reveal developer rate-limit diagnostics */
 #brand-dev-trigger {
   cursor: default;

@@ -454,5 +454,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const promptText =
     style === "photoreal" ? `${rawText}\n\n${CRITICAL_RULES_SINGLE}` : rawText;
 
-  return NextResponse.json({ prompt: promptText });
+  return NextResponse.json({
+    prompt: promptText,
+    ...(rateLimitResult && {
+      remaining: Math.max(0, rateLimitResult.max - rateLimitResult.count),
+      count: rateLimitResult.count,
+      max: rateLimitResult.max,
+    }),
+  });
 }
