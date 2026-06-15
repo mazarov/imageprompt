@@ -1676,9 +1676,54 @@ async function resolveExtractImageUrl() {
   return state.sourceImageUrl;
 }
 
+const MAX_CLIENT_IMAGE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Try to download an image in the extension (browser) context and return base64 inline data.
+ * Returns null on any error — caller falls back to server-side download.
+ * Requires <all_urls> in manifest host_permissions to bypass CORS.
+ */
+async function tryFetchImageInlineClient(url) {
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8" },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const ct = String(res.headers.get("content-type") || "");
+    if (!ct.startsWith("image/")) return null;
+    const cl = Number(res.headers.get("content-length") || 0);
+    if (cl > 0 && cl > MAX_CLIENT_IMAGE_BYTES) return null;
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength > MAX_CLIENT_IMAGE_BYTES) return null;
+    const raw = String(ct.split(";")[0].trim().toLowerCase());
+    const mimeType = (raw === "image/png" || raw === "image/webp") ? raw : "image/jpeg";
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    const chunk = 8192;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + chunk, bytes.length)));
+    }
+    return { mimeType, base64: btoa(binary) };
+  } catch {
+    return null;
+  }
+}
+
 async function runExtract() {
   const imageUrl = await resolveExtractImageUrl();
   const extractBody = { imageUrl };
+
+  if (!state.referencePhoto?.storagePath && imageUrl) {
+    const inline = await tryFetchImageInlineClient(imageUrl);
+    if (inline) {
+      extractBody.imageBase64 = inline.base64;
+      extractBody.imageMimeType = inline.mimeType;
+    } else {
+      console.warn("[stv.extract] client_fetch_fallback — server will try", { imageUrl });
+    }
+  }
+
   const et = normalizePersistedExtractTemperature(state.extractTemperature);
   if (et !== null) {
     extractBody.extractTemperature = et;

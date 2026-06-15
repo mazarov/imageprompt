@@ -56,19 +56,30 @@ body {
   line-height: 1.45;
 }
 
+html,
+body {
+  height: 100%;
+}
+
 #app {
   padding: 0;
   min-height: 100vh;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Shell: vertical rhythm */
 .stv-shell {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   gap: var(--stv-space-sm);
   padding: var(--stv-space-sm) var(--stv-space) 20px;
   max-width: 528px;
   margin: 0 auto;
+  width: 100%;
 }
 
 /* Top bar — brand + tools */
@@ -343,6 +354,10 @@ body {
 
 .stv-card-main {
   border-color: var(--stv-border-strong);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .stv-card-side {
@@ -1604,9 +1619,18 @@ code {
   display: none !important;
 }
 
+/* Prompt tab: reference + actions on top, final prompt fills remaining panel height */
+.stv-tab-panel[data-tab="prompt"]:not(.stv-tab-panel--hidden) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .stv-tab-lead {
   margin: 0 0 12px;
   font-size: 12px;
+  flex-shrink: 0;
 }
 
 .stv-tab-hint {
@@ -1616,8 +1640,26 @@ code {
 .stv-prompt-tab-stack {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   gap: 12px;
   align-items: stretch;
+}
+
+.stv-prompt-ref-block {
+  flex-shrink: 0;
+}
+
+.stv-prompt-below-ref {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 6px;
+}
+
+.stv-prompt-below-ref > .stv-field-label {
+  flex-shrink: 0;
 }
 
 .stv-prompt-ref-block .stv-photo-frame {
@@ -1771,8 +1813,17 @@ button.stv-btn-extract-prompt {
 .stv-prompt-editor {
   display: flex;
   flex-direction: column;
-  gap: var(--stv-space-sm);
+  flex: 1;
   min-height: 0;
+  gap: var(--stv-space-sm);
+}
+
+.stv-prompt-readonly > .stv-secondary-btn {
+  flex-shrink: 0;
+}
+
+.stv-prompt-editor {
+  overflow-y: auto;
 }
 
 .stv-prompt-summary-toolbar {
@@ -1789,9 +1840,9 @@ button.stv-btn-extract-prompt {
 /* Full prompt text + scroll (was truncated in HTML to ~360 chars). Override .prompt-box max-height. */
 pre.prompt-box.stv-prompt-summary {
   margin: 0;
-  flex: 0 1 auto;
+  flex: 1;
   min-height: 120px;
-  max-height: min(48vh, 320px);
+  max-height: none;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1985,6 +2036,7 @@ pre.prompt-box.stv-generate-prompt-expanded-pre {
   background: rgba(251, 191, 36, 0.12);
   border: 1px solid rgba(251, 191, 36, 0.35);
   color: #fde68a;
+  flex-shrink: 0;
 }
 
 @keyframes stv-prompt-flash {

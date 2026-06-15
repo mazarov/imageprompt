@@ -32,16 +32,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     at: Date.now()
   };
 
-  chrome.storage.session.set({ [STORAGE_KEY]: vibePayload }, () => {
-    chrome.sidePanel
-      .open({ tabId })
-      .then(() =>
-        /* After panel is open, SW → extension page delivery is reliable; session.onChanged often misses */
-        chrome.runtime.sendMessage({ type: "STV_PENDING_VIBE", vibe: vibePayload }).catch(() => {})
-      )
-      .then(() => sendResponse({ ok: true }))
-      .catch((err) => sendResponse({ ok: false, error: String(err) }));
-  });
+  /* sidePanel.open() must run synchronously inside the user-gesture chain — wrapping it in an async
+     storage callback drops the gesture and Chrome rejects the call, so open first, persist in parallel. */
+  const openPromise = chrome.sidePanel.open({ tabId });
+  chrome.storage.session.set({ [STORAGE_KEY]: vibePayload }).catch(() => {});
+
+  openPromise
+    .then(() =>
+      /* After panel is open, SW → extension page delivery is reliable; session.onChanged often misses */
+      chrome.runtime.sendMessage({ type: "STV_PENDING_VIBE", vibe: vibePayload }).catch(() => {})
+    )
+    .then(() => sendResponse({ ok: true }))
+    .catch((err) => sendResponse({ ok: false, error: String(err) }));
 
   return true;
 });
