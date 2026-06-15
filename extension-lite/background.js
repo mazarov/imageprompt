@@ -5,6 +5,7 @@ const CONTEXT_MENU_ID = "analyze-image";
 const CONTEXT_OPEN_SITE = "open-imageprompt-with-image";
 const WEB_PENDING_STORAGE_KEY = "extension_lite_web_pending";
 const HISTORY_QUEUE_KEY = "extension_lite_history_queue_v1";
+const HISTORY_STORE_KEY = "extension_lite_history_store_v1";
 const ANALYSIS_JOB_KEY = "extension_lite_analysis_job_v1";
 const MAX_HISTORY_QUEUE_ENTRIES = 45;
 const MAX_SW_FETCH_BYTES = 10 * 1024 * 1024;
@@ -119,6 +120,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       const entries = Array.isArray(data?.[HISTORY_QUEUE_KEY]?.entries)
         ? data[HISTORY_QUEUE_KEY].entries
+        : [];
+      sendResponse({ ok: true, entries });
+    });
+    return true;
+  }
+  if (msg?.type === "GET_LITE_HISTORY") {
+    chrome.storage.local.get(HISTORY_STORE_KEY, (data) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError.message, entries: [] });
+        return;
+      }
+      const entries = Array.isArray(data?.[HISTORY_STORE_KEY]?.entries)
+        ? data[HISTORY_STORE_KEY].entries
         : [];
       sendResponse({ ok: true, entries });
     });
@@ -403,6 +417,7 @@ async function completeLiteAnalysisJob(startedJob) {
       updatedAt: Date.now(),
     });
     await relayOrQueueLiteHistoryEntry(entry);
+    await appendLiteHistoryStore(entry);
     return;
   }
 
@@ -534,6 +549,19 @@ async function enqueueLiteHistory(entry) {
   const merged = dedupeQueuedEntries([...(prev?.[HISTORY_QUEUE_KEY]?.entries ?? []), entry]);
   await chrome.storage.local.set({
     [HISTORY_QUEUE_KEY]: { entries: merged, ts: Date.now() },
+  });
+}
+
+async function appendLiteHistoryStore(entry) {
+  if (!entry || typeof entry.id !== "string") return;
+  const prev = await chrome.storage.local.get(HISTORY_STORE_KEY);
+  const existing = Array.isArray(prev?.[HISTORY_STORE_KEY]?.entries)
+    ? prev[HISTORY_STORE_KEY].entries
+    : [];
+  const deduped = [entry, ...existing.filter((e) => e?.id !== entry.id)];
+  const capped = deduped.slice(0, MAX_HISTORY_QUEUE_ENTRIES);
+  await chrome.storage.local.set({
+    [HISTORY_STORE_KEY]: { entries: capped, ts: Date.now() },
   });
 }
 

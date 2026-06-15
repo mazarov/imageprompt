@@ -899,7 +899,7 @@ let historyLoaded = false;
 async function loadHistory() {
   if (historyLoaded) return;
   try {
-    const res = await chrome.runtime.sendMessage({ type: "GET_LITE_HISTORY_QUEUE" });
+    const res = await chrome.runtime.sendMessage({ type: "GET_LITE_HISTORY" });
     if (res?.ok && Array.isArray(res.entries)) {
       renderHistoryList(res.entries);
     }
