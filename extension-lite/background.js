@@ -33,9 +33,17 @@ function isValidStyle(style) {
 // ── Side panel ──
 // Opens the side panel instead of a default_popup so it stays visible
 // until the user explicitly closes it.
-async function openSidePanel(windowId) {
+// `tabId` is used as fallback when windowId is not available (chrome.sidePanel.open
+// requires at least one of windowId / tabId; calling with {} throws silently).
+async function openSidePanel(windowId, fallbackTabId) {
   try {
-    await chrome.sidePanel.open(windowId != null ? { windowId } : {});
+    if (windowId != null) {
+      await chrome.sidePanel.open({ windowId });
+    } else if (fallbackTabId != null) {
+      await chrome.sidePanel.open({ tabId: fallbackTabId });
+    } else {
+      console.warn("[aid] sidePanel.open: no windowId or tabId available");
+    }
   } catch (e) {
     console.warn("[aid] sidePanel.open failed", e?.message ?? e);
   }
@@ -266,8 +274,11 @@ async function openToolbarPopupForImage(srcUrl, tabId) {
   });
 
   try {
-    const tab = tabId != null ? await chrome.tabs.get(tabId).catch(() => null) : null;
-    await openSidePanel(tab?.windowId);
+    // Open the side panel immediately with tabId — do NOT await an async lookup
+    // before this call, because chrome.sidePanel.open() requires the user-gesture
+    // token to still be valid.  windowId is preferred by Chrome but tabId works
+    // fine and avoids the async gap that can cause the gesture to expire.
+    await openSidePanel(null, tabId);
     void preparePopupImage(srcUrl, tabId, ts);
     return { ok: true };
   } catch (err) {
@@ -566,7 +577,7 @@ async function handleContextMenuClick(info, tab) {
   }
 
   try {
-    await openSidePanel(tab?.windowId);
+    await openSidePanel(tab?.windowId, tab?.id);
   } catch {
     // Fallback — user can click the icon manually.
   }

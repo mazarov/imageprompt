@@ -9,7 +9,7 @@ import {
 
 export const STV_CHROME_STORE_URL =
   process.env.NEXT_PUBLIC_STV_CHROME_STORE_URL ||
-  "https://chromewebstore.google.com/detail/ai-image-describer/ccidgdhgephaicccgjenjilnjjippkkl";
+  "https://chromewebstore.google.com/detail/ai-image-describer/bebnhekhnoaacojmbjoajndkankmppoj";
 
 export const STV_FOCUS_RING = `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 ${LANDING_FOCUS_RING_OFFSET}`;
 
