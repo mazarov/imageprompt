@@ -15,6 +15,7 @@ const ANALYSIS_FETCH_TIMEOUT_MS = 45_000;
 const SITE_URL = "https://imageprompt.tools/";
 const LITE_ORIGIN = new URL("/", SITE_URL).origin;
 const LITE_ANALYZE_API_URL = `${LITE_ORIGIN}/api/extension/analyze`;
+const LITE_QUOTA_URL = `${LITE_ORIGIN}/api/extension/quota`;
 const LITE_DEV_IP_HASH_URL = `${LITE_ORIGIN}/api/extension/dev-ip-hash`;
 const LITE_AUTH_EXCHANGE_URL = `${LITE_ORIGIN}/api/auth/extension/exchange`;
 const APP_JWT_STORAGE_KEY = "ip_app_jwt";
@@ -147,6 +148,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       sendResponse({ ok: true, quota: data?.[QUOTA_KEY] ?? null });
     });
+    return true;
+  }
+  if (msg?.type === "FETCH_LITE_QUOTA") {
+    fetchLiteQuota()
+      .then((quota) => sendResponse({ ok: true, quota }))
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e), quota: null }));
     return true;
   }
   if (msg?.type === "LITE_AUTH_STATUS") {
@@ -366,6 +373,26 @@ async function getLiteAuthStatus() {
     email: typeof payload?.email === "string" ? payload.email : "",
     name: typeof payload?.name === "string" ? payload.name : "",
   };
+}
+
+async function fetchLiteQuota() {
+  const token = await getLiteAuthToken();
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(LITE_QUOTA_URL, {
+    method: "GET",
+    cache: "no-store",
+    headers,
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (!res.ok) throw new Error(`quota_fetch_${res.status}`);
+  const data = await res.json();
+  const quota = { remaining: data.remaining, max: data.max, ts: Date.now() };
+  if (typeof quota.remaining === "number") {
+    await chrome.storage.local.set({ [QUOTA_KEY]: quota });
+    chrome.runtime.sendMessage({ type: "LITE_QUOTA_UPDATED", ...quota }).catch(() => {});
+  }
+  return quota;
 }
 
 async function startLiteAuthFlow() {

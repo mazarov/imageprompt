@@ -926,6 +926,16 @@ function renderQuota(quota) {
 
 async function loadQuota() {
   try {
+    const res = await sendRuntimeMessage({ type: "FETCH_LITE_QUOTA" });
+    if (res?.ok && res.quota) {
+      renderQuota(res.quota);
+      return;
+    }
+  } catch {
+    /* noop */
+  }
+  // Fall back to last cached value
+  try {
     const res = await sendRuntimeMessage({ type: "GET_LITE_QUOTA" });
     if (res?.ok) renderQuota(res.quota);
   } catch {
