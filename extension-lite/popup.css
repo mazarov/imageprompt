@@ -972,6 +972,64 @@ html, body {
   opacity: 0.75;
 }
 
+/* ── Rating / feedback footer ── */
+.rating-footer {
+  padding: 0 12px 10px;
+  flex-shrink: 0;
+}
+
+.rating-divider {
+  border: 0;
+  border-top: 3px solid #bbb;
+  opacity: 0.25;
+  margin: 0 0 8px;
+}
+
+.rating-label {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 0 0 4px;
+}
+
+.full-stars {
+  text-align: center;
+}
+
+.full-stars .rating-group {
+  display: inline-flex;
+}
+
+.full-stars input {
+  position: absolute;
+  left: -9999px;
+}
+
+.full-stars label {
+  margin: 0;
+  cursor: pointer;
+}
+
+.full-stars label a svg {
+  margin: 2px;
+  height: 26px;
+  width: 26px;
+  fill: #ff8400;
+  transition: fill 0.3s;
+}
+
+.full-stars input:checked ~ label a svg {
+  fill: #ffc711;
+}
+
+.full-stars .rating-group:hover label a svg {
+  fill: #ff8400;
+}
+
+.full-stars .rating-group input:hover ~ label a svg {
+  fill: #ffc711;
+}
+
 /* ── Reduced-motion ── */
 @media (prefers-reduced-motion: reduce) {
   .btn { transition: none; transform: none; }
