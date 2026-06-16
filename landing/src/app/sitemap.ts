@@ -5,8 +5,9 @@ import { PRODUCTS } from "@/lib/products/registry";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://imageprompt.tools";
 
-/** Canonical English-only pages: one sitemap entry each, no hreflang cluster. */
-const SINGLE_CANONICAL_PATHS = ["/privacy", "/welcome"] as const;
+// NOTE: `/privacy` and `/welcome` are intentionally excluded — they are
+// `noindex` pages, so listing them in the sitemap would trigger
+// "Submitted URL marked noindex" warnings in Search Console / Yandex.
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const locales = routing.locales;
@@ -41,13 +42,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
         alternates: { languages },
       });
     }
-  }
-
-  for (const pathname of SINGLE_CANONICAL_PATHS) {
-    entries.push({
-      url: absoluteUrl(SITE_URL, pathname, routing.defaultLocale),
-      lastModified: new Date(),
-    });
   }
 
   return entries;
