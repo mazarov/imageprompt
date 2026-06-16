@@ -10,6 +10,8 @@ import { AuthProvider } from "@/context/AuthContext";
 import { GenerationProvider } from "@/context/GenerationContext";
 import { STV_APP_SHELL_CLASS } from "@/lib/stv-app-theme";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://imageprompt.tools";
+
 const inter = Inter({
   subsets: ["latin", "cyrillic"],
   display: "swap",
@@ -33,6 +35,7 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Meta" });
   return {
+    metadataBase: new URL(SITE_URL),
     title: {
       template: "%s · image to prompt",
       default: t("hubTitleAbsolute"),
@@ -42,6 +45,15 @@ export async function generateMetadata({
     robots: {
       index: true,
       follow: true,
+    },
+    openGraph: {
+      type: "website",
+      siteName: "ImagePrompt",
+      images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "ImagePrompt — AI image tools" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      images: ["/og-image.png"],
     },
     icons: {
       icon: [{ url: "/favicon.png", type: "image/png", sizes: "128x128" }],
