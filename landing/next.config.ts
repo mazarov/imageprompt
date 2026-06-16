@@ -63,6 +63,40 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
+  async headers() {
+    // Baseline security headers applied to every response.
+    const baseSecurityHeaders = [
+      {
+        key: "Strict-Transport-Security",
+        value: "max-age=63072000; includeSubDomains; preload",
+      },
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      {
+        key: "Permissions-Policy",
+        value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
+      },
+    ];
+
+    // Clickjacking protection — NOT applied to `/embed/*`, which is designed
+    // to be embedded cross-origin (STV iframe widget).
+    const frameProtectionHeaders = [
+      { key: "X-Frame-Options", value: "SAMEORIGIN" },
+      { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+    ];
+
+    return [
+      {
+        source: "/embed/:path*",
+        headers: baseSecurityHeaders,
+      },
+      {
+        // Everything except `/embed/*` gets frame protection too.
+        source: "/((?!embed).*)",
+        headers: [...baseSecurityHeaders, ...frameProtectionHeaders],
+      },
+    ];
+  },
   async redirects() {
     return [
       {
