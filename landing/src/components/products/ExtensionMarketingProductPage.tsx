@@ -1,13 +1,12 @@
-import Script from "next/script";
 import { getTranslations } from "next-intl/server";
 import { PageLayout } from "@/components/PageLayout";
+import { JsonLd } from "@/components/JsonLd";
 import { HomeAnchorSidebar } from "@/components/HomeAnchorSidebar";
 import { ExtensionStvFloatingCta } from "@/components/extension-stv/ExtensionStvFloatingCta";
 import { ExtensionStvMarketingSections } from "@/components/extension-stv/ExtensionStvMarketingSections";
 import { absoluteUrl } from "@/lib/locale-path";
+import { buildWebApplicationGraph, SITE_URL } from "@/lib/structured-data";
 import type { ProductDefinition } from "@/lib/products/registry";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://imageprompt.tools";
 
 type Props = {
   product: ProductDefinition;
@@ -16,18 +15,21 @@ type Props = {
 
 export async function ExtensionMarketingProductPage({ product, locale }: Props) {
   const t = await getTranslations({ locale, namespace: "Meta" });
-  const title = t(product.metaTitleKey);
+  const tCommon = await getTranslations({ locale, namespace: "Common" });
+  const tProduct = await getTranslations({ locale, namespace: product.messageNamespace });
   const description = t(product.metaDescriptionKey);
   const pageUrl = absoluteUrl(SITE_URL, `/${product.slug}`, locale);
+  const homeUrl = absoluteUrl(SITE_URL, "/", locale);
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    name: title,
+  const jsonLd = buildWebApplicationGraph({
+    name: tProduct("title"),
     description,
     url: pageUrl,
-    applicationCategory: "BrowserApplication",
-  };
+    breadcrumb: [
+      { name: tCommon("home"), url: homeUrl },
+      { name: tProduct("title"), url: pageUrl },
+    ],
+  });
 
   return (
     <PageLayout sidebar={<HomeAnchorSidebar />}>
@@ -36,12 +38,7 @@ export async function ExtensionMarketingProductPage({ product, locale }: Props) 
         <ExtensionStvFloatingCta />
       </div>
 
-      <Script
-        id={`${product.slug}-json-ld`}
-        type="application/ld+json"
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
-      />
+      <JsonLd id={`${product.slug}-json-ld`} data={jsonLd} />
     </PageLayout>
   );
 }
