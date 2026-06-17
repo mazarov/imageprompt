@@ -114,6 +114,7 @@ const nextConfig: NextConfig = {
       { source: "/extension-stv", destination: "/ai-image-describer", permanent: true },
       { source: "/extension-stv/:path*", destination: "/ai-image-describer/:path*", permanent: true },
       { source: "/ai-image-describer/welcome", destination: "/welcome", permanent: true },
+      { source: "/ai-image-describer/uninstall", destination: "/uninstall", permanent: true },
     ];
   },
   images: {

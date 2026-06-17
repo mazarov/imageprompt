@@ -13,6 +13,7 @@ const MAX_SW_FETCH_BYTES = 10 * 1024 * 1024;
 const ANALYSIS_FETCH_TIMEOUT_MS = 45_000;
 
 const SITE_URL = "https://imageprompt.tools/";
+const UNINSTALL_URL = new URL("/uninstall", SITE_URL).href;
 const LITE_ORIGIN = new URL("/", SITE_URL).origin;
 const LITE_ANALYZE_API_URL = `${LITE_ORIGIN}/api/extension/analyze`;
 const LITE_QUOTA_URL = `${LITE_ORIGIN}/api/extension/quota`;
@@ -53,6 +54,12 @@ async function openSidePanel(windowId, fallbackTabId) {
 }
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+
+function registerUninstallUrl() {
+  chrome.runtime.setUninstallURL(UNINSTALL_URL).catch(() => {});
+}
+
+registerUninstallUrl();
 
 function createJobId() {
   return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"

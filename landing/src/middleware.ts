@@ -6,7 +6,7 @@ import { type AppLocale, routing } from "./i18n/routing";
 const intlMiddleware = createMiddleware(routing);
 
 /** English-only pages served at a single unprefixed URL. */
-const CANONICAL_EN_ONLY_PATHS = new Set(["/privacy", "/welcome"]);
+const CANONICAL_EN_ONLY_PATHS = new Set(["/privacy", "/welcome", "/uninstall"]);
 
 const DEFAULT_ALLOWED_METHODS = "GET, POST, OPTIONS";
 const DEFAULT_ALLOWED_HEADERS = "Content-Type, Authorization, X-Client";
@@ -69,8 +69,33 @@ function welcomeCanonicalRedirect(request: NextRequest): NextResponse | null {
   return null;
 }
 
+function uninstallCanonicalRedirect(request: NextRequest): NextResponse | null {
+  const uninstallRedirect = singleCanonicalRedirect(request, "/uninstall");
+  if (uninstallRedirect) return uninstallRedirect;
+
+  if (request.nextUrl.pathname.match(/^\/ai-image-describer\/uninstall\/?$/)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/uninstall";
+    return NextResponse.redirect(url, 308);
+  }
+
+  const localeProductUninstall = request.nextUrl.pathname.match(
+    /^\/([^/]+)\/ai-image-describer\/uninstall\/?$/,
+  );
+  if (
+    localeProductUninstall &&
+    routing.locales.includes(localeProductUninstall[1] as AppLocale)
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/uninstall";
+    return NextResponse.redirect(url, 308);
+  }
+
+  return null;
+}
+
 /**
- * Serve /privacy and /welcome without next-intl locale redirects.
+ * Serve /privacy, /welcome, and /uninstall without next-intl locale redirects.
  * Users with NEXT_LOCALE=ru otherwise loop: /privacy → /ru/privacy → /privacy.
  */
 function canonicalEnOnlyRewrite(request: NextRequest): NextResponse | null {
@@ -127,6 +152,9 @@ export async function middleware(request: NextRequest) {
 
   const welcomeRedirect = welcomeCanonicalRedirect(request);
   if (welcomeRedirect) return welcomeRedirect;
+
+  const uninstallRedirect = uninstallCanonicalRedirect(request);
+  if (uninstallRedirect) return uninstallRedirect;
 
   const canonicalRewrite = canonicalEnOnlyRewrite(request);
   if (canonicalRewrite) return canonicalRewrite;

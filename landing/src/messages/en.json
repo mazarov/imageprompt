@@ -16,7 +16,9 @@
     "privacyPageTitle": "Privacy policy — ImagePrompt",
     "privacyPageDescription": "How AI Image Describer collects, uses, and protects personal data on imageprompt.tools.",
     "welcomePageTitle": "Welcome — Pin AI Image Describer | ImagePrompt",
-    "welcomePageDescription": "Quick steps to pin the AI Image Describer extension and open it from the Chrome toolbar."
+    "welcomePageDescription": "Quick steps to pin the AI Image Describer extension and open it from the Chrome toolbar.",
+    "uninstallPageTitle": "Uninstall feedback — AI Image Describer | ImagePrompt",
+    "uninstallPageDescription": "Tell us why you removed AI Image Describer so we can improve the extension."
   },
   "Common": {
     "siteBrand": "ImagePrompt.tools",
@@ -94,6 +96,12 @@
     "stepLabelChrome": "Chrome UI may look slightly different by version—the pin control is always in the extensions menu.",
     "imgPinAlt": "Illustration: pin the AI Image Describer extension from Chrome’s puzzle menu",
     "imgToolbarAlt": "Illustration: AI Image Describer icon pinned on the Chrome toolbar"
+  },
+  "Uninstall": {
+    "title": "Why have you deleted AI Image Describer?",
+    "subtitle": "Your feedback helps us to improve AI Image Describer. Thank you very much for your time!",
+    "formTitle": "Why have you deleted AI Image Describer? — feedback form",
+    "formUnavailable": "The feedback form is temporarily unavailable. Please try again later."
   },
   "Auth": {
     "title": "Sign in to Image to prompt",
