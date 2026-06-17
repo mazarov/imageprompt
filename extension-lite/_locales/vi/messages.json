@@ -7,5 +7,284 @@
   },
   "storeDesc": {
     "message": "🖼️ Mô tả hình ảnh AI là một tiện ích mở rộng trên Chrome giúp biến bất kỳ bức ảnh nào thành một mô tả văn bản rõ ràng và một lời nhắc sẵn sàng để sử dụng cho công việc sáng tạo chỉ trong vài giây. Đây là một công cụ mô tả hình ảnh nhanh chóng, hoạt động ngay trong trình duyệt của bạn, vì vậy bạn có thể mô tả một hình ảnh ngay trong quy trình làm việc bình thường mà không cần mở tab khác, đăng ký, hoặc dán liên kết vào mười công cụ khác nhau.  \nNếu bạn đã từng nhìn chằm chằm vào một hình ảnh mà không thể tìm ra từ ngữ, mô tả hình ảnh AI sẽ làm việc đó cho bạn. Chỉ cần thả một bức ảnh vào, và công cụ sẽ trả về một lời nhắc sắc nét cho cảnh này mà bạn có thể dán thẳng vào Nano Banana, Midjourney, DALL·E, Stable Diffusion, hoặc bất kỳ mô hình tạo hình ảnh nào.  \nTiện ích mở rộng này được xây dựng cho những người làm việc với hình ảnh hàng ngày và cần một quy trình làm việc bình tĩnh, tập trung để biến hình ảnh thành lời nhắc. Mô tả hình ảnh AI nằm im lặng trong thanh công cụ của bạn cho đến khi bạn cần đến nó.  \n✨ Những gì bạn nhận được với mô tả hình ảnh AI: tiết kiệm thời gian của bạn — mô tả hình ảnh thành văn bản chỉ với một cú nhấp chuột và sao chép một lời nhắc sẵn sàng để tạo ra một bức ảnh tương tự trong bất kỳ mô hình AI nào.  \n🔧 Tính năng chính  \n 📍 Sao chép lời nhắc cuối cùng chỉ với một lần chạm.  \n ⚡ Lưu lại lịch sử của mọi hình ảnh để chạy lời nhắc, vì vậy không có gì bị mất.  \n ✅ Hoạt động với bất kỳ bức ảnh nào — không cần phải chuyển đổi định dạng.  \n🧩 Tích hợp tự nhiên vào quy trình làm việc sáng tạo  \nNhiều người sử dụng Mô tả hình ảnh AI trong khi thu thập cảm hứng, tài liệu tham khảo, ảnh chụp màn hình, bố cục, ý tưởng khái niệm, minh họa và tài liệu hình ảnh cho công việc trong tương lai. Thay vì dừng lại để giải thích từng chi tiết, họ có thể ngay lập tức tạo ra văn bản lời nhắc có cấu trúc và tiếp tục làm việc mà không bị gián đoạn.  \nTiện ích mở rộng hoạt động tự nhiên trong các phiên duyệt web và giúp tổ chức các tài liệu tham khảo hình ảnh thành các định dạng lời nhắc có thể tái sử dụng cho các công cụ AI. Dù bạn đang nghiên cứu phong cách, thu thập bảng tâm trạng, so sánh các bố cục, lưu ý tưởng cho sau này, hay thử nghiệm với các hướng sáng tạo khác nhau, quy trình làm việc vẫn đơn giản và nhanh chóng ngay trong Chrome.  \n🧑‍💻 Ai sử dụng mô tả hình ảnh AI hàng ngày  \n ▸ Các nhà thiết kế tìm kiếm một lời nhắc sắc nét hơn cho bức ảnh mà họ đã lưu.  \n ▸ Các nhà tiếp thị viết chú thích, văn bản thay thế và nội dung quảng cáo quy mô lớn.  \n ▸ Bất kỳ ai muốn học cách mô tả hình ảnh AI nhanh chóng mà không cần viết từ đầu.  \n🎨 Hữu ích cho nhiều loại nội dung hình ảnh  \nMô tả hình ảnh AI có thể giúp với nhiếp ảnh, nghệ thuật kỹ thuật số, minh họa, đồ họa blog. Nhiều người dùng cũng dựa vào nó khi chuẩn bị tài liệu tham khảo cho Midjourney, Stable Diffusion, DALL·E, Nano Banana và các quy trình tạo hình ảnh tương tự.  \nVì tiện ích mở rộng này nằm trong trình duyệt, không cần phải chuyển đổi giữa các tab, tải tệp lên nhiều dịch vụ, hoặc sao chép liên kết qua lại giữa các công cụ. Mọi thứ diễn ra trong một cửa sổ bật lên nhẹ nhàng được thiết kế để giữ cho quy trình làm việc của bạn tập trung và không bị gián đoạn.  \nNếu bạn đã từng tự hỏi làm thế nào để tạo lời nhắc cho các trình tạo hình ảnh một cách chính xác, mô tả hình ảnh AI là lối tắt của bạn. Động cơ AI nói ngôn ngữ của các mô hình hình ảnh, vì vậy bạn không bao giờ phải đoán từng từ.  \n🚀 Cách hoạt động  \nGhim Mô tả hình ảnh AI vào thanh công cụ Chrome của bạn.  \nNhấp vào biểu tượng và tải lên hoặc dán một bức ảnh để mô tả bức ảnh này.  \nHoặc nhấp chuột phải vào bất kỳ bức ảnh nào trên bất kỳ trang web nào và chạy phân tích trực tiếp từ menu ngữ cảnh.  \nSao chép văn bản lời nhắc.  \nTinh chỉnh, làm mới và tái sử dụng.  \n⚙️ Được xây dựng cho tốc độ và sự đơn giản  \nTiện ích mở rộng này được thiết kế để giữ nhẹ, phản hồi nhanh và dễ sử dụng trong các phiên duyệt web dài. Kết quả xuất hiện nhanh chóng, giao diện giữ sạch sẽ, và quy trình làm việc vẫn đơn giản từ đầu đến cuối. Không có quy trình hướng dẫn phức tạp, không có bảng điều khiển để quản lý, và không cần thiết lập không cần thiết trước khi tạo lời nhắc. Cài đặt tiện ích mở rộng, ghim nó vào Chrome, và bắt đầu làm việc với nội dung hình ảnh ngay lập tức.  \n🎯 Tại sao người dùng chọn mô tả hình ảnh AI  \n1️⃣ Thực sự chỉ cần một cú nhấp chuột để có kết quả.  \n2️⃣ Đầu ra mạnh mẽ cho trình tạo lời nhắc văn bản cho Nano Banana, Midjourney, DALL·E, Stable Diffusion, hoặc bất kỳ mô hình tạo hình ảnh nào.  \n3️⃣ Nhấp chuột phải vào bất kỳ bức ảnh nào trên bất kỳ trang web nào để mô tả bức ảnh.  \n4️⃣️ Miễn phí cài đặt và dễ dàng gỡ bỏ.  \n🔒 Quyền riêng tư và hiệu suất  \nCửa sổ bật lên mô tả hình ảnh nhẹ nhàng, phản hồi nhanh, và hình ảnh không bao giờ được lưu trữ sau khi xử lý. Quy trình được xây dựng cho việc sử dụng hàng ngày, không phải giám sát, vì vậy việc mô tả một hình ảnh vẫn là một nhiệm vụ riêng tư — không có pixel theo dõi, không có cơ sở dữ liệu ẩn. Tiện ích mở rộng tập trung vào quy trình làm việc nhanh chóng và tính khả dụng đơn giản hàng ngày. Mở cửa sổ bật lên, tạo một lời nhắc, sao chép kết quả, và tiếp tục công việc của bạn mà không bị phân tâm hoặc các bước không cần thiết.  \n❓ Câu hỏi thường gặp  \nQ: Mô tả hình ảnh AI thực sự làm gì khi bạn yêu cầu nó mô tả bức ảnh này?  \nA: Nó đọc nội dung hình ảnh và trả về một mô tả rõ ràng để bạn có thể sao chép và tái sử dụng.  \nQ: Tôi nên làm gì nếu yêu cầu của tôi là chính xác để tạo một mô tả về bức ảnh này cho phần AI?  \nA: Dán hoặc tải lên hình ảnh của bạn. Dịch vụ sẽ đọc bức ảnh và trả về một mô tả hình ảnh ngắn gọn, khách quan mà bạn có thể dán thẳng vào lời nhắc mô hình hình ảnh (chủ đề, bố cục, ánh sáng, gợi ý phong cách).  \nQ: Tôi có thể sử dụng nó để viết lời nhắc cho Midjourney hoặc DALL·E không?  \nA: Có. Nó hoạt động như một công cụ mô tả ảnh AI cho bất kỳ mô hình phổ biến nào, và chế độ mô tả hình ảnh AI xử lý từng bức ảnh để tạo lời nhắc một lần.  \nQ: Nó có lưu lại các lời nhắc của tôi ở đâu không?  \nA: Có. Tiện ích mở rộng giữ một lịch sử cục bộ của các kết quả mô tả của bạn, vì vậy bạn có thể quay lại một lời nhắc bất cứ lúc nào. Lịch sử sống trong trình duyệt của bạn, không phải trong đám mây của người khác.  \nQ: Nó có hoạt động với bất kỳ bức ảnh nào không?  \nA: Nó hỗ trợ các định dạng phổ biến như PNG, JPG và WebP.  \nQ: Tôi có thể sử dụng nó cho tài liệu tham khảo và ảnh chụp màn hình không?  \nA: Có. Nhiều người dùng dựa vào Mô tả hình ảnh AI trong khi làm việc với ảnh chụp màn hình, tài liệu tham khảo đã lưu, bảng cảm hứng, bố cục, nghiên cứu hình ảnh, và bộ sưu tập tài liệu sáng tạo từ khắp nơi trên web.  \nQ: Tôi có cần một tài khoản không?  \nA: Không cần tài khoản. Cài đặt tiện ích mở rộng, nhấp vào biểu tượng, và bắt đầu ngay lập tức — không cần email, không cần thẻ, không cần chờ đợi trước khi bạn nhận được kết quả."
+  },
+  "brandWordmark": {
+    "message": "AI Image Describer"
+  },
+  "signIn": {
+    "message": "Đăng nhập"
+  },
+  "signOut": {
+    "message": "Đăng xuất"
+  },
+  "tabAnalyze": {
+    "message": "Phân tích"
+  },
+  "tabHistory": {
+    "message": "Lịch sử"
+  },
+  "navMainAria": {
+    "message": "Điều hướng chính"
+  },
+  "devSectionTitle": {
+    "message": "Nhà phát triển"
+  },
+  "devRefresh": {
+    "message": "Làm mới"
+  },
+  "devDismissAria": {
+    "message": "Ẩn cài đặt nhà phát triển"
+  },
+  "devSectionHint": {
+    "message": "Rate-limit ip_hash — cùng cách tính với POST /api/extension/analyze."
+  },
+  "devCopy": {
+    "message": "Sao chép"
+  },
+  "devLoading": {
+    "message": "Đang tải…"
+  },
+  "devFetchError": {
+    "message": "Không thể lấy ip_hash. Kiểm tra kết nối hoặc thử Làm mới."
+  },
+  "dropzoneAria": {
+    "message": "Thả ảnh vào đây, chọn tệp hoặc dán từ bộ nhớ tạm"
+  },
+  "emptyTitle": {
+    "message": "Thả ảnh hoặc dán từ bộ nhớ tạm"
+  },
+  "emptyHint": {
+    "message": "JPG, PNG hoặc WebP, tối đa 10 MB"
+  },
+  "chooseFile": {
+    "message": "Chọn tệp"
+  },
+  "chooseFileAria": {
+    "message": "Chọn tệp ảnh"
+  },
+  "styleLabel": {
+    "message": "Cài đặt sẵn phong cách"
+  },
+  "stylePhotoreal": {
+    "message": "Ảnh thật"
+  },
+  "styleMidjourney": {
+    "message": "Midjourney"
+  },
+  "styleSd": {
+    "message": "Stable Diffusion"
+  },
+  "styleFlux": {
+    "message": "Flux"
+  },
+  "pasteHint": {
+    "message": "Dán ảnh bằng ⌘V / Ctrl+V hoặc thả tệp."
+  },
+  "draftHint": {
+    "message": "Ảnh vừa thêm đã sẵn sàng."
+  },
+  "draftHintStale": {
+    "message": "Phân tích mất quá nhiều thời gian. Thử lại."
+  },
+  "analyzeImage": {
+    "message": "Phân tích ảnh"
+  },
+  "chooseAnother": {
+    "message": "Chọn ảnh khác"
+  },
+  "analyzing": {
+    "message": "Đang phân tích ảnh…"
+  },
+  "tryAgain": {
+    "message": "Thử ảnh khác"
+  },
+  "copyShort": {
+    "message": "Sao chép"
+  },
+  "another": {
+    "message": "Khác"
+  },
+  "promptActionsAria": {
+    "message": "Thao tác prompt"
+  },
+  "resultTitle": {
+    "message": "Prompt"
+  },
+  "limitTitle": {
+    "message": "Đã đạt giới hạn hàng ngày"
+  },
+  "limitDescription": {
+    "message": "Bạn đã dùng hết lượt phân tích miễn phí hôm nay. Giới hạn được đặt lại mỗi 24 giờ để công cụ luôn nhanh cho mọi người."
+  },
+  "limitResetLine": {
+    "message": "Bạn có thể phân tích lại sau khoảng 24 giờ."
+  },
+  "limitViewPlans": {
+    "message": "Xem gói"
+  },
+  "limitGotIt": {
+    "message": "Đã hiểu"
+  },
+  "historyEmpty": {
+    "message": "Chưa có phân tích nào."
+  },
+  "historyCopy": {
+    "message": "Sao chép"
+  },
+  "rateUs": {
+    "message": "Đánh giá chúng tôi:"
+  },
+  "copiedToClipboard": {
+    "message": "Đã sao chép vào bộ nhớ tạm"
+  },
+  "copied": {
+    "message": "Đã sao chép"
+  },
+  "copiedExclaim": {
+    "message": "Đã sao chép!"
+  },
+  "authSignInFail": {
+    "message": "Không thể mở đăng nhập Google. Vui lòng thử lại."
+  },
+  "authSignOutFail": {
+    "message": "Không thể đăng xuất. Vui lòng thử lại."
+  },
+  "noticeFetchFailed": {
+    "message": "Không thể lấy ảnh tự động. Hãy tải tệp lên thay thế."
+  },
+  "errorTimeout": {
+    "message": "Phân tích mất quá nhiều thời gian. Vui lòng thử ảnh khác."
+  },
+  "errorInvalidType": {
+    "message": "Vui lòng chọn ảnh JPG, PNG hoặc WebP tối đa 10 MB."
+  },
+  "errorReadFailed": {
+    "message": "Đã xảy ra lỗi khi đọc tệp. Vui lòng thử ảnh khác."
+  },
+  "errorTooLarge": {
+    "message": "Ảnh vượt quá giới hạn 10 MB. Vui lòng thử tệp nhỏ hơn."
+  },
+  "errorNoFile": {
+    "message": "Trình duyệt không chấp nhận tệp. Hãy thử kéo và thả."
+  },
+  "errorRateLimited": {
+    "message": "Đã đạt giới hạn hàng ngày. Thử lại sau 24 giờ."
+  },
+  "errorNotFound": {
+    "message": "Dịch vụ chưa khả dụng. Thử lại sau lần triển khai tiếp theo."
+  },
+  "errorConnection": {
+    "message": "Kết nối thất bại. Kiểm tra internet và thử lại."
+  },
+  "errorGeneric": {
+    "message": "Đã xảy ra lỗi. Vui lòng thử ảnh khác."
+  },
+  "errorStartAnalysis": {
+    "message": "Không thể bắt đầu phân tích. Vui lòng thử lại."
+  },
+  "errorOpenSite": {
+    "message": "Không thể mở imageprompt.tools."
+  },
+  "errorOpenSiteTab": {
+    "message": "Không thể mở tab trang web."
+  },
+  "quotaRemaining": {
+    "message": "Còn $COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "timeJustNow": {
+    "message": "vừa xong"
+  },
+  "timeMinutesAgo": {
+    "message": "$COUNT$ phút trước",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "timeHoursAgo": {
+    "message": "$COUNT$ giờ trước",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "timeDaysAgo": {
+    "message": "$COUNT$ ngày trước",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "ctxGetPrompt": {
+    "message": "Lấy prompt cho ảnh tương tự"
+  },
+  "ctxOpenSite": {
+    "message": "Mở imageprompt.tools với ảnh này"
+  },
+  "fabAriaLabel": {
+    "message": "Phân tích ảnh bằng AI Image Describer"
+  },
+  "modalAria": {
+    "message": "Phân tích ảnh"
+  },
+  "modalClose": {
+    "message": "Đóng"
+  },
+  "authGuest": {
+    "message": "Chế độ khách"
+  },
+  "authSignedIn": {
+    "message": "Đã đăng nhập bằng Google"
+  },
+  "authHint": {
+    "message": "Đăng nhập để dùng chung một giới hạn miễn phí hàng ngày trên trang web và tiện ích."
+  },
+  "authSignedInHint": {
+    "message": "Giới hạn miễn phí hàng ngày của bạn được dùng chung trên trang web và tiện ích."
+  },
+  "authSignIn": {
+    "message": "Tiếp tục với Google"
+  },
+  "readingImage": {
+    "message": "Đang đọc ảnh…"
+  },
+  "analyzeBtn": {
+    "message": "Phân tích"
+  },
+  "retryAnalyze": {
+    "message": "Thử lại"
+  },
+  "copyPrompt": {
+    "message": "Sao chép prompt"
+  },
+  "limitMetaOverlay": {
+    "message": "Thử lại sau khoảng 24 giờ."
+  },
+  "closeBtn": {
+    "message": "Đóng"
+  },
+  "errorGenericOverlay": {
+    "message": "Đã xảy ra lỗi. Thử lại."
+  },
+  "errorNotFoundShort": {
+    "message": "Dịch vụ chưa khả dụng."
+  },
+  "errorConnectionShort": {
+    "message": "Kết nối thất bại."
+  },
+  "errorContextInvalidated": {
+    "message": "Tiện ích đã cập nhật. Làm mới trang này (F5) và thử lại."
   }
 }

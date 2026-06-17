@@ -88,7 +88,7 @@
     "step1Title": "Pin the extension",
     "step1Body": "Click the puzzle (extensions) icon in Chrome’s toolbar → find AI Image Describer in the list → pin it so the icon stays on the toolbar.",
     "step2Eyebrow": "Step 2",
-    "step2Title": "Open it from the toolbar",
+    "step2Title": "Describe any image",
     "step2Body": "Click the AI Image Describer icon on the toolbar to open the popup. Right‑click an image anytime for “Get prompt for similar image”.",
     "imgPinPlaceholder": "Placeholder: Extensions menu → pin AI Image Describer (replace with a real screenshot)",
     "imgToolbarPlaceholder": "Placeholder: Toolbar icon highlighted (replace with a real screenshot)",

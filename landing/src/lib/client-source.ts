@@ -11,7 +11,7 @@ export const CLIENT_SOURCES = [
 export type ClientSource = (typeof CLIENT_SOURCES)[number];
 
 export type ResolveClientSourceOptions = {
-  /** When true and Host is imageprompt.tools, attribute as site (not cross-origin Origin). */
+  /** Cookie/session auth on our API — used only when Origin is absent (same-origin fetch). */
   authenticated?: boolean;
 };
 
@@ -54,11 +54,8 @@ export function resolveClientSource(
   if (explicit && isClientSource(explicit)) return explicit;
 
   const host = (req.headers.get("host") || "").trim();
-  if (opts?.authenticated && host && isImagepromptHost(host)) {
-    return "site";
-  }
-
   const origin = (req.headers.get("origin") || "").trim();
+
   if (origin) {
     if (origin.startsWith("chrome-extension://")) {
       return resolveChromeExtensionClient(origin.toLowerCase());
@@ -71,6 +68,11 @@ export function resolveClientSource(
     } catch {
       // Malformed Origin — fall through to Host / unknown.
     }
+  }
+
+  // Logged-in site widget: same-origin POST may omit Origin; Host is enough.
+  if (opts?.authenticated && host && isImagepromptHost(host)) {
+    return "site";
   }
 
   if (host && isImagepromptHost(host)) return "site";

@@ -53,7 +53,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["icons/*.png"],
+      "resources": ["icons/*.png", "_locales/*/messages.json", "lib/*.js"],
       "matches": ["<all_urls>"]
     }
   ]

@@ -14,34 +14,37 @@
     <header class="topbar">
       <div class="topbar-brand" id="brand-dev-trigger">
         <img class="brand-mark" src="icons/icon32.png" width="26" height="26" alt="" />
-        <span class="brand-name">AI Image Describer</span>
+        <span class="brand-name" data-i18n="brandWordmark">AI Image Describer</span>
       </div>
-      <span class="topbar-quota" id="topbar-quota" hidden></span>
-      <button type="button" class="topbar-auth" id="btn-auth-google">Sign in</button>
-      <button type="button" class="topbar-auth" id="btn-auth-sign-out" hidden>Sign out</button>
+      <div class="topbar-end">
+        <select id="ui-lang-select" class="topbar-lang-select" data-i18n-aria="uiLangLabel" aria-label="Interface language"></select>
+        <span class="topbar-quota" id="topbar-quota" hidden></span>
+        <button type="button" class="topbar-auth" id="btn-auth-google" data-i18n="signIn">Sign in</button>
+        <button type="button" class="topbar-auth" id="btn-auth-sign-out" hidden data-i18n="signOut">Sign out</button>
+      </div>
     </header>
 
     <!-- Analyze / History tabs -->
-    <nav class="tab-bar" aria-label="Main navigation">
-      <button type="button" class="tab-btn active" data-tab="analyze">Analyze</button>
-      <button type="button" class="tab-btn" data-tab="history">History</button>
+    <nav class="tab-bar" data-i18n-aria="navMainAria" aria-label="Main navigation">
+      <button type="button" class="tab-btn active" data-tab="analyze" data-i18n="tabAnalyze">Analyze</button>
+      <button type="button" class="tab-btn" data-tab="history" data-i18n="tabHistory">History</button>
     </nav>
 
     <div class="shell-body" id="body-analyze">
 
     <!-- Developer (⌗ 5 taps on logo) -->
-    <section id="dev-settings" class="dev-settings" hidden aria-label="Developer settings">
+    <section id="dev-settings" class="dev-settings" hidden data-i18n-aria="devSectionTitle" aria-label="Developer settings">
       <div class="dev-settings-head">
-        <span class="dev-settings-title">Developer</span>
+        <span class="dev-settings-title" data-i18n="devSectionTitle">Developer</span>
         <span class="dev-settings-actions">
-          <button type="button" class="dev-settings-btn" id="dev-hash-refresh">Refresh</button>
-          <button type="button" class="dev-settings-dismiss" id="dev-settings-dismiss" aria-label="Hide developer settings">&times;</button>
+          <button type="button" class="dev-settings-btn" id="dev-hash-refresh" data-i18n="devRefresh">Refresh</button>
+          <button type="button" class="dev-settings-dismiss" id="dev-settings-dismiss" data-i18n-aria="devDismissAria" aria-label="Hide developer settings">&times;</button>
         </span>
       </div>
-      <p class="dev-settings-hint">Rate-limit <code class="dev-code">ip_hash</code> — same computation as POST <code class="dev-code">/api/extension/analyze</code>.</p>
+      <p class="dev-settings-hint" data-i18n="devSectionHint">Rate-limit <code class="dev-code">ip_hash</code> — same computation as POST <code class="dev-code">/api/extension/analyze</code>.</p>
       <div class="dev-hash-row">
         <pre id="dev-ip-hash-value" class="dev-ip-hash-value" tabindex="0"></pre>
-        <button type="button" class="dev-settings-btn" id="dev-hash-copy">Copy</button>
+        <button type="button" class="dev-settings-btn" id="dev-hash-copy" data-i18n="devCopy">Copy</button>
       </div>
       <p id="dev-ip-hash-meta" class="dev-meta"></p>
       <p id="dev-ip-hash-error" class="dev-error" role="alert" hidden></p>
@@ -53,18 +56,20 @@
         class="dropzone"
         id="dropzone"
         tabindex="0"
+        data-i18n-aria="dropzoneAria"
         aria-label="Drop an image here, choose file, or paste from clipboard"
       >
-        <p class="dropzone-title">Drop an image or paste from clipboard</p>
-        <p class="dropzone-hint">JPG, PNG, or WebP, up to 10 MB</p>
+        <p class="dropzone-title" data-i18n="emptyTitle">Drop an image or paste from clipboard</p>
+        <p class="dropzone-hint" data-i18n="emptyHint">JPG, PNG, or WebP, up to 10 MB</p>
         <label class="btn btn-primary btn-inline" id="btn-choose-file">
-          Choose file
+          <span data-i18n="chooseFile">Choose file</span>
           <input
             type="file"
             id="file-input"
             accept=".jpg,.jpeg,.jpe,.png,.webp,image/jpeg,image/png,image/webp,image/*"
             class="file-input-screen-only"
             tabindex="-1"
+            data-i18n-aria="chooseFileAria"
             aria-label="Choose image file"
           />
         </label>
@@ -73,16 +78,16 @@
       <div id="empty-notice" class="empty-notice" role="status" hidden></div>
 
       <fieldset class="style-preset-group">
-        <legend class="field-label">Style preset</legend>
+        <legend class="field-label" data-i18n="styleLabel">Style preset</legend>
         <div class="style-preset-row" id="style-preset-row" role="radiogroup">
-          <button type="button" class="style-pill active" data-style="photoreal" role="radio" aria-checked="true">Photo-real</button>
-          <button type="button" class="style-pill" data-style="midjourney" role="radio" aria-checked="false">Midjourney</button>
-          <button type="button" class="style-pill" data-style="sd" role="radio" aria-checked="false">Stable Diffusion</button>
-          <button type="button" class="style-pill" data-style="flux" role="radio" aria-checked="false">Flux</button>
+          <button type="button" class="style-pill active" data-style="photoreal" role="radio" aria-checked="true" data-i18n="stylePhotoreal">Photo-real</button>
+          <button type="button" class="style-pill" data-style="midjourney" role="radio" aria-checked="false" data-i18n="styleMidjourney">Midjourney</button>
+          <button type="button" class="style-pill" data-style="sd" role="radio" aria-checked="false" data-i18n="styleSd">Stable Diffusion</button>
+          <button type="button" class="style-pill" data-style="flux" role="radio" aria-checked="false" data-i18n="styleFlux">Flux</button>
         </div>
       </fieldset>
 
-      <p class="paste-hint">Paste a picture with ⌘V / Ctrl+V, or drop a file.</p>
+      <p class="paste-hint" data-i18n="pasteHint">Paste a picture with ⌘V / Ctrl+V, or drop a file.</p>
     </section>
 
     <!-- ── DRAFT STATE ── -->
@@ -92,9 +97,9 @@
           <img id="draft-preview" class="preview-img" src="" alt="" />
         </div>
       </div>
-      <p id="draft-hint" class="draft-hint">Last added image is ready.</p>
-      <button class="btn btn-primary btn-full" id="btn-analyze-draft" type="button">Analyze image</button>
-      <button class="btn btn-secondary btn-full" id="btn-draft-another" type="button">Choose another image</button>
+      <p id="draft-hint" class="draft-hint" data-i18n="draftHint">Last added image is ready.</p>
+      <button class="btn btn-primary btn-full" id="btn-analyze-draft" type="button" data-i18n="analyzeImage">Analyze image</button>
+      <button class="btn btn-secondary btn-full" id="btn-draft-another" type="button" data-i18n="chooseAnother">Choose another image</button>
     </section>
 
     <!-- ── LOADING STATE ── -->
@@ -105,11 +110,11 @@
         </div>
       </div>
       <div class="loading-block">
-        <p class="loading-text">Analyzing image…</p>
+        <p class="loading-text" data-i18n="analyzing">Analyzing image…</p>
         <div class="loading-bar-wrap">
           <div class="loading-bar-fill"></div>
         </div>
-        <button class="btn btn-secondary btn-full loading-cancel" id="btn-loading-cancel" type="button">
+        <button class="btn btn-secondary btn-full loading-cancel" id="btn-loading-cancel" type="button" data-i18n="tryAgain">
           Try another image
         </button>
       </div>
@@ -118,9 +123,9 @@
     <!-- ── RESULT STATE ── -->
     <section id="state-result" class="panel panel-result">
       <div class="preview-frame preview-frame-result" aria-hidden="true">
-        <div class="result-actions" role="group" aria-label="Prompt actions">
-          <button class="btn btn-overlay btn-overlay-primary" id="btn-copy" type="button">Copy</button>
-          <button class="btn btn-overlay" id="btn-retry" type="button">Another</button>
+        <div class="result-actions" role="group" data-i18n-aria="promptActionsAria" aria-label="Prompt actions">
+          <button class="btn btn-overlay btn-overlay-primary" id="btn-copy" type="button" data-i18n="copyShort">Copy</button>
+          <button class="btn btn-overlay" id="btn-retry" type="button" data-i18n="another">Another</button>
         </div>
         <div class="preview-frame-inner">
           <img id="result-preview" class="preview-img" src="" alt="" />
@@ -131,7 +136,7 @@
 
       <div class="prompt-box-wrap">
         <div class="result-header">
-          <span class="result-title">Prompt</span>
+          <span class="result-title" data-i18n="resultTitle">Prompt</span>
         </div>
         <pre id="prompt-box" class="prompt-box" tabindex="0"></pre>
       </div>
@@ -142,7 +147,7 @@
       <div id="error-generic-wrap" class="error-generic-wrap">
         <div class="error-full">
           <p id="error-message" class="error-message"></p>
-          <button class="btn btn-primary btn-full" id="btn-error-retry" type="button">Try another image</button>
+          <button class="btn btn-primary btn-full" id="btn-error-retry" type="button" data-i18n="tryAgain">Try another image</button>
         </div>
       </div>
       <div id="error-limit-wrap" class="error-limit-wrap" hidden>
@@ -153,13 +158,13 @@
               <path d="M12 7v5l3.5 2" opacity="0.95" />
             </svg>
           </div>
-          <h2 class="error-limit-title">Daily limit reached</h2>
-          <p class="error-limit-body">
+          <h2 class="error-limit-title" data-i18n="limitTitle">Daily limit reached</h2>
+          <p class="error-limit-body" data-i18n="limitDescription">
             You've used today's free analyses. Limits reset every 24 hours so the tool stays fast for everyone.
           </p>
-          <p class="error-limit-meta">You'll be able to analyze again in about 24 hours.</p>
-          <a class="btn btn-primary btn-full" id="btn-error-plans" href="https://imageprompt.tools/#stv-pricing" target="_blank" rel="noopener noreferrer">View plans</a>
-          <button class="btn btn-secondary btn-full" id="btn-error-limit-dismiss" type="button">Got it</button>
+          <p class="error-limit-meta" data-i18n="limitResetLine">You'll be able to analyze again in about 24 hours.</p>
+          <a class="btn btn-primary btn-full" id="btn-error-plans" href="https://imageprompt.tools/#stv-pricing" target="_blank" rel="noopener noreferrer" data-i18n="limitViewPlans">View plans</a>
+          <button class="btn btn-secondary btn-full" id="btn-error-limit-dismiss" type="button" data-i18n="limitGotIt">Got it</button>
         </div>
       </div>
     </section>
@@ -169,13 +174,13 @@
     <!-- History tab body -->
     <div class="shell-body" id="body-history" hidden>
       <div id="history-list" class="history-list"></div>
-      <p id="history-empty" class="history-empty">No analyses yet.</p>
+      <p id="history-empty" class="history-empty" data-i18n="historyEmpty">No analyses yet.</p>
     </div>
 
     <!-- Rating / feedback module -->
     <footer class="rating-footer">
       <hr class="rating-divider" />
-      <p class="rating-label">Rate us:</p>
+      <p class="rating-label" data-i18n="rateUs">Rate us:</p>
       <div class="full-stars">
         <div class="rating-group">
           <input name="fst" value="5" type="radio" disabled checked />

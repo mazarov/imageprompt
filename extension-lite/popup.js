@@ -1,20 +1,36 @@
 import { prepareUploadFile } from "./lib/image-utils.js";
+import {
+  t,
+  applyI18n,
+  initI18n,
+  reloadI18n,
+  setUiLang,
+  LITE_LOCALE_FOLDERS,
+  localeOptionLabel,
+  UI_LANG_STORAGE_KEY,
+  tQuotaRemaining,
+  tMinutesAgo,
+  tHoursAgo,
+  tDaysAgo,
+  tStyleLabel,
+} from "./lib/i18n.js";
 
 const PENDING_IMAGE_KEY = "pending_image";
 const POPUP_STATE_KEY = "extension_lite_popup_state_v1";
 const ANALYSIS_JOB_KEY = "extension_lite_analysis_job_v1";
 const QUOTA_KEY = "extension_lite_quota_v1";
+const SITE_URL = "https://imageprompt.tools/";
 const SITE_PRICING_URL = "https://imageprompt.tools/#stv-pricing";
 const DEV_BRAND_TAP_WINDOW_MS = 2000;
 const DEV_BRAND_TAPS_TO_UNLOCK = 5;
+const BRAND_OPEN_SITE_DELAY_MS = 350;
 const ANALYSIS_STALE_AFTER_MS = 90_000;
-const DRAFT_HINT_DEFAULT = "Last added image is ready.";
-const ANALYSIS_TIMEOUT_MESSAGE = "Analysis took too long. Please try another image.";
-const UNSUPPORTED_IMAGE_MESSAGE = "Please choose a JPG, PNG, or WebP image up to 10 MB.";
-const READ_FAILED_MESSAGE = "Something went wrong reading the file. Please try another image.";
-const TOO_LARGE_MESSAGE = "Image exceeds 10 MB limit. Please try a smaller file.";
-const NO_FILE_RECEIVED_MESSAGE =
-  "Browser did not accept the file. Try drag-and-drop instead.";
+const DRAFT_HINT_DEFAULT = () => t("draftHint");
+const ANALYSIS_TIMEOUT_MESSAGE = () => t("errorTimeout");
+const UNSUPPORTED_IMAGE_MESSAGE = () => t("errorInvalidType");
+const READ_FAILED_MESSAGE = () => t("errorReadFailed");
+const TOO_LARGE_MESSAGE = () => t("errorTooLarge");
+const NO_FILE_RECEIVED_MESSAGE = () => t("errorNoFile");
 
 /** Clone before clearing `<input type="file">` — otherwise Chrome may invalidate the blob. */
 function clonePickerFile(file) {
@@ -93,6 +109,7 @@ const devHashCopy     = document.getElementById("dev-hash-copy");
 const btnAuthGoogle   = document.getElementById("btn-auth-google");
 const btnAuthSignOut  = document.getElementById("btn-auth-sign-out");
 const topbarQuota     = document.getElementById("topbar-quota");
+const uiLangSelect    = document.getElementById("ui-lang-select");
 
 // ── Style pill helpers ──
 function getSelectedStyle() {
@@ -108,8 +125,9 @@ function setSelectedStyle(value) {
   }
 }
 
-// ── Style label map ──
-const STYLE_LABELS = { photoreal: "Photo-real", midjourney: "Midjourney", sd: "Stable Diffusion", flux: "Flux" };
+function styleLabel(style) {
+  return tStyleLabel(style);
+}
 
 // ── State ──
 let currentPrompt = "";
@@ -119,6 +137,8 @@ let lastCompletedPendingTs = 0;
 let devLogoTaps = 0;
 /** @type {ReturnType<typeof setTimeout> | null} */
 let devLogoTapTimer = null;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let brandOpenSiteTimer = null;
 /** @type {"analyze" | "open_site"} */
 let filePickIntent = "analyze";
 /** Popup may unload while the native file picker is open. */
@@ -129,6 +149,10 @@ let processingSelectedFile = false;
 
 // ── Init ──
 document.addEventListener("DOMContentLoaded", async () => {
+  await initI18n();
+  setupLangSelect();
+  applyI18n();
+  document.title = t("brandWordmark");
   bindEvents();
   const consumedPending = await checkPendingImage();
   if (!consumedPending) {
@@ -143,6 +167,54 @@ window.addEventListener("pagehide", () => {
   if (filePickerActive) return;
   clearActiveLoadingState();
 });
+
+function setupLangSelect() {
+  if (!uiLangSelect) return;
+
+  uiLangSelect.replaceChildren();
+
+  const autoOpt = document.createElement("option");
+  autoOpt.value = "auto";
+  autoOpt.textContent = t("uiLangAuto");
+  uiLangSelect.appendChild(autoOpt);
+
+  for (const folder of LITE_LOCALE_FOLDERS) {
+    const opt = document.createElement("option");
+    opt.value = folder;
+    opt.textContent = localeOptionLabel(folder);
+    uiLangSelect.appendChild(opt);
+  }
+
+  void chrome.storage.local.get(UI_LANG_STORAGE_KEY, (data) => {
+    const stored = data?.[UI_LANG_STORAGE_KEY];
+    uiLangSelect.value =
+      typeof stored === "string" && stored && LITE_LOCALE_FOLDERS.includes(stored)
+        ? stored
+        : "auto";
+  });
+
+  uiLangSelect.addEventListener("change", () => {
+    void (async () => {
+      const value = uiLangSelect.value;
+      await setUiLang(value);
+      applyI18n();
+      document.title = t("brandWordmark");
+      const autoOpt = uiLangSelect.querySelector('option[value="auto"]');
+      if (autoOpt) autoOpt.textContent = t("uiLangAuto");
+      const signedIn = btnAuthSignOut && !btnAuthSignOut.hidden;
+      applyAuthStatus({ signedIn });
+      if (historyLoaded) {
+        historyLoaded = false;
+        await loadHistory();
+      }
+      const quotaText = topbarQuota?.textContent;
+      if (topbarQuota && !topbarQuota.hidden && quotaText) {
+        const m = quotaText.match(/^(\d+)/);
+        if (m) renderQuota({ remaining: Number(m[1]), ts: Date.now() });
+      }
+    })();
+  });
+}
 
 async function checkPendingImage() {
   let pending;
@@ -172,7 +244,7 @@ async function handlePendingImage(pending) {
   if (pending.error === "fetch_failed") {
     // Background couldn't fetch the image from the page (CORS or blocked URL).
     // Fall through to empty state and show a soft notice so user can upload manually.
-    showNotice("Couldn't grab the image automatically. Upload a file instead.");
+    showNotice(t("noticeFetchFailed"));
     return true;
   }
 
@@ -197,6 +269,18 @@ function bindEvents() {
       if (msg.job?.status === "result") historyLoaded = false;
     } else if (msg?.type === "LITE_AUTH_UPDATED") {
       applyAuthStatus(msg);
+    } else if (msg?.type === "LITE_UI_LANG_CHANGED") {
+      void (async () => {
+        await reloadI18n();
+        if (uiLangSelect) {
+          const stored = await chrome.storage.local.get(UI_LANG_STORAGE_KEY);
+          const val = stored?.[UI_LANG_STORAGE_KEY];
+          uiLangSelect.value =
+            typeof val === "string" && val && LITE_LOCALE_FOLDERS.includes(val) ? val : "auto";
+        }
+        applyI18n();
+        document.title = t("brandWordmark");
+      })();
     } else if (msg?.type === "LITE_QUOTA_UPDATED") {
       renderQuota(msg);
     }
@@ -262,7 +346,7 @@ function bindEvents() {
     });
     if (!file) {
       if (fileInput) fileInput.value = "";
-      showNotice(NO_FILE_RECEIVED_MESSAGE);
+      showNotice(NO_FILE_RECEIVED_MESSAGE());
       return;
     }
     const stable = clonePickerFile(file);
@@ -316,7 +400,7 @@ function bindEvents() {
     try {
       await navigator.clipboard.writeText(currentPrompt);
       const original = btnCopy.textContent;
-      btnCopy.textContent = "Copied to clipboard";
+      btnCopy.textContent = t("copiedToClipboard");
       btnCopy.disabled = true;
       setTimeout(() => {
         btnCopy.textContent = original;
@@ -367,8 +451,8 @@ async function sendRuntimeMessage(message) {
 function applyAuthStatus(status) {
   const signedIn = status?.signedIn === true;
 
-  if (btnAuthGoogle) btnAuthGoogle.textContent = "Sign in";
-  if (btnAuthSignOut) btnAuthSignOut.textContent = "Sign out";
+  if (btnAuthGoogle) btnAuthGoogle.textContent = t("signIn");
+  if (btnAuthSignOut) btnAuthSignOut.textContent = t("signOut");
   if (btnAuthGoogle) btnAuthGoogle.hidden = signedIn;
   if (btnAuthSignOut) btnAuthSignOut.hidden = !signedIn;
 }
@@ -388,7 +472,7 @@ async function startGoogleAuth() {
     const res = await sendRuntimeMessage({ type: "LITE_AUTH_START" });
     if (!res?.ok) throw new Error(res?.error || "auth_start_failed");
   } catch (e) {
-    showInlineError("Could not open Google sign-in. Please try again.");
+    showInlineError(t("authSignInFail"));
     console.warn("[aid] auth start failed", e);
   } finally {
     if (btnAuthGoogle) btnAuthGoogle.disabled = false;
@@ -401,7 +485,7 @@ async function signOutGoogle() {
     if (!res?.ok) throw new Error(res?.error || "sign_out_failed");
     applyAuthStatus({ signedIn: false });
   } catch (e) {
-    showInlineError("Could not sign out. Please try again.");
+    showInlineError(t("authSignOutFail"));
     console.warn("[aid] sign out failed", e);
   }
 }
@@ -414,9 +498,22 @@ function scheduleDevLogoTapReset() {
   }, DEV_BRAND_TAP_WINDOW_MS);
 }
 
-/** 5 taps on the logo (icon + «AI Image Describer») within 2 s unlock developer tools. */
+async function openBrandSite() {
+  try {
+    await chrome.tabs.create({ url: SITE_URL });
+  } catch (e) {
+    console.warn("[aid] open site failed", e);
+  }
+}
+
+/** Single tap opens imageprompt.tools; 5 taps within 2 s unlock developer tools. */
 function setupBrandTapDevUnlock() {
   brandDevTrigger?.addEventListener("click", () => {
+    if (brandOpenSiteTimer) {
+      clearTimeout(brandOpenSiteTimer);
+      brandOpenSiteTimer = null;
+    }
+
     devLogoTaps += 1;
     scheduleDevLogoTapReset();
 
@@ -427,7 +524,16 @@ function setupBrandTapDevUnlock() {
         devLogoTapTimer = null;
       }
       showDevSettings();
+      return;
     }
+
+    const tapsAtSchedule = devLogoTaps;
+    brandOpenSiteTimer = setTimeout(() => {
+      brandOpenSiteTimer = null;
+      if (devLogoTaps === tapsAtSchedule && devLogoTaps === 1) {
+        void openBrandSite();
+      }
+    }, BRAND_OPEN_SITE_DELAY_MS);
   });
 
   devHashRefresh?.addEventListener("click", () => void refreshDevIpHash());
@@ -435,11 +541,11 @@ function setupBrandTapDevUnlock() {
 
   devHashCopy?.addEventListener("click", async () => {
     const raw = devIpHashValue?.textContent?.trim() ?? "";
-    if (!raw || raw === "Loading…") return;
+    if (!raw || raw === t("devLoading")) return;
     try {
       await navigator.clipboard.writeText(raw);
       const original = devHashCopy.textContent;
-      devHashCopy.textContent = "Copied";
+      devHashCopy.textContent = t("copied");
       setTimeout(() => {
         devHashCopy.textContent = original;
       }, 1500);
@@ -472,7 +578,7 @@ function hideDevSettings() {
 async function refreshDevIpHash() {
   if (!devIpHashValue) return;
 
-  devIpHashValue.textContent = "Loading…";
+  devIpHashValue.textContent = t("devLoading");
   if (devIpHashMeta) devIpHashMeta.textContent = "";
   if (devIpHashError) {
     devIpHashError.textContent = "";
@@ -522,7 +628,7 @@ async function refreshDevIpHash() {
       devIpHashError.textContent =
         msg && msg !== "request_failed"
           ? msg
-          : "Could not fetch ip_hash. Check connection or try Refresh.";
+          : t("devFetchError");
       devIpHashError.hidden = false;
     }
   }
@@ -579,11 +685,11 @@ async function ingestFile(file, { forSite = false } = {}) {
           dataUrl: prepared.dataUrl,
         });
         if (!res?.ok) {
-          showFullError(res?.error || "Could not open the site tab.");
+          showFullError(res?.error || t("errorOpenSiteTab"));
         }
       } catch (e) {
         console.error("[aid] sendMessage failed", e);
-        showFullError("Could not open imageprompt.tools.");
+        showFullError(t("errorOpenSite"));
       }
       uploadLog("ingestFile end", { ok: true, forSite: true });
       return;
@@ -597,7 +703,7 @@ async function ingestFile(file, { forSite = false } = {}) {
     uploadLog("ingestFile error", { message: err instanceof Error ? err.message : String(err) });
     revokeActiveObjectPreview();
     resetToEmpty();
-    showInlineError(READ_FAILED_MESSAGE);
+    showInlineError(READ_FAILED_MESSAGE());
   }
 }
 
@@ -611,14 +717,14 @@ function markFilePickerActive() {
 function applyPreparedUploadError(error) {
   uploadLog("applyPreparedUploadError", { error });
   if (error === "too_large") {
-    showInlineError(TOO_LARGE_MESSAGE);
+    showInlineError(TOO_LARGE_MESSAGE());
     return;
   }
   if (error === "read_failed") {
-    showInlineError(READ_FAILED_MESSAGE);
+    showInlineError(READ_FAILED_MESSAGE());
     return;
   }
-  showInlineError(UNSUPPORTED_IMAGE_MESSAGE);
+  showInlineError(UNSUPPORTED_IMAGE_MESSAGE());
 }
 
 async function analyze(dataUrl, styleOverride) {
@@ -633,13 +739,13 @@ async function analyze(dataUrl, styleOverride) {
       style,
     });
     if (!res?.ok || !res.job) {
-      showFullError("Could not start analysis. Please try again.");
+      showFullError(t("errorStartAnalysis"));
       return;
     }
     handleAnalysisJob(res.job);
   } catch (err) {
     console.error("[aid] start analysis failed", err?.message);
-    showFullError("Could not start analysis. Please try again.");
+    showFullError(t("errorStartAnalysis"));
   }
 }
 
@@ -720,7 +826,7 @@ function handleAnalysisJob(job) {
     const lastTouched = Number(job.updatedAt || job.createdAt || 0);
     if (lastTouched > 0 && Date.now() - lastTouched > ANALYSIS_STALE_AFTER_MS) {
       clearAnalysisJob();
-      showDraft(job.dataUrl, style, { persist: false, hint: "Analysis took too long. Try again." });
+      showDraft(job.dataUrl, style, { persist: false, hint: t("draftHintStale") });
       return true;
     }
     showLoading(job.dataUrl);
@@ -749,18 +855,18 @@ function handleAnalysisJob(job) {
 
 function getJobErrorMessage(job) {
   if (job.error === "rate_limited" || String(job.statusCode) === "429") {
-    return "Daily limit reached. Try again in 24 hours.";
+    return t("errorRateLimited");
   }
   if (job.error === "not_found" || job.statusCode === 404) {
-    return "Service not available yet. Try again after the next deployment.";
+    return t("errorNotFound");
   }
   if (job.error === "fetch_failed") {
-    return "Connection failed. Check your internet connection and try again.";
+    return t("errorConnection");
   }
   if (job.error === "timeout" || job.error === "AbortError" || job.error === "TimeoutError") {
-    return ANALYSIS_TIMEOUT_MESSAGE;
+    return ANALYSIS_TIMEOUT_MESSAGE();
   }
-  return "Something went wrong. Please try another image.";
+  return t("errorGeneric");
 }
 
 // ── Panel helpers ──
@@ -776,7 +882,7 @@ function showDraft(dataUrl, styleUsed, opts = {}) {
   currentDataUrl = dataUrl;
   currentStyle = isValidStyle(styleUsed) ? styleUsed : "photoreal";
   setSelectedStyle(currentStyle);
-  if (draftHint) draftHint.textContent = opts.hint || DRAFT_HINT_DEFAULT;
+  if (draftHint) draftHint.textContent = opts.hint || DRAFT_HINT_DEFAULT();
   draftPreview.src = dataUrl;
   showPanel("draft");
 
@@ -920,7 +1026,7 @@ function renderQuota(quota) {
   const { remaining } = quota;
   const low = remaining <= 3;
   topbarQuota.className = "topbar-quota" + (low ? " quota-low" : "");
-  topbarQuota.textContent = `${remaining} left`;
+  topbarQuota.textContent = tQuotaRemaining(remaining);
   topbarQuota.hidden = false;
 }
 
@@ -982,19 +1088,19 @@ function renderHistoryList(entries) {
           ? entry.image.imageUrl
           : "";
 
-    const styleLabel = STYLE_LABELS[entry.style] || entry.style || "";
+    const styleLabelText = styleLabel(entry.style) || entry.style || "";
     const timeStr = formatRelativeTime(entry.createdAt);
 
     card.innerHTML = `
       ${imgSrc ? `<img class="history-card-thumb" src="${imgSrc}" alt="" loading="lazy" />` : ""}
       <div class="history-card-body">
         <div class="history-card-meta">
-          ${styleLabel ? `<span class="history-card-style">${styleLabel}</span>` : ""}
+          ${styleLabelText ? `<span class="history-card-style">${styleLabelText}</span>` : ""}
           ${timeStr ? `<span class="history-card-time">${timeStr}</span>` : ""}
         </div>
         <p class="history-card-prompt">${escapeHtml(entry.prompt)}</p>
         <div class="history-card-actions">
-          <button type="button" class="history-card-copy">Copy</button>
+          <button type="button" class="history-card-copy">${t("historyCopy")}</button>
         </div>
       </div>
     `;
@@ -1003,8 +1109,8 @@ function renderHistoryList(entries) {
     copyBtn?.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(entry.prompt);
-        copyBtn.textContent = "Copied!";
-        setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
+        copyBtn.textContent = t("copiedExclaim");
+        setTimeout(() => { copyBtn.textContent = t("historyCopy"); }, 1500);
       } catch { /* noop */ }
     });
 
@@ -1024,11 +1130,11 @@ function formatRelativeTime(isoString) {
   const diff = Date.now() - date.getTime();
   if (diff < 0) return "";
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t("timeJustNow");
+  if (mins < 60) return tMinutesAgo(mins);
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return tHoursAgo(hours);
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return tDaysAgo(days);
   return date.toLocaleDateString();
 }

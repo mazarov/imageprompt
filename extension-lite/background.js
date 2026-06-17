@@ -1,4 +1,5 @@
 import { resizeImageToDataUrl } from "./lib/image-utils.js";
+import { initI18n, reloadI18n, t, UI_LANG_STORAGE_KEY } from "./lib/i18n.js";
 
 const PENDING_IMAGE_KEY = "pending_image";
 const CONTEXT_MENU_ID = "analyze-image";
@@ -68,17 +69,30 @@ function createJobId() {
 }
 
 // Register context menus once on install / service worker startup.
+function registerContextMenus() {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_ID,
+      title: t("ctxGetPrompt"),
+      contexts: ["image"],
+    });
+    chrome.contextMenus.create({
+      id: CONTEXT_OPEN_SITE,
+      title: t("ctxOpenSite"),
+      contexts: ["image"],
+    });
+  });
+}
+
+void initI18n().then(() => registerContextMenus());
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !changes[UI_LANG_STORAGE_KEY]) return;
+  void reloadI18n().then(() => registerContextMenus());
+});
+
 chrome.runtime.onInstalled.addListener((details) => {
-  chrome.contextMenus.create({
-    id: CONTEXT_MENU_ID,
-    title: "Get prompt for similar image",
-    contexts: ["image"],
-  });
-  chrome.contextMenus.create({
-    id: CONTEXT_OPEN_SITE,
-    title: "Open imageprompt.tools with this image",
-    contexts: ["image"],
-  });
+  void reloadI18n().then(() => registerContextMenus());
 
   if (details.reason === chrome.runtime.OnInstalledReason.INSTALL) {
     const welcomeUrl = new URL("/welcome", SITE_URL).href;

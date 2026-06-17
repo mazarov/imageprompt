@@ -7,5 +7,284 @@
   },
   "storeDesc": {
     "message": "🖼️ AI opisivač slika je Chrome ekstenzija koja pretvara svaku sliku u čistu tekstualnu opis i spreman prompt za kreativni rad u sekundi. To je brzi opisivač slika koji živi direktno u vašem pretraživaču, tako da možete opisati sliku unutar svog normalnog radnog toka bez otvaranja nove kartice, prijavljivanja ili lepljenja linkova u deset različitih alata. \nAko ste ikada buljili u sliku i niste mogli pronaći reči, AI opisivač slika obavlja posao umesto vas. Ubacite sliku, a alat vraća oštar prompt za ovu scenu koji se direktno lepi u Nano Banana, Midjourney, DALL·E, Stable Diffusion ili bilo koji model generisanja slika. \nEkstenzija je napravljena za ljude koji se svakodnevno bave vizuelnim sadržajem i kojima je potreban smiren, fokusiran radni tok za pretvaranje vizuala u slike za prompt. AI opisivač slika tiho sedi u vašoj alatnoj traci dok vam ne zatreba. \n✨ Šta dobijate sa AI opisivačem slika: uštedite vreme — opišite sliku u tekst jednim klikom i kopirajte spreman prompt za generisanje slične slike u bilo kom AI modelu. \n🔧 Ključne karakteristike \n 📍 Kopirajte konačni prompt jednim dodirom. \n ⚡ Čuva istoriju svakog pokretanja slike za prompt, tako da ništa ne bude izgubljeno. \n ✅ Radi sa bilo kojom fotografijom — bez potrebnog prebacivanja formata. \n🧩 Prirodno se uklapa u kreativne radne tokove \nMnogi ljudi koriste AI opisivač slika dok prikupljaju inspiraciju, reference, snimke ekrana, rasporede, konceptualne ideje, ilustracije i vizuelne materijale za budući rad. Umesto da se zaustavljaju da ručno objašnjavaju svaki detalj, mogu odmah generisati strukturirani tekst prompta i nastaviti sa radom bez prekidanja svog toka. \nEkstenzija prirodno funkcioniše tokom sesija pretraživanja i pomaže u organizaciji vizuelnih referenci u ponovo upotrebljive formate prompta za AI alate. Bilo da istražujete stilove, prikupljate moodboarde, upoređujete kompozicije, čuvate ideje za kasnije ili eksperimentišete sa različitim kreativnim pravcima, radni tok ostaje jednostavan i brz direktno unutar Chrome-a. \n🧑‍💻 Ko koristi AI opisivač slika svakodnevno \n ▸ Dizajneri koji traže oštriji prompt za ovu sliku koju su sačuvali. \n ▸ Marketinški stručnjaci koji pišu natpise, alt tekst i reklamne kopije u velikim količinama. \n ▸ Bilo ko ko želi da nauči kako brzo opisati slike bez pisanja od nule. \n🎨 Korisno za mnoge tipove vizuelnog sadržaja \nAI opisivač slika može pomoći sa fotografijom, digitalnom umetnošću, ilustracijama, grafikom za blog. Mnogi korisnici se takođe oslanjaju na njega dok pripremaju reference za Midjourney, Stable Diffusion, DALL·E, Nano Banana i slične radne tokove generisanja slika. \nPošto ekstenzija ostaje unutar pretraživača, nema potrebe da se prebacujete između kartica, učitavate datoteke u više servisa ili ponovo kopirate linkove između alata. Sve se dešava u laganom iskačućem prozoru dizajniranom da zadrži vaš radni tok fokusiranim i neprekidnim. \nAko ste se ikada pitali kako pravilno promptovati generatore slika, AI opisivač slika je vaša prečica. AI motor govori jezik vizuelnih modela, tako da nikada ne morate da pogađate reč po reč. \n🚀 Kako to funkcioniše \nPrikvačite AI opisivač slika na vašu alatnu traku Chrome-a. \nKliknite na ikonu i učitajte ili nalepite sliku da biste opisali ovu fotografiju. \nIli desnim klikom na bilo koju fotografiju na bilo kojoj veb stranici pokrenite analizu direktno iz kontekstualnog menija. \nKopirajte tekst prompta. \nUsavršite, remiksujte i ponovo koristite. \n⚙️ Napravljen za brzinu i jednostavnost \nEkstenzija je dizajnirana da ostane lagana, responzivna i jednostavna za korišćenje tokom dugih sesija pretraživanja. Rezultati se brzo pojavljuju, interfejs ostaje čist, a radni tok ostaje jednostavan od početka do kraja. Nema komplikovanih procesa uvođenja, nema kontrolnih tabli za upravljanje i nema nepotrebnog podešavanja pre generisanja prompta. Instalirajte ekstenziju, prikvačite je za Chrome i odmah počnite da radite sa vizuelnim sadržajem. \n🎯 Zašto korisnici biraju AI opisivač slika \n1️⃣ Zaista jedan klik do rezultata. \n2️⃣ Snažan izlaz za generator tekstualnih prompta za Nano Banana, Midjourney, DALL·E, Stable Diffusion ili bilo koji model generisanja slika. \n3️⃣ Desnim klikom na bilo koju fotografiju na bilo kojoj stranici za opisivanje slike. \n4️⃣️ Besplatno za instalaciju i lako za uklanjanje. \n🔒 Privatnost i performanse \nIskačući prozor opisivača slika je lagan, odgovori su brzi, a slike se nikada ne čuvaju nakon obrade. Pipeline je napravljen za svakodnevnu upotrebu, a ne za nadzor, tako da opisivanje slike ostaje privatni zadatak — bez praćenja piksela, bez senčnih baza podataka. Ekstenzija se fokusira na brze lokalne radne tokove i jednostavnu svakodnevnu upotrebu. Otvorite iskačući prozor, generišite prompt, kopirajte rezultat i nastavite svoj rad bez ometanja ili nepotrebnih koraka. \n❓ Često postavljana pitanja \nP: Šta AI opisivač slika zapravo radi kada ga zamolite da opiše ovu sliku? \nO: Čita vizuelni sadržaj i vraća čist opis za prompt koji možete kopirati i ponovo koristiti. \nP: Šta treba da uradim ako je moj zahtev tačno da napravim opis o ovoj slici za deo generisan AI-jem? \nO: Nalepite ili učitajte svoju sliku. Usluga će pročitati sliku i vratiti sažet, objektivan vizuelni opis koji možete direktno ubaciti u prompt modela slike (subjekti, raspored, osvetljenje, stil). \nP: Mogu li ga koristiti kao pisanje prompta za Midjourney ili DALL·E? \nO: Da. Radi kao AI opisivač slika za bilo koji popularni model, a način opisivanja slika AI obrađuje slike za prompt jednu po jednu. \nP: Da li čuva moje promtove negde? \nO: Da. Ekstenzija čuva lokalnu istoriju vaših rezultata opisivanja, tako da možete ponovo posetiti prompt u bilo kojem trenutku. Istorija se čuva u vašem pretraživaču, a ne u nečijem drugom oblaku. \nP: Da li radi sa bilo kojom slikom? \nO: Podržava uobičajene formate kao što su PNG, JPG i WebP. \nP: Mogu li ga koristiti za reference i snimke ekrana? \nO: Da. Mnogi korisnici se oslanjaju na AI opisivač slika dok rade sa snimcima ekrana, sačuvanim referencama, inspiracionim tablama, rasporedima, vizuelnim istraživanjem i kolekcijama kreativnih materijala sa interneta. \nP: Da li mi je potreban nalog? \nO: Nije potreban nalog. Instalirajte ekstenziju, kliknite na ikonu i odmah počnite — bez e-pošte, bez kartice, bez čekanja pre nego što dobijete rezultate."
+  },
+  "brandWordmark": {
+    "message": "AI Image Describer"
+  },
+  "signIn": {
+    "message": "Пријава"
+  },
+  "signOut": {
+    "message": "Одјава"
+  },
+  "tabAnalyze": {
+    "message": "Анализа"
+  },
+  "tabHistory": {
+    "message": "Историја"
+  },
+  "navMainAria": {
+    "message": "Главна навигација"
+  },
+  "devSectionTitle": {
+    "message": "Програмер"
+  },
+  "devRefresh": {
+    "message": "Освежи"
+  },
+  "devDismissAria": {
+    "message": "Сакриј подешавања за програмере"
+  },
+  "devSectionHint": {
+    "message": "Ограничење ip_hash — исти прорачун као POST /api/extension/analyze."
+  },
+  "devCopy": {
+    "message": "Копирај"
+  },
+  "devLoading": {
+    "message": "Учитавање…"
+  },
+  "devFetchError": {
+    "message": "Није могуће преузети ip_hash. Проверите везу или покушајте Освежи."
+  },
+  "dropzoneAria": {
+    "message": "Превуците слику овде, изаберите датотеку или налепите из клипборда"
+  },
+  "emptyTitle": {
+    "message": "Превуците слику или налепите из клипборда"
+  },
+  "emptyHint": {
+    "message": "JPG, PNG или WebP, до 10 MB"
+  },
+  "chooseFile": {
+    "message": "Изабери датотеку"
+  },
+  "chooseFileAria": {
+    "message": "Изабери датотеку слике"
+  },
+  "styleLabel": {
+    "message": "Предложак стила"
+  },
+  "stylePhotoreal": {
+    "message": "Фотореалистично"
+  },
+  "styleMidjourney": {
+    "message": "Midjourney"
+  },
+  "styleSd": {
+    "message": "Stable Diffusion"
+  },
+  "styleFlux": {
+    "message": "Flux"
+  },
+  "pasteHint": {
+    "message": "Налепите слику са ⌘V / Ctrl+V или превуците датотеку."
+  },
+  "draftHint": {
+    "message": "Последња додата слика је спремна."
+  },
+  "draftHintStale": {
+    "message": "Анализа је трајала предуго. Покушајте поново."
+  },
+  "analyzeImage": {
+    "message": "Анализирај слику"
+  },
+  "chooseAnother": {
+    "message": "Изабери другу слику"
+  },
+  "analyzing": {
+    "message": "Анализирање слике…"
+  },
+  "tryAgain": {
+    "message": "Покушај другу слику"
+  },
+  "copyShort": {
+    "message": "Копирај"
+  },
+  "another": {
+    "message": "Друга"
+  },
+  "promptActionsAria": {
+    "message": "Радње са промптом"
+  },
+  "resultTitle": {
+    "message": "Промпт"
+  },
+  "limitTitle": {
+    "message": "Дневни лимит је достигнут"
+  },
+  "limitDescription": {
+    "message": "Искористили сте данашње бесплатне анализе. Лимити се ресетују сваких 24 сата да алат остане брз за све."
+  },
+  "limitResetLine": {
+    "message": "Моћи ћете поново да анализирате за око 24 сата."
+  },
+  "limitViewPlans": {
+    "message": "Погледај планове"
+  },
+  "limitGotIt": {
+    "message": "Разумем"
+  },
+  "historyEmpty": {
+    "message": "Још нема анализа."
+  },
+  "historyCopy": {
+    "message": "Копирај"
+  },
+  "rateUs": {
+    "message": "Оцените нас:"
+  },
+  "copiedToClipboard": {
+    "message": "Копирано у клипборд"
+  },
+  "copied": {
+    "message": "Копирано"
+  },
+  "copiedExclaim": {
+    "message": "Копирано!"
+  },
+  "authSignInFail": {
+    "message": "Није могуће отворити Google пријаву. Покушајте поново."
+  },
+  "authSignOutFail": {
+    "message": "Одјава није успела. Покушајте поново."
+  },
+  "noticeFetchFailed": {
+    "message": "Слика није могла аутоматски да се преузме. Отпремите датотеку."
+  },
+  "errorTimeout": {
+    "message": "Анализа је трајала предуго. Покушајте другу слику."
+  },
+  "errorInvalidType": {
+    "message": "Изаберите JPG, PNG или WebP слику до 10 MB."
+  },
+  "errorReadFailed": {
+    "message": "Нешто није у реду при читању датотеке. Покушајте другу слику."
+  },
+  "errorTooLarge": {
+    "message": "Слика премашује лимит од 10 MB. Покушајте мању датотеку."
+  },
+  "errorNoFile": {
+    "message": "Прегледач није прихватио датотеку. Покушајте превлачење и испуштање."
+  },
+  "errorRateLimited": {
+    "message": "Дневни лимит је достигнут. Покушајте поново за 24 сата."
+  },
+  "errorNotFound": {
+    "message": "Услуга још није доступна. Покушајте после следећег постављања."
+  },
+  "errorConnection": {
+    "message": "Веза није успела. Проверите интернет и покушајте поново."
+  },
+  "errorGeneric": {
+    "message": "Нешто није у реду. Покушајте другу слику."
+  },
+  "errorStartAnalysis": {
+    "message": "Није могуће покренути анализу. Покушајте поново."
+  },
+  "errorOpenSite": {
+    "message": "Није могуће отворити imageprompt.tools."
+  },
+  "errorOpenSiteTab": {
+    "message": "Није могуће отворити картицу сајта."
+  },
+  "quotaRemaining": {
+    "message": "Преостало $COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "timeJustNow": {
+    "message": "управо сада"
+  },
+  "timeMinutesAgo": {
+    "message": "пре $COUNT$ мин",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "timeHoursAgo": {
+    "message": "пре $COUNT$ ч",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "timeDaysAgo": {
+    "message": "пре $COUNT$ д",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "ctxGetPrompt": {
+    "message": "Добиј промпт за сличну слику"
+  },
+  "ctxOpenSite": {
+    "message": "Отвори imageprompt.tools са овом сликом"
+  },
+  "fabAriaLabel": {
+    "message": "Анализирај слику са AI Image Describer"
+  },
+  "modalAria": {
+    "message": "Анализирај слику"
+  },
+  "modalClose": {
+    "message": "Затвори"
+  },
+  "authGuest": {
+    "message": "Гостински режим"
+  },
+  "authSignedIn": {
+    "message": "Пријављен преко Google"
+  },
+  "authHint": {
+    "message": "Пријавите се да бисте имали један дневни бесплатни лимит на сајту и у екстензији."
+  },
+  "authSignedInHint": {
+    "message": "Ваш дневни бесплатни лимит је заједнички за сајт и екстензију."
+  },
+  "authSignIn": {
+    "message": "Настави са Google"
+  },
+  "readingImage": {
+    "message": "Читање слике…"
+  },
+  "analyzeBtn": {
+    "message": "Анализирај"
+  },
+  "retryAnalyze": {
+    "message": "Покушај поново"
+  },
+  "copyPrompt": {
+    "message": "Копирај промпт"
+  },
+  "limitMetaOverlay": {
+    "message": "Покушајте поново за око 24 сата."
+  },
+  "closeBtn": {
+    "message": "Затвори"
+  },
+  "errorGenericOverlay": {
+    "message": "Нешто није у реду. Покушајте поново."
+  },
+  "errorNotFoundShort": {
+    "message": "Услуга још није доступна."
+  },
+  "errorConnectionShort": {
+    "message": "Веза није успела."
+  },
+  "errorContextInvalidated": {
+    "message": "Екстензија је ажурирана. Освежите ову страницу (F5) и покушајте поново."
   }
 }

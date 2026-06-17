@@ -7,5 +7,284 @@
   },
   "storeDesc": {
     "message": "🖼️ AI 图像描述器是一个 Chrome 扩展，可以在几秒钟内将任何图片转换为干净的文本描述和可用于创作工作的提示。它是一个快速的图像描述工具，直接在您的浏览器中运行，因此您可以在正常的浏览器工作流程中描述图像，而无需打开另一个标签页、注册或将链接粘贴到十个不同的工具中。\n\n如果您曾经盯着一张图片却找不到合适的词，AI 图像描述器会为您完成这项工作。上传一张图片，工具会返回一个清晰的提示，您可以直接粘贴到 Nano Banana、Midjourney、DALL·E、Stable Diffusion 或任何图像生成模型中。\n\n该扩展是为每天处理视觉内容的人设计的，旨在提供一个平静、专注的工作流程，将视觉内容转化为图像提示。图像描述器 AI 安静地坐在您的工具栏中，直到您需要它。\n\n✨ 使用 AI 图像描述器您可以获得：节省时间——一键将图像描述为文本，并复制一个准备好的提示，以在任何 AI 模型中生成类似的图片。\n\n🔧 主要功能\n 📍 一键复制最终提示。\n ⚡ 保存每个图像到提示运行的历史记录，因此没有任何内容会丢失。\n ✅ 适用于任何照片——无需格式转换。\n\n🧩 自然融入创意工作流程\n许多人在收集灵感、参考资料、截图、布局、概念创意、插图和未来工作的视觉材料时使用 AI 图像描述器。与其停下来手动解释每个细节，他们可以立即生成结构化的提示文本，并继续工作而不打断他们的流程。\n\n该扩展在浏览会话中自然工作，并帮助将视觉参考组织成可重用的提示格式，以供 AI 工具使用。无论您是在研究风格、收集情绪板、比较构图、保存想法以备后用，还是尝试不同的创意方向，工作流程都保持简单快速，直接在 Chrome 中进行。\n\n🧑‍💻 每天使用图像描述器 AI 的人\n ▸ 寻找更清晰提示的设计师。\n ▸ 大规模撰写标题、替代文本和广告文案的营销人员。\n ▸ 任何想快速学习如何描述图像 AI 而不从头开始写作的人。\n\n🎨 适用于多种类型的视觉内容\nAI 图像描述器可以帮助处理摄影、数字艺术、插图、博客图形。许多用户在为 Midjourney、Stable Diffusion、DALL·E、Nano Banana 和类似的图像生成工作流程准备参考资料时也依赖于它。\n\n由于该扩展保持在浏览器内，因此无需在标签之间跳转、将文件上传到多个服务或在工具之间反复复制链接。所有操作都在一个轻量级的弹出窗口中进行，旨在保持您的工作流程专注且不中断。\n\n如果您曾经想知道如何正确提示图像生成器，AI 图像描述器是您的捷径。AI 引擎使用视觉模型的语言，因此您无需逐字猜测。\n\n🚀 工作原理\n将 AI 图像描述器固定到您的 Chrome 工具栏。\n点击图标并上传或粘贴一张图片以描述这张照片。\n或者右键单击任何网站上的照片，直接从上下文菜单运行分析。\n复制提示文本。\n精炼、重混和重用。\n\n⚙️ 为速度和简便而构建\n该扩展旨在保持轻量、响应迅速，并在长时间浏览会话中易于使用。结果快速出现，界面保持简洁，工作流程从头到尾保持简单。没有复杂的入门流程，没有需要管理的仪表板，也没有在生成提示之前的多余设置。安装扩展，将其固定到 Chrome，并立即开始处理视觉内容。\n\n🎯 用户选择 AI 图像描述器的原因\n1️⃣ 真正一键即可获得结果。\n2️⃣ 强大的输出文本提示生成器，适用于 Nano Banana、Midjourney、DALL·E、Stable Diffusion 或任何图像生成模型。\n3️⃣ 右键单击任何网站上的照片以描述图片。\n4️⃣️ 免费安装，易于删除。\n\n🔒 隐私和性能\n图像描述器弹出窗口轻量，响应快速，处理后图片不会被存储。该管道是为日常使用而构建的，而不是监控，因此描述图像仍然是一个私密的任务——没有跟踪像素，没有影子数据库。该扩展专注于快速本地工作流程和简单的日常可用性。打开弹出窗口，生成提示，复制结果，继续工作而不受干扰或不必要的步骤。\n\n❓ 常见问题\n问：当您要求 AI 图像描述器描述这张图片时，它实际上做了什么？\n答：它读取视觉内容并返回一个干净的描述，您可以复制和重用的提示。\n\n问：如果我的请求是关于这张图片的描述，应该怎么做？\n答：粘贴或上传您的图像。该服务将读取图片并返回一个简洁、客观的视觉描述，您可以直接放入图像模型提示中（主题、布局、光照、风格提示）。\n\n问：我可以将其用作 Midjourney 或 DALL·E 的图片提示写作工具吗？\n答：可以。它作为任何流行模型的 AI 照片描述器工作，描述此图像的 AI 模式一次处理一张图片。\n\n问：它会在某处保存我的提示吗？\n答：会。该扩展保留您描述结果的本地历史记录，因此您可以随时重新访问该提示。历史记录保存在您的浏览器中，而不是在其他人的云中。\n\n问：它适用于任何图片吗？\n答：支持常见格式，如 PNG、JPG 和 WebP。\n\n问：我可以用它来处理参考资料和截图吗？\n答：可以。许多用户在处理截图、保存的参考资料、灵感板、布局、视觉研究和来自网络的创意材料集合时依赖于 AI 图像描述器。\n\n问：我需要账户吗？\n答：不需要账户。安装扩展，点击图标，立即开始——无需电子邮件、信用卡，也无需等待即可获得结果。"
+  },
+  "brandWordmark": {
+    "message": "AI Image Describer"
+  },
+  "signIn": {
+    "message": "登录"
+  },
+  "signOut": {
+    "message": "退出登录"
+  },
+  "tabAnalyze": {
+    "message": "分析"
+  },
+  "tabHistory": {
+    "message": "历史"
+  },
+  "navMainAria": {
+    "message": "主导航"
+  },
+  "devSectionTitle": {
+    "message": "开发者"
+  },
+  "devRefresh": {
+    "message": "刷新"
+  },
+  "devDismissAria": {
+    "message": "隐藏开发者设置"
+  },
+  "devSectionHint": {
+    "message": "Rate-limit ip_hash — 与 POST /api/extension/analyze 相同的计算方式。"
+  },
+  "devCopy": {
+    "message": "复制"
+  },
+  "devLoading": {
+    "message": "加载中…"
+  },
+  "devFetchError": {
+    "message": "无法获取 ip_hash。请检查网络连接或点击刷新。"
+  },
+  "dropzoneAria": {
+    "message": "将图片拖放到此处、选择文件或从剪贴板粘贴"
+  },
+  "emptyTitle": {
+    "message": "拖放图片或从剪贴板粘贴"
+  },
+  "emptyHint": {
+    "message": "JPG、PNG 或 WebP，最大 10 MB"
+  },
+  "chooseFile": {
+    "message": "选择文件"
+  },
+  "chooseFileAria": {
+    "message": "选择图片文件"
+  },
+  "styleLabel": {
+    "message": "风格预设"
+  },
+  "stylePhotoreal": {
+    "message": "照片写实"
+  },
+  "styleMidjourney": {
+    "message": "Midjourney"
+  },
+  "styleSd": {
+    "message": "Stable Diffusion"
+  },
+  "styleFlux": {
+    "message": "Flux"
+  },
+  "pasteHint": {
+    "message": "使用 ⌘V / Ctrl+V 粘贴图片，或拖放文件。"
+  },
+  "draftHint": {
+    "message": "最近添加的图片已就绪。"
+  },
+  "draftHintStale": {
+    "message": "分析耗时过长。请重试。"
+  },
+  "analyzeImage": {
+    "message": "分析图片"
+  },
+  "chooseAnother": {
+    "message": "选择其他图片"
+  },
+  "analyzing": {
+    "message": "正在分析图片…"
+  },
+  "tryAgain": {
+    "message": "换一张图片"
+  },
+  "copyShort": {
+    "message": "复制"
+  },
+  "another": {
+    "message": "换一张"
+  },
+  "promptActionsAria": {
+    "message": "提示词操作"
+  },
+  "resultTitle": {
+    "message": "提示词"
+  },
+  "limitTitle": {
+    "message": "已达每日限额"
+  },
+  "limitDescription": {
+    "message": "您已用完今天的免费分析次数。限额每 24 小时重置，以确保工具对所有用户保持快速。"
+  },
+  "limitResetLine": {
+    "message": "大约 24 小时后可再次分析。"
+  },
+  "limitViewPlans": {
+    "message": "查看套餐"
+  },
+  "limitGotIt": {
+    "message": "知道了"
+  },
+  "historyEmpty": {
+    "message": "暂无分析记录。"
+  },
+  "historyCopy": {
+    "message": "复制"
+  },
+  "rateUs": {
+    "message": "为我们评分："
+  },
+  "copiedToClipboard": {
+    "message": "已复制到剪贴板"
+  },
+  "copied": {
+    "message": "已复制"
+  },
+  "copiedExclaim": {
+    "message": "已复制！"
+  },
+  "authSignInFail": {
+    "message": "无法打开 Google 登录。请重试。"
+  },
+  "authSignOutFail": {
+    "message": "无法退出登录。请重试。"
+  },
+  "noticeFetchFailed": {
+    "message": "无法自动获取图片。请改为上传文件。"
+  },
+  "errorTimeout": {
+    "message": "分析耗时过长。请换一张图片。"
+  },
+  "errorInvalidType": {
+    "message": "请选择不超过 10 MB 的 JPG、PNG 或 WebP 图片。"
+  },
+  "errorReadFailed": {
+    "message": "读取文件时出错。请换一张图片。"
+  },
+  "errorTooLarge": {
+    "message": "图片超过 10 MB 限制。请尝试更小的文件。"
+  },
+  "errorNoFile": {
+    "message": "浏览器未接受该文件。请尝试拖放。"
+  },
+  "errorRateLimited": {
+    "message": "已达每日限额。请 24 小时后再试。"
+  },
+  "errorNotFound": {
+    "message": "服务暂不可用。请在下次部署后重试。"
+  },
+  "errorConnection": {
+    "message": "连接失败。请检查网络连接后重试。"
+  },
+  "errorGeneric": {
+    "message": "出了点问题。请换一张图片。"
+  },
+  "errorStartAnalysis": {
+    "message": "无法开始分析。请重试。"
+  },
+  "errorOpenSite": {
+    "message": "无法打开 imageprompt.tools。"
+  },
+  "errorOpenSiteTab": {
+    "message": "无法打开网站标签页。"
+  },
+  "quotaRemaining": {
+    "message": "剩余 $COUNT$ 次",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "timeJustNow": {
+    "message": "刚刚"
+  },
+  "timeMinutesAgo": {
+    "message": "$COUNT$ 分钟前",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "timeHoursAgo": {
+    "message": "$COUNT$ 小时前",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "timeDaysAgo": {
+    "message": "$COUNT$ 天前",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "ctxGetPrompt": {
+    "message": "获取相似图片的提示词"
+  },
+  "ctxOpenSite": {
+    "message": "用此图片打开 imageprompt.tools"
+  },
+  "fabAriaLabel": {
+    "message": "使用 AI Image Describer 分析图片"
+  },
+  "modalAria": {
+    "message": "分析图片"
+  },
+  "modalClose": {
+    "message": "关闭"
+  },
+  "authGuest": {
+    "message": "访客模式"
+  },
+  "authSignedIn": {
+    "message": "已通过 Google 登录"
+  },
+  "authHint": {
+    "message": "登录后，网站与扩展共享同一每日免费限额。"
+  },
+  "authSignedInHint": {
+    "message": "您的每日免费限额在网站与扩展之间共享。"
+  },
+  "authSignIn": {
+    "message": "使用 Google 继续"
+  },
+  "readingImage": {
+    "message": "正在读取图片…"
+  },
+  "analyzeBtn": {
+    "message": "分析"
+  },
+  "retryAnalyze": {
+    "message": "重试"
+  },
+  "copyPrompt": {
+    "message": "复制提示词"
+  },
+  "limitMetaOverlay": {
+    "message": "大约 24 小时后可重试。"
+  },
+  "closeBtn": {
+    "message": "关闭"
+  },
+  "errorGenericOverlay": {
+    "message": "出了点问题。请重试。"
+  },
+  "errorNotFoundShort": {
+    "message": "服务暂不可用。"
+  },
+  "errorConnectionShort": {
+    "message": "连接失败。"
+  },
+  "errorContextInvalidated": {
+    "message": "扩展已更新。请刷新此页面 (F5) 后重试。"
   }
 }

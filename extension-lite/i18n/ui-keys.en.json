@@ -1,0 +1,151 @@
+{
+  "brandWordmark": { "message": "AI Image Describer" },
+  "signIn": { "message": "Sign in" },
+  "signOut": { "message": "Sign out" },
+  "tabAnalyze": { "message": "Analyze" },
+  "tabHistory": { "message": "History" },
+  "navMainAria": { "message": "Main navigation" },
+  "devSectionTitle": { "message": "Developer" },
+  "devRefresh": { "message": "Refresh" },
+  "devDismissAria": { "message": "Hide developer settings" },
+  "devSectionHint": {
+    "message": "Rate-limit ip_hash — same computation as POST /api/extension/analyze."
+  },
+  "devCopy": { "message": "Copy" },
+  "devLoading": { "message": "Loading…" },
+  "devFetchError": {
+    "message": "Could not fetch ip_hash. Check connection or try Refresh."
+  },
+  "dropzoneAria": {
+    "message": "Drop an image here, choose file, or paste from clipboard"
+  },
+  "emptyTitle": { "message": "Drop an image or paste from clipboard" },
+  "emptyHint": { "message": "JPG, PNG, or WebP, up to 10 MB" },
+  "chooseFile": { "message": "Choose file" },
+  "chooseFileAria": { "message": "Choose image file" },
+  "styleLabel": { "message": "Style preset" },
+  "stylePhotoreal": { "message": "Photo-real" },
+  "styleMidjourney": { "message": "Midjourney" },
+  "styleSd": { "message": "Stable Diffusion" },
+  "styleFlux": { "message": "Flux" },
+  "pasteHint": { "message": "Paste a picture with ⌘V / Ctrl+V, or drop a file." },
+  "draftHint": { "message": "Last added image is ready." },
+  "draftHintStale": { "message": "Analysis took too long. Try again." },
+  "analyzeImage": { "message": "Analyze image" },
+  "chooseAnother": { "message": "Choose another image" },
+  "analyzing": { "message": "Analyzing image…" },
+  "tryAgain": { "message": "Try another image" },
+  "copyShort": { "message": "Copy" },
+  "another": { "message": "Another" },
+  "promptActionsAria": { "message": "Prompt actions" },
+  "resultTitle": { "message": "Prompt" },
+  "limitTitle": { "message": "Daily limit reached" },
+  "limitDescription": {
+    "message": "You've used today's free analyses. Limits reset every 24 hours so the tool stays fast for everyone."
+  },
+  "limitResetLine": {
+    "message": "You'll be able to analyze again in about 24 hours."
+  },
+  "limitViewPlans": { "message": "View plans" },
+  "limitGotIt": { "message": "Got it" },
+  "historyEmpty": { "message": "No analyses yet." },
+  "historyCopy": { "message": "Copy" },
+  "rateUs": { "message": "Rate us:" },
+  "copiedToClipboard": { "message": "Copied to clipboard" },
+  "copied": { "message": "Copied" },
+  "copiedExclaim": { "message": "Copied!" },
+  "authSignInFail": {
+    "message": "Could not open Google sign-in. Please try again."
+  },
+  "authSignOutFail": { "message": "Could not sign out. Please try again." },
+  "noticeFetchFailed": {
+    "message": "Couldn't grab the image automatically. Upload a file instead."
+  },
+  "errorTimeout": {
+    "message": "Analysis took too long. Please try another image."
+  },
+  "errorInvalidType": {
+    "message": "Please choose a JPG, PNG, or WebP image up to 10 MB."
+  },
+  "errorReadFailed": {
+    "message": "Something went wrong reading the file. Please try another image."
+  },
+  "errorTooLarge": {
+    "message": "Image exceeds 10 MB limit. Please try a smaller file."
+  },
+  "errorNoFile": {
+    "message": "Browser did not accept the file. Try drag-and-drop instead."
+  },
+  "errorRateLimited": {
+    "message": "Daily limit reached. Try again in 24 hours."
+  },
+  "errorNotFound": {
+    "message": "Service not available yet. Try again after the next deployment."
+  },
+  "errorConnection": {
+    "message": "Connection failed. Check your internet connection and try again."
+  },
+  "errorGeneric": {
+    "message": "Something went wrong. Please try another image."
+  },
+  "errorStartAnalysis": {
+    "message": "Could not start analysis. Please try again."
+  },
+  "errorOpenSite": { "message": "Could not open imageprompt.tools." },
+  "errorOpenSiteTab": { "message": "Could not open the site tab." },
+  "quotaRemaining": {
+    "message": "$COUNT$ left",
+    "placeholders": {
+      "count": { "content": "$1", "example": "3" }
+    }
+  },
+  "timeJustNow": { "message": "just now" },
+  "timeMinutesAgo": {
+    "message": "$COUNT$m ago",
+    "placeholders": {
+      "count": { "content": "$1", "example": "5" }
+    }
+  },
+  "timeHoursAgo": {
+    "message": "$COUNT$h ago",
+    "placeholders": {
+      "count": { "content": "$1", "example": "2" }
+    }
+  },
+  "timeDaysAgo": {
+    "message": "$COUNT$d ago",
+    "placeholders": {
+      "count": { "content": "$1", "example": "3" }
+    }
+  },
+  "ctxGetPrompt": { "message": "Get prompt for similar image" },
+  "ctxOpenSite": { "message": "Open imageprompt.tools with this image" },
+  "fabAriaLabel": {
+    "message": "Analyze image with AI Image Describer"
+  },
+  "modalAria": { "message": "Analyze image" },
+  "modalClose": { "message": "Close" },
+  "authGuest": { "message": "Guest mode" },
+  "authSignedIn": { "message": "Signed in with Google" },
+  "authHint": {
+    "message": "Sign in to keep one daily free limit across the site and extension."
+  },
+  "authSignedInHint": {
+    "message": "Your daily free limit is shared across the site and extension."
+  },
+  "authSignIn": { "message": "Continue with Google" },
+  "readingImage": { "message": "Reading image…" },
+  "analyzeBtn": { "message": "Analyze" },
+  "retryAnalyze": { "message": "Try again" },
+  "copyPrompt": { "message": "Copy prompt" },
+  "limitMetaOverlay": { "message": "Try again in about 24 hours." },
+  "closeBtn": { "message": "Close" },
+  "errorGenericOverlay": { "message": "Something went wrong. Try again." },
+  "errorNotFoundShort": { "message": "Service not available yet." },
+  "errorConnectionShort": { "message": "Connection failed." },
+  "errorContextInvalidated": {
+    "message": "Extension updated. Refresh this page (F5) and try again."
+  },
+  "uiLangLabel": { "message": "Interface language" },
+  "uiLangAuto": { "message": "Auto (browser)" }
+}
