@@ -29,7 +29,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       {
         error: "analytics_fetch_failed",
         message:
-          "Could not load analytics views. Apply SQL migrations 14-01..14-03 in Supabase first.",
+          "Could not load analytics views. Apply SQL migrations 14-01..14-05 in Supabase first.",
       },
       { status: 500 },
     );

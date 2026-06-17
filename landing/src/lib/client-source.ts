@@ -10,27 +10,69 @@ export const CLIENT_SOURCES = [
 ] as const;
 export type ClientSource = (typeof CLIENT_SOURCES)[number];
 
+export type ResolveClientSourceOptions = {
+  /** When true and Host is imageprompt.tools, attribute as site (not cross-origin Origin). */
+  authenticated?: boolean;
+};
+
 function isClientSource(v: string): v is ClientSource {
   return (CLIENT_SOURCES as readonly string[]).includes(v);
 }
 
+function isImagepromptHost(host: string): boolean {
+  const h = host.split(":")[0].toLowerCase();
+  return (
+    h === "imageprompt.tools" ||
+    h === "www.imageprompt.tools" ||
+    h === "localhost" ||
+    h === "127.0.0.1"
+  );
+}
+
+function isPromptshotHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return h === "promptshot.ru" || h === "www.promptshot.ru";
+}
+
+function resolveChromeExtensionClient(origin: string): ClientSource {
+  const liteId = (process.env.CHROME_EXTENSION_ID_LITE || "").trim();
+  if (liteId && origin === `chrome-extension://${liteId}`) return "extension_lite";
+  return "extension_stv";
+}
+
 /**
  * Normalized client attribution for analytics.
- * X-Client header wins; Origin header is the fallback.
+ * X-Client header wins; Origin / Host are fallbacks.
  *
  * Canonical values: site | embed_stv | extension_stv | extension_lite | promptshot | unknown
  */
-export function resolveClientSource(req: NextRequest): ClientSource {
+export function resolveClientSource(
+  req: NextRequest,
+  opts?: ResolveClientSourceOptions,
+): ClientSource {
   const explicit = (req.headers.get("x-client") || "").trim().toLowerCase();
   if (explicit && isClientSource(explicit)) return explicit;
 
-  const origin = (req.headers.get("origin") || "").trim().toLowerCase();
-  if (origin.startsWith("chrome-extension://")) {
-    const liteId = (process.env.CHROME_EXTENSION_ID_LITE || "").trim();
-    if (liteId && origin === `chrome-extension://${liteId}`) return "extension_lite";
-    return "extension_stv";
+  const host = (req.headers.get("host") || "").trim();
+  if (opts?.authenticated && host && isImagepromptHost(host)) {
+    return "site";
   }
-  if (origin.includes("promptshot.ru")) return "promptshot";
-  if (origin) return "site";
+
+  const origin = (req.headers.get("origin") || "").trim();
+  if (origin) {
+    if (origin.startsWith("chrome-extension://")) {
+      return resolveChromeExtensionClient(origin.toLowerCase());
+    }
+
+    try {
+      const originHost = new URL(origin).hostname;
+      if (isPromptshotHost(originHost)) return "promptshot";
+      if (isImagepromptHost(originHost)) return "site";
+    } catch {
+      // Malformed Origin — fall through to Host / unknown.
+    }
+  }
+
+  if (host && isImagepromptHost(host)) return "site";
   return "unknown";
 }

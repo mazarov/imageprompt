@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
       // their `noindex` meta tag; blocking them here would hide the directive.
       userAgent: "*",
       allow: "/",
-      disallow: ["/api/", "/auth/", "/embed/"],
+      disallow: ["/api/", "/auth/", "/embed/", "/admin/"],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
   };

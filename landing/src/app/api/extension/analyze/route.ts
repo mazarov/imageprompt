@@ -356,7 +356,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const supabase = createSupabaseServer();
   const rateLimitResult = await checkAndIncrementExtensionLimit(req, supabase);
 
-  const clientSource = resolveClientSource(req);
+  const clientSource = resolveClientSource(req, {
+    authenticated: rateLimitResult?.authenticated ?? false,
+  });
   if (rateLimitResult) {
     recordAnalyzeEvent(supabase, {
       endpoint: "analyze",
@@ -364,6 +366,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ipHash: rateLimitResult.ipHash,
       userId: rateLimitResult.userId,
       allowed: rateLimitResult.allowed,
+      requestOrigin: req.headers.get("origin"),
     });
   }
 

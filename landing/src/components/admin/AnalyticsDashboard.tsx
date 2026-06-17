@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AnalyticsDashboardData } from "@/lib/analytics-data";
 import { ClientsDailyChart } from "@/components/admin/ClientsDailyChart";
+import { clientSourceLabel } from "@/components/admin/analytics-constants";
 
 type KindFilter = "all" | "generation" | "analyze";
 
@@ -140,7 +141,7 @@ export function AnalyticsDashboard() {
             <StatCard
               label="Requests"
               value={data.summary.requestsInPeriod}
-              hint={`Last ${data.days} days`}
+              hint={`${data.summary.uniqueActorsInPeriod} unique actor(s) · last ${data.days} days`}
             />
             <StatCard
               label="Generations / analyzes"
@@ -209,6 +210,58 @@ export function AnalyticsDashboard() {
                         <td className="py-2.5 pr-4 tabular-nums text-zinc-400">{row.generations}</td>
                         <td className="py-2.5 pr-4 tabular-nums text-zinc-400">{row.analyzes}</td>
                         <td className="py-2.5 tabular-nums text-zinc-500">{formatDate(row.last_seen)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-white/10 bg-zinc-900/40 p-5 sm:p-6">
+            <h2 className="mb-1 text-sm font-semibold text-zinc-200">Recent analyze events</h2>
+            <p className="mb-4 text-xs text-zinc-500">
+              Raw API calls (including blocked). Origin helps explain client attribution.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-zinc-500">
+                    <th className="pb-2 pr-4 font-medium">Time</th>
+                    <th className="pb-2 pr-4 font-medium">Client</th>
+                    <th className="pb-2 pr-4 font-medium">Origin</th>
+                    <th className="pb-2 pr-4 font-medium">User</th>
+                    <th className="pb-2 font-medium">Allowed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.recentEvents.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-zinc-500">
+                        No analyze events yet
+                      </td>
+                    </tr>
+                  ) : (
+                    data.recentEvents.map((row, i) => (
+                      <tr
+                        key={`${row.created_at}-${i}`}
+                        className="border-b border-white/5"
+                      >
+                        <td className="py-2.5 pr-4 tabular-nums text-zinc-400">
+                          {formatDate(row.created_at)}
+                        </td>
+                        <td className="py-2.5 pr-4 text-zinc-200">
+                          {clientSourceLabel(row.client_source)}
+                        </td>
+                        <td className="max-w-[220px] truncate py-2.5 pr-4 font-mono text-xs text-zinc-500">
+                          {row.request_origin ?? "—"}
+                        </td>
+                        <td className="py-2.5 pr-4 font-mono text-xs text-zinc-500">
+                          {row.user_id ? `${row.user_id.slice(0, 8)}…` : "anon"}
+                        </td>
+                        <td className="py-2.5 tabular-nums text-zinc-400">
+                          {row.allowed ? "yes" : "no"}
+                        </td>
                       </tr>
                     ))
                   )}

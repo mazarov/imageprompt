@@ -95,6 +95,10 @@ const nextConfig: NextConfig = {
         source: "/((?!embed).*)",
         headers: [...baseSecurityHeaders, ...frameProtectionHeaders],
       },
+      {
+        source: "/admin/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
     ];
   },
   async redirects() {

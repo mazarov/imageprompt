@@ -10,6 +10,7 @@
 2. `docs/sql/14-02-extension-analyze-events.sql` — создаёт таблицу `extension_analyze_events`.
 3. `docs/sql/14-03-analytics-views.sql` — создаёт три аналитических вьюхи.
 4. `docs/sql/14-04-analytics-readonly-role.sql` — создаёт роль `analytics_ro` (**заменить `<SET_STRONG_PASSWORD>` перед запуском**).
+5. `docs/sql/14-05-analytics-origin-and-allowed-filter.sql` — колонка `request_origin`, вьюхи считают только `allowed=true` запросы.
 
 После применения 14-01 и 14-02 — деплоить код лендинга (иначе insert с `client_source` упадёт на отсутствующую колонку).
 
@@ -17,7 +18,7 @@
 
 | Вьюха | Назначение |
 |---|---|
-| `analytics_requests` | Единая фактовая таблица: генерации + analyze/remix запросы. Поля: `event_id`, `kind`, `event_time`, `user_id`, `ip_hash`, `client_source`. |
+| `analytics_requests` | Единая фактовая таблица: генерации + analyze/remix. Поля: `event_id`, `kind`, `event_time`, `user_id`, `ip_hash`, `client_source`, `allowed`, `request_origin`. |
 | `analytics_user_activity` | Сводка по пользователю: `total_requests`, `generations`, `analyzes`, `first_seen`, `last_seen`. |
 | `analytics_clients_daily` | Дневная разбивка по клиенту × виду запроса: `day`, `client_source`, `kind`, `requests`, `unique_actors`. |
 

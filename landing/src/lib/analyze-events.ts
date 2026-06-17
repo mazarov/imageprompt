@@ -9,6 +9,7 @@ export type AnalyzeEventInput = {
   ipHash: string;
   userId: string | null;
   allowed: boolean;
+  requestOrigin?: string | null;
 };
 
 /** Fire-and-forget fact row for analytics. Never throws into the request path. */
@@ -21,6 +22,7 @@ export function recordAnalyzeEvent(supabase: SupabaseServer, e: AnalyzeEventInpu
       ip_hash: e.ipHash,
       user_id: e.userId,
       allowed: e.allowed,
+      request_origin: e.requestOrigin ?? null,
     })
     .then(({ error }) => {
       if (error) console.warn("[analyze.event] insert failed", { message: error.message });
