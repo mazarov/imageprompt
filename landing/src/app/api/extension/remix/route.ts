@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAndIncrementExtensionLimit } from "@/lib/extension-rate-limit";
 import { createSupabaseServer } from "@/lib/supabase";
+import { resolveClientSource } from "@/lib/client-source";
+import { recordAnalyzeEvent } from "@/lib/analyze-events";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_DIRECT_BASE_URL = "https://generativelanguage.googleapis.com";
@@ -92,6 +94,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createSupabaseServer();
   const rateLimitResult = await checkAndIncrementExtensionLimit(req, supabase);
+
+  const clientSource = resolveClientSource(req);
+  if (rateLimitResult) {
+    recordAnalyzeEvent(supabase, {
+      endpoint: "remix",
+      clientSource,
+      ipHash: rateLimitResult.ipHash,
+      userId: rateLimitResult.userId,
+      allowed: rateLimitResult.allowed,
+    });
+  }
 
   if (rateLimitResult && !rateLimitResult.allowed) {
     return NextResponse.json(

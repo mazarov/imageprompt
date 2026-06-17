@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAndIncrementExtensionLimit } from "@/lib/extension-rate-limit";
 import { createSupabaseServer } from "@/lib/supabase";
+import { resolveClientSource } from "@/lib/client-source";
+import { recordAnalyzeEvent } from "@/lib/analyze-events";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES * (4 / 3)) + 100; // small header overhead
@@ -353,6 +355,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createSupabaseServer();
   const rateLimitResult = await checkAndIncrementExtensionLimit(req, supabase);
+
+  const clientSource = resolveClientSource(req);
+  if (rateLimitResult) {
+    recordAnalyzeEvent(supabase, {
+      endpoint: "analyze",
+      clientSource,
+      ipHash: rateLimitResult.ipHash,
+      userId: rateLimitResult.userId,
+      allowed: rateLimitResult.allowed,
+    });
+  }
 
   if (rateLimitResult && !rateLimitResult.allowed) {
     return NextResponse.json(

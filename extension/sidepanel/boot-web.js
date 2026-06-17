@@ -5,7 +5,8 @@ import { boot } from "./stv-core.js";
 configureStv({
   platform: createWebPlatform(),
   createSupabaseClient: async () => null,
-  getApiOrigin: () => window.location.origin
+  getApiOrigin: () => window.location.origin,
+  getClientSource: () => "embed_stv",
 });
 
 boot();

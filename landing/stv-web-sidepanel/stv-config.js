@@ -5,7 +5,7 @@
 
 /** @typedef {import('./platform/types.js').StvPlatform} StvPlatform */
 
-/** @type {{ platform: StvPlatform; createSupabaseClient: (apiOrigin: string) => Promise<unknown>; getApiOrigin: () => string } | null} */
+/** @type {{ platform: StvPlatform; createSupabaseClient: (apiOrigin: string) => Promise<unknown>; getApiOrigin: () => string; getClientSource?: () => string } | null} */
 let runtime = null;
 
 /**

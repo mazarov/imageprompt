@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase";
 import { getSupabaseUserForApiRoute } from "@/lib/supabase-route-auth";
 import { getStvPipelineTrace, stvLog } from "@/lib/stv-pipeline-log";
+import { resolveClientSource } from "@/lib/client-source";
 
 function toErrorMeta(err: unknown) {
   if (!(err instanceof Error)) return { message: String(err) };
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const pipelineTrace = getStvPipelineTrace(req, body);
+    const clientSource = resolveClientSource(req);
     const {
       prompt,
       model,
@@ -249,6 +251,7 @@ export async function POST(req: NextRequest) {
         credits_spent: creditsNeeded,
         input_photo_paths: photoStoragePaths,
         vibe_id: resolvedVibeId,
+        client_source: clientSource,
       })
       .select("id")
       .single();

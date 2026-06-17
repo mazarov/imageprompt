@@ -491,7 +491,7 @@ async function liteOverlayAnalyze(dataUrl, style) {
   let res;
   try {
     const token = await getLiteAuthToken();
-    const headers = { "Content-Type": "application/json" };
+    const headers = { "Content-Type": "application/json", "X-Client": "extension_lite" };
     if (token) headers.Authorization = `Bearer ${token}`;
     res = await fetch(LITE_ANALYZE_API_URL, {
       method: "POST",

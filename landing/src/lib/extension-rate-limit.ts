@@ -19,6 +19,7 @@ export type ExtensionRateLimitCheckResult = {
   bucket: "ip" | "user";
   ipHash: string;
   windowStart: string;
+  userId: string | null;
 };
 
 export function extensionRateLimitUserBucketKey(userId: string): string {
@@ -139,6 +140,7 @@ export async function checkAndIncrementExtensionLimit(
       bucket: authenticated ? "user" : "ip",
       ipHash,
       windowStart,
+      userId: userId ?? null,
     };
   } catch (err) {
     console.error("[extension.rate-limit] check_threw", {

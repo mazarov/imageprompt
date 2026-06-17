@@ -5,7 +5,8 @@ import { boot } from "./stv-core.js";
 configureStv({
   platform: createChromePlatform(),
   createSupabaseClient: async () => null,
-  getApiOrigin: () => localStorage.getItem("stv_api_origin") || "https://imageprompt.tools"
+  getApiOrigin: () => localStorage.getItem("stv_api_origin") || "https://imageprompt.tools",
+  getClientSource: () => "extension_stv",
 });
 
 boot();

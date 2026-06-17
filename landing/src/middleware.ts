@@ -9,7 +9,7 @@ const intlMiddleware = createMiddleware(routing);
 const CANONICAL_EN_ONLY_PATHS = new Set(["/privacy", "/welcome"]);
 
 const DEFAULT_ALLOWED_METHODS = "GET, POST, OPTIONS";
-const DEFAULT_ALLOWED_HEADERS = "Content-Type, Authorization";
+const DEFAULT_ALLOWED_HEADERS = "Content-Type, Authorization, X-Client";
 
 function parseAllowedOrigins(): string[] {
   const fromEnv = (process.env.CORS_ALLOWED_ORIGINS || "")
@@ -147,6 +147,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/api/:path*",
-    "/((?!api|_next|_vercel|embed|auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|webmanifest)).*)",
+    "/((?!api|_next|_vercel|embed|auth|admin|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|webmanifest)).*)",
   ],
 };

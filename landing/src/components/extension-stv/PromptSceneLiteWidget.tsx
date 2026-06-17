@@ -189,7 +189,7 @@ export function PromptSceneLiteWidget() {
       try {
         res = await fetch(API_PATH, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Client": "site" },
           body: JSON.stringify({ image_base64: dataUrl, style: styleUsed }),
           credentials: "include",
         });
@@ -260,7 +260,7 @@ export function PromptSceneLiteWidget() {
       try {
         res = await fetch(API_PATH, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Client": "site" },
           body: JSON.stringify({ image_url: trimmed, style: styleUsed }),
           credentials: "include",
         });
