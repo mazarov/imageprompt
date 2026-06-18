@@ -1062,6 +1062,20 @@ function showRateLimitError() {
   if (errorLimitWrap) errorLimitWrap.hidden = false;
   if (btnErrorPlans instanceof HTMLAnchorElement) btnErrorPlans.href = SITE_PRICING_URL;
   showPanel("error");
+  void refreshQuotaFromServer();
+}
+
+async function refreshQuotaFromServer() {
+  try {
+    const res = await sendRuntimeMessage({ type: "FETCH_LITE_QUOTA" });
+    if (res?.ok && res.quota) {
+      renderQuota(res.quota);
+      return;
+    }
+  } catch {
+    /* noop */
+  }
+  renderQuota({ remaining: 0, ts: Date.now() });
 }
 
 function showFullError(message) {
@@ -1138,22 +1152,7 @@ function renderQuota(quota) {
 }
 
 async function loadQuota() {
-  try {
-    const res = await sendRuntimeMessage({ type: "FETCH_LITE_QUOTA" });
-    if (res?.ok && res.quota) {
-      renderQuota(res.quota);
-      return;
-    }
-  } catch {
-    /* noop */
-  }
-  // Fall back to last cached value
-  try {
-    const res = await sendRuntimeMessage({ type: "GET_LITE_QUOTA" });
-    if (res?.ok) renderQuota(res.quota);
-  } catch {
-    /* noop */
-  }
+  await refreshQuotaFromServer();
 }
 
 // ── History ──

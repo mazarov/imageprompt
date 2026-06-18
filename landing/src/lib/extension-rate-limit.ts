@@ -95,6 +95,73 @@ export async function mergeExtensionIpLimitForRequest(
   await mergeExtensionIpLimitIntoUser({ supabase, userId, ipHash, windowStart });
 }
 
+export type ExtensionRateLimitSnapshot = {
+  count: number;
+  max: number;
+  remaining: number;
+  authenticated: boolean;
+  bucket: "ip" | "user";
+  ipHash: string;
+  windowStart: string;
+  userId: string | null;
+};
+
+/** Read-only quota snapshot; mirrors analyze merge logic without incrementing. */
+export async function getExtensionRateLimitSnapshot(
+  req: NextRequest,
+  supabase: SupabaseServer,
+): Promise<ExtensionRateLimitSnapshot> {
+  const ip = extensionRateLimitParsedIp(req.headers);
+  const ipHash = extensionRateLimitIpHash(ip);
+  const windowStart = extensionRateLimitDayWindowStartIso();
+  const max = await getExtensionRateLimitPerDay(supabase);
+
+  const { user } = await getSupabaseUserForApiRoute(req);
+  const userId = user?.id;
+  const authenticated = Boolean(userId);
+  const bucketKey = userId ? extensionRateLimitUserBucketKey(userId) : ipHash;
+
+  if (userId) {
+    await mergeExtensionIpLimitIntoUser({ supabase, userId, ipHash, windowStart });
+  }
+
+  try {
+    const { data } = await supabase
+      .from("extension_rate_limit")
+      .select("count")
+      .eq("ip_hash", bucketKey)
+      .eq("window_start", windowStart)
+      .maybeSingle();
+
+    const count = Number(data?.count ?? 0) || 0;
+    return {
+      count,
+      max,
+      remaining: Math.max(0, max - count),
+      authenticated,
+      bucket: authenticated ? "user" : "ip",
+      ipHash,
+      windowStart,
+      userId: userId ?? null,
+    };
+  } catch (err) {
+    console.error("[extension.rate-limit] snapshot_read_failed", {
+      message: err instanceof Error ? err.message : String(err),
+      authenticated,
+    });
+    return {
+      count: 0,
+      max,
+      remaining: max,
+      authenticated,
+      bucket: authenticated ? "user" : "ip",
+      ipHash,
+      windowStart,
+      userId: userId ?? null,
+    };
+  }
+}
+
 export async function checkAndIncrementExtensionLimit(
   req: NextRequest,
   supabase: SupabaseServer,

@@ -504,6 +504,10 @@ async function completeLiteAnalysisJob(startedJob) {
     statusCode: result.status,
     updatedAt: Date.now(),
   });
+
+  if (result.error === "rate_limited" || result.status === 429) {
+    void fetchLiteQuota().catch(() => {});
+  }
 }
 
 function createLiteHistoryEntry(dataUrl, style, prompt) {
