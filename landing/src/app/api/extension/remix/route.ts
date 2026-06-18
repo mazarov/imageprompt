@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkAndIncrementExtensionLimit } from "@/lib/extension-rate-limit";
+import {
+  beginExtensionRateLimit,
+  confirmExtensionRateLimitOnSuccess,
+  extensionRateLimit429Body,
+  extensionRateLimitCheckFromSession,
+  extensionRateLimitQuotaFields,
+  recordExtensionRateLimitEvent,
+  releaseExtensionRateLimitOnFailure,
+  reserveExtensionRateLimit,
+} from "@/lib/extension-rate-limit-flow";
+import { extensionLog } from "@/lib/extension-pipeline-log";
 import { createSupabaseServer } from "@/lib/supabase";
-import { resolveClientSource } from "@/lib/client-source";
-import { recordAnalyzeEvent } from "@/lib/analyze-events";
 
 const GEMINI_MODEL = "gemini-2.5-flash-lite";
 const GEMINI_DIRECT_BASE_URL = "https://generativelanguage.googleapis.com";
@@ -94,43 +102,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       : "photoreal";
 
   const supabase = createSupabaseServer();
-  const rateLimitResult = await checkAndIncrementExtensionLimit(req, supabase);
+  const session = await beginExtensionRateLimit(req, supabase, "remix");
+  const preflightCheck = session?.check ?? null;
 
-  const clientSource = resolveClientSource(req, {
-    authenticated: rateLimitResult?.authenticated ?? false,
-  });
-  if (rateLimitResult) {
-    recordAnalyzeEvent(supabase, {
-      endpoint: "remix",
-      clientSource,
-      ipHash: rateLimitResult.ipHash,
-      userId: rateLimitResult.userId,
-      allowed: rateLimitResult.allowed,
-      requestOrigin: req.headers.get("origin"),
-    });
-  }
-
-  if (rateLimitResult && !rateLimitResult.allowed) {
-    return NextResponse.json(
-      {
-        error: "rate_limited",
-        message: "Daily limit reached. Try again in 24 hours.",
-        limit_count: rateLimitResult.count,
-        limit_max: rateLimitResult.max,
-        authenticated: rateLimitResult.authenticated,
-        auth_required: !rateLimitResult.authenticated,
-      },
-      { status: 429 },
-    );
+  if (session && !session.check.allowed) {
+    recordExtensionRateLimitEvent(supabase, req, "remix", session.check, false);
+    return NextResponse.json(extensionRateLimit429Body(session.check), { status: 429 });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.error("[extension.remix] GEMINI_API_KEY not set");
+    recordExtensionRateLimitEvent(supabase, req, "remix", preflightCheck, false);
     return NextResponse.json(
       { error: "upstream_failed", message: "Service configuration error." },
       { status: 500 },
     );
+  }
+
+  let reserved = false;
+  let reservedCheck = preflightCheck;
+  if (session) {
+    const reserveResult = await reserveExtensionRateLimit(supabase, session);
+    if (reserveResult && !reserveResult.allowed) {
+      recordExtensionRateLimitEvent(supabase, req, "remix", reserveResult, false);
+      return NextResponse.json(extensionRateLimit429Body(reserveResult), { status: 429 });
+    }
+    if (reserveResult) {
+      reserved = true;
+      reservedCheck = reserveResult;
+    }
   }
 
   const baseUrl = await getGeminiBaseUrl(supabase);
@@ -152,6 +153,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   };
 
   let geminiRes: Response;
+  const geminiStartedAt = Date.now();
   try {
     geminiRes = await fetch(geminiUrl, {
       method: "POST",
@@ -166,11 +168,32 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.error("[extension.remix] gemini_fetch_failed", {
       message: err instanceof Error ? err.message : String(err),
     });
+    extensionLog("gemini.call", {
+      endpoint: "remix",
+      status: 503,
+      latencyMs: Date.now() - geminiStartedAt,
+    });
+    if (session && reserved) {
+      await releaseExtensionRateLimitOnFailure(supabase, session);
+    }
+    recordExtensionRateLimitEvent(
+      supabase,
+      req,
+      "remix",
+      extensionRateLimitCheckFromSession(session, reservedCheck),
+      false,
+    );
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try again." },
       { status: 503 },
     );
   }
+
+  extensionLog("gemini.call", {
+    endpoint: "remix",
+    status: geminiRes.status,
+    latencyMs: Date.now() - geminiStartedAt,
+  });
 
   if (!geminiRes.ok) {
     const errText = await geminiRes.text().catch(() => "");
@@ -178,6 +201,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       status: geminiRes.status,
       body: errText.slice(0, 300),
     });
+    if (session && reserved) {
+      await releaseExtensionRateLimitOnFailure(supabase, session);
+    }
+    recordExtensionRateLimitEvent(
+      supabase,
+      req,
+      "remix",
+      extensionRateLimitCheckFromSession(session, reservedCheck),
+      false,
+    );
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try again." },
       { status: 502 },
@@ -191,6 +224,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     geminiData = (await geminiRes.json()) as typeof geminiData;
   } catch {
+    if (session && reserved) {
+      await releaseExtensionRateLimitOnFailure(supabase, session);
+    }
+    recordExtensionRateLimitEvent(
+      supabase,
+      req,
+      "remix",
+      extensionRateLimitCheckFromSession(session, reservedCheck),
+      false,
+    );
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try again." },
       { status: 502 },
@@ -205,18 +248,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.error("[extension.remix] gemini_empty_response", {
       data: JSON.stringify(geminiData).slice(0, 300),
     });
+    if (session && reserved) {
+      await releaseExtensionRateLimitOnFailure(supabase, session);
+    }
+    recordExtensionRateLimitEvent(
+      supabase,
+      req,
+      "remix",
+      extensionRateLimitCheckFromSession(session, reservedCheck),
+      false,
+    );
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try again." },
       { status: 502 },
     );
   }
 
+  const rateLimitResult = session
+    ? await confirmExtensionRateLimitOnSuccess(supabase, session)
+    : null;
+  const finalCheck = extensionRateLimitCheckFromSession(session, rateLimitResult ?? reservedCheck);
+  recordExtensionRateLimitEvent(
+    supabase,
+    req,
+    "remix",
+    finalCheck,
+    rateLimitResult?.allowed ?? false,
+  );
+
   return NextResponse.json({
     prompt: rawText,
-    ...(rateLimitResult && {
-      remaining: Math.max(0, rateLimitResult.max - rateLimitResult.count),
-      count: rateLimitResult.count,
-      max: rateLimitResult.max,
-    }),
+    ...extensionRateLimitQuotaFields(finalCheck),
   });
 }

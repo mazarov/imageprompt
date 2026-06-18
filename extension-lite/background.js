@@ -42,18 +42,14 @@ function isValidStyle(style) {
 // until the user explicitly closes it.
 // `tabId` is used as fallback when windowId is not available (chrome.sidePanel.open
 // requires at least one of windowId / tabId; calling with {} throws silently).
-async function openSidePanel(windowId, fallbackTabId) {
-  try {
-    if (windowId != null) {
-      await chrome.sidePanel.open({ windowId });
-    } else if (fallbackTabId != null) {
-      await chrome.sidePanel.open({ tabId: fallbackTabId });
-    } else {
-      console.warn("[aid] sidePanel.open: no windowId or tabId available");
-    }
-  } catch (e) {
-    console.warn("[aid] sidePanel.open failed", e?.message ?? e);
+function openSidePanel(windowId, fallbackTabId) {
+  if (windowId != null) {
+    return chrome.sidePanel.open({ windowId });
   }
+  if (fallbackTabId != null) {
+    return chrome.sidePanel.open({ tabId: fallbackTabId });
+  }
+  return Promise.reject(new Error("no_window_or_tab"));
 }
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -313,9 +309,31 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg?.type === "LITE_OVERLAY_OPEN_TOOLBAR_POPUP" && typeof msg.srcUrl === "string") {
     const tabId = sender.tab?.id;
-    openToolbarPopupForImage(msg.srcUrl, tabId)
-      .then(sendResponse)
-      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    if (tabId == null) {
+      sendResponse({ ok: false, error: "no_tab" });
+      return false;
+    }
+
+    const srcUrl = msg.srcUrl;
+    const ts = Date.now();
+
+    /* sidePanel.open() must start synchronously in this listener — async/await before
+       open() drops the user-gesture token from the overlay FAB click. */
+    void chrome.storage.session.set({
+      [PENDING_IMAGE_KEY]: { status: "loading", srcUrl, ts, source: "overlay" },
+    });
+
+    const openPromise = chrome.sidePanel.open({ tabId });
+    openPromise
+      .then(() => {
+        void preparePopupImage(srcUrl, tabId, ts);
+        sendResponse({ ok: true });
+      })
+      .catch((err) => {
+        console.warn("[aid] sidePanel.open failed", err?.message ?? err);
+        void chrome.storage.session.remove(PENDING_IMAGE_KEY);
+        sendResponse({ ok: false, error: String(err?.message ?? err ?? "open_side_panel_failed") });
+      });
     return true;
   }
   if (msg?.type === "LITE_OVERLAY_ANALYZE" && typeof msg.dataUrl === "string" && typeof msg.style === "string") {
@@ -326,31 +344,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   return false;
 });
-
-/**
- * Unified popup flow for overlay and action button:
- * resize image -> store pending payload for popup.js -> open toolbar popup.
- */
-async function openToolbarPopupForImage(srcUrl, tabId) {
-  const ts = Date.now();
-
-  void chrome.storage.session.set({
-    [PENDING_IMAGE_KEY]: { status: "loading", srcUrl, ts, source: "overlay" },
-  });
-
-  try {
-    // Open the side panel immediately with tabId — do NOT await an async lookup
-    // before this call, because chrome.sidePanel.open() requires the user-gesture
-    // token to still be valid.  windowId is preferred by Chrome but tabId works
-    // fine and avoids the async gap that can cause the gesture to expire.
-    await openSidePanel(null, tabId);
-    void preparePopupImage(srcUrl, tabId, ts);
-    return { ok: true };
-  } catch (err) {
-    void chrome.storage.session.remove(PENDING_IMAGE_KEY);
-    return { ok: false, error: String(err?.message ?? err ?? "open_side_panel_failed") };
-  }
-}
 
 async function preparePopupImage(srcUrl, tabId, ts) {
   let pending;
@@ -763,22 +756,22 @@ async function handleContextMenuClick(info, tab) {
     return;
   }
 
+  const ts = Date.now();
+  void openSidePanel(tab?.windowId, tab?.id).catch((err) => {
+    console.warn("[aid] sidePanel.open failed", err?.message ?? err);
+  });
+
   try {
     const dataUrl = await fetchAndResizeImage(srcUrl, tab?.id);
     await chrome.storage.session.set({
-      [PENDING_IMAGE_KEY]: { dataUrl, srcUrl, ts: Date.now() },
+      [PENDING_IMAGE_KEY]: { dataUrl, srcUrl, ts },
     });
+    chrome.runtime.sendMessage({ type: "LITE_PENDING_IMAGE_READY", pending: { dataUrl, srcUrl, ts } }).catch(() => {});
   } catch (err) {
     console.error("[ai-image-describer] failed to process image", err?.message ?? err);
-    await chrome.storage.session.set({
-      [PENDING_IMAGE_KEY]: { error: "fetch_failed", srcUrl, ts: Date.now() },
-    });
-  }
-
-  try {
-    await openSidePanel(tab?.windowId, tab?.id);
-  } catch {
-    // Fallback — user can click the icon manually.
+    const pending = { error: "fetch_failed", srcUrl, ts };
+    await chrome.storage.session.set({ [PENDING_IMAGE_KEY]: pending });
+    chrome.runtime.sendMessage({ type: "LITE_PENDING_IMAGE_READY", pending }).catch(() => {});
   }
 }
 

@@ -40,7 +40,7 @@ D. **Лимит исчерпан.** Если суточный лимит (общ
   - `400` — `{ "error": "invalid_request", "message": "..." }` (пустой/слишком длинный `originalPrompt` или `changeRequest`, или невалидный JSON).
   - `429` — `{ "error": "rate_limited", "message": "...", "limit_count", "limit_max", "authenticated", "auth_required" }`.
   - `502 | 503 | 500` — `{ "error": "upstream_failed", "message": "Something went wrong. Please try again." }`.
-- **Rate-limit:** общий с `/api/extension/analyze` (`checkAndIncrementExtensionLimit`) — ремикс расходует тот же суточный лимит по IP-хешу/пользователю. Один успешный ремикс = одно списание.
+- **Rate-limit:** общий с `/api/extension/analyze` — ремикс расходует тот же суточный лимит по IP-хешу/пользователю. Preflight без инкремента; одно списание только после успешного ответа Gemini.
 - **Provider:** Gemini 2.5 Flash-Lite, `temperature: 0.4`, `maxOutputTokens: 8192`, `thinkingConfig.thinkingBudget: 0`. Инструкция (`buildInstruction`) нейтральная: переписать AI image prompt согласно `changeRequest`, сохранить те же section headings и детали, вернуть только финальный промпт. Для non-photoreal стилей подмешивается мягкий style hint; для `photoreal` отдельный hint не добавляется, чтобы снизить риск safety-block на длинных портретных промптах.
 - **Аналитика:** `recordAnalyzeEvent(..., { endpoint: "remix" })` — события ремикса логируются отдельным эндпоинтом и видны в analytics-вьюхах.
 

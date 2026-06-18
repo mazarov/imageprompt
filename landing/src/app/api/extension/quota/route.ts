@@ -14,6 +14,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({
     remaining: snapshot.remaining,
     count: snapshot.count,
+    pending: snapshot.pending,
     max: snapshot.max,
     authenticated: snapshot.authenticated,
   });

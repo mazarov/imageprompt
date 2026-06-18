@@ -11,8 +11,12 @@
 3. `docs/sql/14-03-analytics-views.sql` — создаёт три аналитических вьюхи.
 4. `docs/sql/14-04-analytics-readonly-role.sql` — создаёт роль `analytics_ro` (**заменить `<SET_STRONG_PASSWORD>` перед запуском**).
 5. `docs/sql/14-05-analytics-origin-and-allowed-filter.sql` — колонка `request_origin`, вьюхи считают только `allowed=true` запросы.
+6. `docs/sql/14-06-extension-rate-limit-increment-if-allowed.sql` — атомарный increment без PK race (legacy; reserve flow в 14-07).
+7. `docs/sql/14-07-extension-rate-limit-reservations.sql` — колонка `pending`, RPC reserve/confirm/release (**обязательно перед деплоем landing с reserve flow**).
 
 После применения 14-01 и 14-02 — деплоить код лендинга (иначе insert с `client_source` упадёт на отсутствующую колонку).
+
+После применения 14-07 — деплоить landing с reserve/confirm/release (analyze + remix). Env для burst limit (опционально): `EXTENSION_BURST_LIMIT_ENABLED=true`, `EXTENSION_BURST_LIMIT_PER_MIN=10`.
 
 ## Структура данных
 

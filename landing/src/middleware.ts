@@ -1,5 +1,11 @@
 import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  checkExtensionBurstLimit,
+  extensionBurstLimit429Body,
+  extensionBurstLimitClientIp,
+  isExtensionBurstLimitEnabled,
+} from "./lib/extension-burst-limit";
 import { GONE_HTML, normalizePathname, shouldReturnGone } from "./lib/gsc-gone-paths";
 import { type AppLocale, routing } from "./i18n/routing";
 
@@ -26,6 +32,24 @@ function parseAllowedOrigins(): string[] {
 
 function isApiRequest(request: NextRequest): boolean {
   return request.nextUrl.pathname.startsWith("/api/");
+}
+
+const EXTENSION_BURST_POST_PATHS = new Set([
+  "/api/extension/analyze",
+  "/api/extension/remix",
+]);
+
+function extensionBurstLimitResponse(request: NextRequest): NextResponse | null {
+  if (!isExtensionBurstLimitEnabled()) return null;
+  if (request.method !== "POST") return null;
+  if (!EXTENSION_BURST_POST_PATHS.has(request.nextUrl.pathname)) return null;
+
+  const ip = extensionBurstLimitClientIp(request.headers);
+  const burst = checkExtensionBurstLimit(ip);
+  if (burst.allowed) return null;
+
+  const response = NextResponse.json(extensionBurstLimit429Body(), { status: 429 });
+  return applyCorsHeaders(request, response);
 }
 
 /** English-only pages at a single canonical path; locale-prefixed URLs redirect there. */
@@ -134,6 +158,8 @@ export async function middleware(request: NextRequest) {
     if (request.method === "OPTIONS") {
       return applyCorsHeaders(request, new NextResponse(null, { status: 204 }));
     }
+    const burstResponse = extensionBurstLimitResponse(request);
+    if (burstResponse) return burstResponse;
     return applyCorsHeaders(request, NextResponse.next({ request }));
   }
 

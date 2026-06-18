@@ -30,7 +30,7 @@ B. **На любом сайте:** правый клик по картинке �
 - **Request:** `{ image_base64: string, style?: "photoreal" | "midjourney" | "sd" | "flux" }` (`image_base64` — data URL вида `data:image/jpeg;base64,...`; `style` опционально, default `"photoreal"`).
 - **Response (ok):** `{ prompt: string }`.
 - **Response (err):** `{ error: "rate_limited" | "invalid_image" | "upstream_failed", message: string }`.
-- **Rate-limit:** 30 запросов с одного IP в 24 часа.
+- **Rate-limit:** 30 запросов с одного IP в 24 часа (authenticated — bucket `user:<id>`). Preflight без списания; reserve перед Gemini; confirm после успеха; release на 502/503. Burst: опционально `EXTENSION_BURST_LIMIT_ENABLED=true` — 10 POST/min/IP в middleware (per-pod, best-effort).
 - **CORS:** разрешить `chrome-extension://<MV3_ID>` через env `CHROME_EXTENSION_ID` (паттерн уже используется в текущем backend лендинга).
 - **Provider:** Gemini 2.5 Flash (есть `GEMINI_API_KEY` в `landing/.env.local`). Системный промпт — производный от `pingan8787/image2prompt` с пресетами под целевые модели.
 
