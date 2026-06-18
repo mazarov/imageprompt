@@ -19,6 +19,8 @@ const LITE_ORIGIN = new URL("/", SITE_URL).origin;
 const LITE_ANALYZE_API_URL = `${LITE_ORIGIN}/api/extension/analyze`;
 const LITE_QUOTA_URL = `${LITE_ORIGIN}/api/extension/quota`;
 const LITE_DEV_IP_HASH_URL = `${LITE_ORIGIN}/api/extension/dev-ip-hash`;
+const LITE_REMIX_API_URL = `${LITE_ORIGIN}/api/extension/remix`;
+const LITE_REMIX_FETCH_TIMEOUT_MS = 45_000;
 const LITE_AUTH_EXCHANGE_URL = `${LITE_ORIGIN}/api/auth/extension/exchange`;
 const APP_JWT_STORAGE_KEY = "ip_app_jwt";
 
@@ -208,6 +210,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     startLiteAnalysisJob(msg.dataUrl, msg.style)
       .then((job) => sendResponse({ ok: true, job }))
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    return true;
+  }
+  if (
+    msg?.type === "START_LITE_REMIX" &&
+    typeof msg.originalPrompt === "string" &&
+    typeof msg.changeRequest === "string"
+  ) {
+    startLiteRemix(msg.originalPrompt, msg.changeRequest, msg.style, msg.dataUrl)
+      .then((res) => sendResponse(res))
       .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
     return true;
   }
@@ -558,6 +570,92 @@ async function liteOverlayAnalyze(dataUrl, style) {
     prompt: data.prompt,
     remaining: typeof data.remaining === "number" ? data.remaining : null,
     max: typeof data.max === "number" ? data.max : null,
+  };
+}
+
+/**
+ * Remix an existing prompt via service worker fetch (mirrors liteOverlayAnalyze).
+ * @returns {Promise<{ ok:true; prompt:string; remaining:number|null; max:number|null }
+ *   | { ok:false; status?:number; error?:string }>}
+ */
+async function liteRemix(originalPrompt, changeRequest, style) {
+  let res;
+  try {
+    const token = await getLiteAuthToken();
+    const headers = { "Content-Type": "application/json", "X-Client": "extension_lite" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    res = await fetch(LITE_REMIX_API_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ originalPrompt, changeRequest, style }),
+      signal: AbortSignal.timeout(LITE_REMIX_FETCH_TIMEOUT_MS),
+    });
+  } catch (err) {
+    const errName = String(err?.name ?? "");
+    if (errName === "AbortError" || errName === "TimeoutError") {
+      return { ok: false, error: "timeout" };
+    }
+    return { ok: false, error: "fetch_failed" };
+  }
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    if (res.status === 404) return { ok: false, status: res.status, error: "not_found" };
+    return { ok: false, status: res.status, error: "bad_response" };
+  }
+
+  if (!res.ok) {
+    const d = data && typeof data === "object" ? data : {};
+    return { ok: false, status: res.status, error: d.error ?? "request_failed" };
+  }
+
+  if (!data || typeof data !== "object" || typeof data.prompt !== "string" || !data.prompt) {
+    return { ok: false, error: "empty_prompt" };
+  }
+
+  return {
+    ok: true,
+    prompt: data.prompt,
+    remaining: typeof data.remaining === "number" ? data.remaining : null,
+    max: typeof data.max === "number" ? data.max : null,
+  };
+}
+
+/**
+ * Orchestrate remix: call API, broadcast quota, append to History.
+ */
+async function startLiteRemix(originalPrompt, changeRequest, styleValue, dataUrl) {
+  const style = isValidStyle(styleValue) ? styleValue : "photoreal";
+  const result = await liteRemix(originalPrompt, changeRequest, style);
+
+  if (!result.ok) {
+    return { ok: false, error: result.error || "request_failed", statusCode: result.status };
+  }
+
+  // Quota broadcast — same shape as completeLiteAnalysisJob
+  if (typeof result.remaining === "number") {
+    const quota = { remaining: result.remaining, max: result.max ?? null, ts: Date.now() };
+    await chrome.storage.local.set({ [QUOTA_KEY]: quota });
+    chrome.runtime.sendMessage({ type: "LITE_QUOTA_UPDATED", ...quota }).catch(() => {});
+  }
+
+  // History — write each remix as a new entry (reuses existing helpers)
+  let historyEntryId = null;
+  if (typeof dataUrl === "string" && dataUrl) {
+    const entry = createLiteHistoryEntry(dataUrl, style, result.prompt);
+    historyEntryId = entry.id;
+    await relayOrQueueLiteHistoryEntry(entry);
+    await appendLiteHistoryStore(entry);
+  }
+
+  return {
+    ok: true,
+    prompt: result.prompt,
+    remaining: result.remaining,
+    max: result.max,
+    historyEntryId,
   };
 }
 

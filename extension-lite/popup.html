@@ -140,6 +140,33 @@
         </div>
         <pre id="prompt-box" class="prompt-box" tabindex="0"></pre>
       </div>
+
+      <div class="remix-block">
+        <div class="remix-chip-row" role="group" data-i18n-aria="remixChipsAria" aria-label="Quick edits">
+          <button type="button" class="remix-chip" data-i18n="remixChipNight">Make it night</button>
+          <button type="button" class="remix-chip" data-i18n="remixChipNoPeople">Remove people</button>
+          <button type="button" class="remix-chip" data-i18n="remixChipDetail">More detail</button>
+          <button type="button" class="remix-chip" data-i18n="remixChipWide">16:9</button>
+        </div>
+        <div class="remix-composer">
+          <textarea
+            id="remix-input"
+            class="remix-input"
+            rows="1"
+            maxlength="1000"
+            data-i18n-placeholder="remixPlaceholder"
+            placeholder="Describe a change…"
+          ></textarea>
+          <button type="button" class="remix-send" id="btn-remix" disabled
+                  data-i18n-aria="remixButtonAria" aria-label="Remix prompt">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 19V5" />
+              <path d="M5 12l7-7 7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
     </section>
 
     <!-- ── ERROR STATE (fetch failed before result) ── -->

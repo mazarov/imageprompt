@@ -93,6 +93,9 @@ const btnDraftAnother = document.getElementById("btn-draft-another");
 const fileInput       = document.getElementById("file-input");
 const dropzone        = document.getElementById("dropzone");
 const stylePresetRow  = document.getElementById("style-preset-row");
+const remixInput      = document.getElementById("remix-input");
+const btnRemix        = document.getElementById("btn-remix");
+const remixChipRow    = document.querySelector(".remix-chip-row");
 const shellBody       = document.getElementById("body-analyze");
 const bodyHistory     = document.getElementById("body-history");
 const historyList     = document.getElementById("history-list");
@@ -133,6 +136,7 @@ function styleLabel(style) {
 let currentPrompt = "";
 let currentDataUrl = "";
 let currentStyle = "photoreal";
+let isRemixing = false;
 let lastCompletedPendingTs = 0;
 let devLogoTaps = 0;
 /** @type {ReturnType<typeof setTimeout> | null} */
@@ -437,6 +441,24 @@ function bindEvents() {
     const btn = /** @type {HTMLElement} */ (e.target).closest(".tab-btn");
     if (!btn?.dataset.tab) return;
     switchTab(btn.dataset.tab);
+  });
+
+  // Remix composer
+  remixInput?.addEventListener("input", () => {
+    autoGrowRemix();
+    updateRemixButton();
+  });
+  remixInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void submitRemix();
+    }
+  });
+  btnRemix?.addEventListener("click", () => void submitRemix());
+  remixChipRow?.addEventListener("click", (e) => {
+    const chip = /** @type {HTMLElement} */ (e.target).closest(".remix-chip");
+    if (!chip || isRemixing) return;
+    appendChipText(chip.textContent.trim());
   });
 
   setupBrandTapDevUnlock();
@@ -749,6 +771,90 @@ async function analyze(dataUrl, styleOverride) {
   }
 }
 
+function autoGrowRemix() {
+  if (!remixInput) return;
+  remixInput.style.height = "auto";
+  remixInput.style.height = Math.min(remixInput.scrollHeight, 54) + "px";
+}
+
+function updateRemixButton() {
+  if (!btnRemix) return;
+  const hasText = Boolean(remixInput?.value.trim());
+  btnRemix.disabled = !hasText || isRemixing;
+}
+
+function appendChipText(text) {
+  if (!remixInput || !text) return;
+  const cur = remixInput.value.trim();
+  remixInput.value = cur ? `${cur}, ${text}` : text;
+  remixInput.focus();
+  const len = remixInput.value.length;
+  remixInput.setSelectionRange(len, len);
+  autoGrowRemix();
+  updateRemixButton();
+}
+
+function setRemixing(on) {
+  isRemixing = on;
+  if (promptBox) promptBox.classList.toggle("is-remixing", on);
+  if (remixInput) remixInput.disabled = on;
+  if (btnRemix) {
+    btnRemix.classList.toggle("is-busy", on);
+    btnRemix.disabled = on || !remixInput?.value.trim();
+  }
+  if (remixChipRow) {
+    for (const chip of remixChipRow.querySelectorAll(".remix-chip")) {
+      /** @type {HTMLButtonElement} */ (chip).disabled = on;
+    }
+  }
+}
+
+function flashRemixed() {
+  if (!promptBox) return;
+  promptBox.classList.remove("just-remixed");
+  void promptBox.offsetWidth; // reflow to restart animation
+  promptBox.classList.add("just-remixed");
+}
+
+async function submitRemix() {
+  const changeRequest = remixInput?.value.trim() ?? "";
+  if (!currentPrompt || !changeRequest || changeRequest.length > 1000 || isRemixing) return;
+
+  setRemixing(true);
+  if (errorBanner) errorBanner.hidden = true;
+
+  try {
+    const res = await sendRuntimeMessage({
+      type: "START_LITE_REMIX",
+      originalPrompt: currentPrompt,
+      changeRequest,
+      style: currentStyle,
+      dataUrl: currentDataUrl,
+    });
+
+    if (res?.ok && typeof res.prompt === "string" && res.prompt) {
+      if (remixInput) {
+        remixInput.value = "";
+        autoGrowRemix();
+      }
+      showResult(currentDataUrl, res.prompt, currentStyle); // updates currentPrompt + persists
+      flashRemixed();
+      historyLoaded = false; // force History tab reload on next open
+      if (typeof res.remaining === "number") {
+        renderQuota({ remaining: res.remaining, ts: Date.now() });
+      }
+    } else if (res?.error === "rate_limited" || String(res?.statusCode) === "429") {
+      showRateLimitError();
+    } else {
+      showInlineError(t("remixError"));
+    }
+  } catch {
+    showInlineError(t("remixError"));
+  } finally {
+    setRemixing(false); // clears .is-remixing + re-evaluates button
+  }
+}
+
 function isValidStyle(style) {
   return ["photoreal", "midjourney", "sd", "flux"].includes(style);
 }
@@ -903,6 +1009,7 @@ function showLoading(dataUrl) {
 }
 
 function showResult(dataUrl, prompt, styleUsed, opts = {}) {
+  promptBox.classList.remove("is-remixing", "just-remixed");
   currentPrompt = prompt;
   currentDataUrl = dataUrl;
   currentStyle = isValidStyle(styleUsed) ? styleUsed : "photoreal";

@@ -210,6 +210,11 @@ export function applyI18n(root = document) {
     el.setAttribute("aria-label", t(el.dataset.i18nAria || ""));
   });
 
+  root.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    if (!(el instanceof HTMLElement)) return;
+    el.setAttribute("placeholder", t(el.dataset.i18nPlaceholder || ""));
+  });
+
   root.querySelectorAll("[data-i18n-title]").forEach((el) => {
     if (!(el instanceof HTMLElement)) return;
     el.setAttribute("title", t(el.dataset.i18nTitle || ""));

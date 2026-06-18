@@ -4,7 +4,7 @@ import { createSupabaseServer } from "@/lib/supabase";
 import { resolveClientSource } from "@/lib/client-source";
 import { recordAnalyzeEvent } from "@/lib/analyze-events";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-2.5-flash-lite";
 const GEMINI_DIRECT_BASE_URL = "https://generativelanguage.googleapis.com";
 const GEMINI_TIMEOUT_MS = 45_000;
 
@@ -42,18 +42,19 @@ async function getGeminiBaseUrl(supabase: ReturnType<typeof createSupabaseServer
 }
 
 function buildInstruction(originalPrompt: string, changeRequest: string, style: Style): string {
-  const styleLine = STYLE_HINT[style] ? `\nTarget style: ${STYLE_HINT[style]}.` : "";
+  const styleLine =
+    style === "photoreal" ? "" : `Keep the wording compatible with this target style: ${STYLE_HINT[style]}.`;
+
   return [
-    "You are an expert prompt editor for AI image models.",
-    "Rewrite the ORIGINAL prompt applying ONLY the user's requested changes.",
-    "Preserve the original intent, structure and language (if the original is in Russian — output in Russian).",
-    "Do not add commentary, explanations or quotes. Output ONLY the final rewritten prompt text.",
+    `Rewrite this AI image prompt according to this edit: ${changeRequest}.`,
+    "Keep the same section headings and details.",
     styleLine,
+    "Return only the rewritten prompt.",
     "",
-    `ORIGINAL PROMPT:\n${originalPrompt}`,
-    "",
-    `REQUESTED CHANGES:\n${changeRequest}`,
-  ].join("\n");
+    originalPrompt,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export async function OPTIONS() {
@@ -142,8 +143,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       },
     ],
     generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 2048,
+      temperature: 0.4,
+      maxOutputTokens: 8192,
+      thinkingConfig: {
+        thinkingBudget: 0,
+      },
     },
   };
 
