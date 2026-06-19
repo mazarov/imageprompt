@@ -13,6 +13,7 @@ export const SECTION_SPEC_ORDER = [
   "Mood",
   "Color",
   "Clothing",
+  "Makeup",
   "Composition",
 ] as const;
 
@@ -25,8 +26,9 @@ Output ONLY the labeled sections below, in this exact order. Each label is on it
 the description starts on the next line. No extra commentary, no markdown fences.`;
 
 /**
- * Per-section body text (everything AFTER "Label:\n" in PHOTOREAL_EXTRACT_PROMPT).
- * Must be kept byte-for-byte identical to the original analyze route literal.
+ * Per-section body text (everything AFTER "Label:\n" in the analyze extract prompt).
+ * Scene…Composition bodies match the original analyze route literal; Makeup was
+ * added later as a dedicated appearance section.
  */
 export const SECTION_SPECS: Record<SectionLabel, string> = {
   Scene: `Where it is and what is happening — 1–2 sentences. Use a neutral subject label ("the subject",
@@ -61,6 +63,13 @@ sleeves, layers; (2) lower body if visible; (3) colors and patterns; (4) fabric/
 (5) fit and styling details; (6) jewelry and piercings; (7) other worn accessories (footwear,
 headwear, belt, bag, etc.). Say "not visible" for out-of-frame regions; use "" only if nothing
 worn is visible at all.`,
+
+  Makeup: `One cohesive paragraph for IMAGE GENERATION describing the subject's visible makeup. Cover in
+order: (1) overall look (no-makeup/natural, everyday, soft glam, full glam, editorial, dramatic);
+(2) complexion finish (bare, matte, dewy, full coverage); (3) eyes (liner, shadow, lashes,
+intensity); (4) lips (color and finish); (5) brows and accents (blush, highlighter, contour).
+Describe ONLY cosmetic application, not permanent facial features or identity. Say "no visible
+makeup" if none is apparent, or "not visible" if the face is out of frame.`,
 
   Composition: `One cohesive paragraph for IMAGE GENERATION. Cover: (1) subject placement vs frame (centered,
 rule-of-thirds, edge-weighted); (2) crop tightness and what is included; (3) vertical subject

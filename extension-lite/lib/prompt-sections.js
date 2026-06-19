@@ -8,6 +8,7 @@ export const PROMPT_SECTION_LABELS = [
   "Mood",
   "Color",
   "Clothing",
+  "Makeup",
   "Composition",
   "CRITICAL RULES",
 ];
@@ -21,6 +22,7 @@ const SECTION_DEFS = [
   { key: "mood", label: "Mood", chipLabel: "Mood", re: /^Mood\s*:\s*$/i },
   { key: "color", label: "Color", chipLabel: "Color", re: /^Color\s*:\s*$/i },
   { key: "clothing", label: "Clothing", chipLabel: "Clothing", re: /^Clothing\s*:\s*$/i },
+  { key: "makeup", label: "Makeup", chipLabel: "Makeup", re: /^Makeup\s*:\s*$/i },
   { key: "composition", label: "Composition", chipLabel: "Composition", re: /^Composition\s*:\s*$/i },
   {
     key: "critical_rules",
