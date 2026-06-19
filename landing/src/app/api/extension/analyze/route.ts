@@ -110,7 +110,39 @@ const GEMINI_TIMEOUT_MS = 30_000;
 type Style = "photoreal" | "midjourney" | "sd" | "flux";
 const VALID_STYLES: Style[] = ["photoreal", "midjourney", "sd", "flux"];
 
-function systemPrompt(style: Style): string {
+function normalizeLocale(value: unknown): string {
+  if (typeof value !== "string") return "en";
+
+  const raw = value.trim();
+  if (!raw || raw.length > 32) return "en";
+
+  try {
+    return new Intl.Locale(raw).toString();
+  } catch {
+    return "en";
+  }
+}
+
+function outputLanguageInstruction(style: Style, locale: string): string {
+  if (locale === "en") return "";
+
+  if (style === "photoreal") {
+    return [
+      "",
+      `Write all descriptive section body text in the user's locale: ${locale}.`,
+      "Keep every section heading exactly in English as specified: Scene:, Genre:, Pose:, Lighting:, Camera:, Mood:, Color:, Clothing:, Composition:, and CRITICAL RULES.",
+      "Do not translate, rename, remove, or reorder section headings.",
+    ].join("\n");
+  }
+
+  return [
+    "",
+    `Write the entire prompt in the user's locale: ${locale}.`,
+    "Keep generator-specific syntax, flags, and technical tokens unchanged when applicable.",
+  ].join("\n");
+}
+
+function systemPrompt(style: Style, locale: string): string {
   const base = `You are an expert AI image analyst. Analyze the provided image and write a detailed generation prompt that would recreate a similar image.`;
 
   const styleInstructions: Record<Style, string> = {
@@ -139,7 +171,7 @@ Write a clear, detailed paragraph describing: the subject, setting, lighting con
 Be descriptive and use complete sentences. Output ONLY the prompt paragraph, no headings or explanations.`,
   };
 
-  return styleInstructions[style];
+  return `${styleInstructions[style]}${outputLanguageInstruction(style, locale)}`;
 }
 
 function normalizeImageMimeSubtype(mime: string): string {
@@ -260,7 +292,7 @@ function resolveMimeFromFetch(_contentType: string | null, buffer: ArrayBuffer):
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  let body: { image_base64?: unknown; image_url?: unknown; style?: unknown };
+  let body: { image_base64?: unknown; image_url?: unknown; style?: unknown; locale?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -361,6 +393,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? (rawStyle as Style)
       : "photoreal";
 
+  const locale = normalizeLocale(body.locale);
+
   const supabase = createSupabaseServer();
   const session = await beginExtensionRateLimit(req, supabase, "analyze");
   const preflightCheck = session?.check ?? null;
@@ -402,7 +436,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       {
         role: "user",
         parts: [
-          { text: systemPrompt(style) },
+          { text: systemPrompt(style, locale) },
           { inlineData: { mimeType: parsed.mimeType, data: parsed.data } },
         ],
       },

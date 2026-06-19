@@ -30,6 +30,52 @@ const SECTION_DEFS = [
   },
 ];
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Put glued section headings (e.g. "sexual.Color:") on their own line. */
+export function normalizePromptLayout(prompt) {
+  if (typeof prompt !== "string" || !prompt) return prompt;
+
+  let result = prompt;
+  const defs = [...SECTION_DEFS].sort((a, b) => b.label.length - a.label.length);
+
+  for (const def of defs) {
+    if (def.key === "critical_rules") {
+      result = result.replace(/([^\n\r])(CRITICAL RULES)(?=\s*(?:\n|$|-))/gi, "$1\n$2");
+      continue;
+    }
+    const re = new RegExp(`([^\\n\\r])(${escapeRegex(def.label)}\\s*:)`, "gi");
+    result = result.replace(re, "$1\n$2");
+  }
+
+  return result.replace(/\n{3,}/g, "\n\n");
+}
+
+function foreignHeadingPattern(def) {
+  if (def.key === "critical_rules") return "CRITICAL RULES\\s*:?";
+  return `${escapeRegex(def.label)}\\s*:`;
+}
+
+/** Drop text from Gemini that leaked into the next section. */
+export function trimTrailingForeignHeadings(sectionLabel, sectionText) {
+  const text = String(sectionText ?? "");
+  if (!text.trim()) return text;
+
+  let cutAt = text.length;
+  for (const def of SECTION_DEFS) {
+    if (def.label === sectionLabel) continue;
+    const pattern = foreignHeadingPattern(def);
+    const re = new RegExp(`(?:^|[\\n\\r]|(?<=[.!?]))\\s*(${pattern})`, "im");
+    const match = re.exec(text);
+    if (!match || match.index <= 0 || match.index >= cutAt) continue;
+    cutAt = match.index;
+  }
+
+  return cutAt < text.length ? text.slice(0, cutAt).trimEnd() : text;
+}
+
 function lineStartIndex(prompt, lineIndex) {
   if (lineIndex <= 0) return 0;
   let idx = 0;
@@ -55,7 +101,8 @@ export function parsePromptSections(prompt) {
     return [];
   }
 
-  const lines = prompt.split("\n");
+  const normalized = normalizePromptLayout(prompt);
+  const lines = normalized.split("\n");
   /** @type {Array<{ def: typeof SECTION_DEFS[number]; lineIndex: number; headingLine: string }>} */
   const matches = [];
 
@@ -71,7 +118,7 @@ export function parsePromptSections(prompt) {
   }
 
   if (matches.length === 0) {
-    const text = prompt.trim();
+    const text = normalized.trim();
     return [
       {
         key: "prompt",
@@ -81,20 +128,21 @@ export function parsePromptSections(prompt) {
         body: text,
         text,
         start: 0,
-        end: prompt.length,
+        end: normalized.length,
       },
     ];
   }
 
   return matches.map((match, index) => {
-    const start = lineStartIndex(prompt, match.lineIndex);
+    const start = lineStartIndex(normalized, match.lineIndex);
     const nextMatch = matches[index + 1];
-    const end = nextMatch ? lineStartIndex(prompt, nextMatch.lineIndex) : prompt.length;
-    const text = prompt.slice(start, end);
-    const headingEnd = lineEndIndex(prompt, match.lineIndex);
-    const heading = prompt.slice(start, headingEnd).trimEnd();
-    const bodyStart = headingEnd + (headingEnd < prompt.length && prompt[headingEnd] === "\n" ? 1 : 0);
-    const body = prompt.slice(bodyStart, end).replace(/^\n+/, "").replace(/\s+$/, "");
+    const end = nextMatch ? lineStartIndex(normalized, nextMatch.lineIndex) : normalized.length;
+    const text = normalized.slice(start, end);
+    const headingEnd = lineEndIndex(normalized, match.lineIndex);
+    const heading = normalized.slice(start, headingEnd).trimEnd();
+    const bodyStart =
+      headingEnd + (headingEnd < normalized.length && normalized[headingEnd] === "\n" ? 1 : 0);
+    const body = normalized.slice(bodyStart, end).replace(/^\n+/, "").replace(/\s+$/, "");
 
     return {
       key: match.def.key,
@@ -105,22 +153,33 @@ export function parsePromptSections(prompt) {
       text,
       start,
       end,
+      lineIndex: match.lineIndex,
     };
   });
 }
 
 export function replacePromptSection(prompt, sectionKey, updatedSectionText) {
-  const sections = parsePromptSections(prompt);
+  const layoutPrompt = normalizePromptLayout(prompt);
+  const sections = parsePromptSections(layoutPrompt);
   const section = sections.find((s) => s.key === sectionKey);
-  if (!section) return prompt;
+  if (!section) return layoutPrompt;
 
-  const replacement = String(updatedSectionText ?? "");
-  if (!replacement.trim()) return prompt;
-  return prompt.slice(0, section.start) + replacement + prompt.slice(section.end);
+  let replacement = trimTrailingForeignHeadings(section.label, String(updatedSectionText ?? ""));
+  replacement = replacement.trimEnd();
+  if (!replacement.trim()) return layoutPrompt;
+
+  const before = layoutPrompt.slice(0, section.start);
+  const after = layoutPrompt.slice(section.end);
+
+  if (after.length > 0 && !replacement.endsWith("\n")) {
+    replacement += "\n";
+  }
+
+  return normalizePromptLayout(before + replacement + after);
 }
 
 export function normalizeSectionText(label, sectionText, originalHeading = "") {
-  const trimmed = String(sectionText ?? "").trim();
+  let trimmed = trimTrailingForeignHeadings(label, String(sectionText ?? "").trim());
   if (!trimmed) return trimmed;
 
   if (label === "CRITICAL RULES") {
@@ -129,7 +188,7 @@ export function normalizeSectionText(label, sectionText, originalHeading = "") {
     return `${heading}\n${trimmed}`;
   }
 
-  const labelRe = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*:`, "i");
+  const labelRe = new RegExp(`^${escapeRegex(label)}\\s*:`, "i");
   if (labelRe.test(trimmed)) return trimmed;
 
   const heading = originalHeading || `${label}:`;

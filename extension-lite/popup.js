@@ -1,5 +1,5 @@
 import { prepareUploadFile } from "./lib/image-utils.js";
-import { parsePromptSections } from "./lib/prompt-sections.js";
+import { parsePromptSections, normalizePromptLayout } from "./lib/prompt-sections.js";
 import {
   t,
   applyI18n,
@@ -821,12 +821,42 @@ function renderRemixSectionChips() {
 
 function focusPromptSection(section) {
   if (!promptBox || !section || !currentPrompt) return;
-  promptBox.classList.remove("section-focused");
-  void promptBox.offsetWidth;
-  promptBox.classList.add("section-focused");
-  const ratio = section.start / Math.max(currentPrompt.length, 1);
-  const maxScroll = Math.max(0, promptBox.scrollHeight - promptBox.clientHeight);
-  promptBox.scrollTop = Math.max(0, ratio * maxScroll - promptBox.clientHeight * 0.12);
+
+  const applyScroll = () => {
+    promptBox.classList.remove("section-focused");
+    void promptBox.offsetWidth;
+    promptBox.classList.add("section-focused");
+
+    const offset = Math.min(Math.max(section.start, 0), currentPrompt.length);
+    let targetScroll = 0;
+
+    const textNode = promptBox.firstChild;
+    if (textNode?.nodeType === Node.TEXT_NODE && textNode.length > 0) {
+      const range = document.createRange();
+      const end = Math.min(offset + 1, textNode.length);
+      range.setStart(textNode, offset);
+      range.setEnd(textNode, end);
+      const marker = range.getBoundingClientRect();
+      if (marker.height > 0 || marker.width > 0) {
+        const boxTop = promptBox.getBoundingClientRect().top;
+        targetScroll = marker.top - boxTop + promptBox.scrollTop - 10;
+      }
+    }
+
+    if (targetScroll <= 0 && offset > 0) {
+      const lineHeight = parseFloat(getComputedStyle(promptBox).lineHeight) || 19;
+      const lineIndex =
+        typeof section.lineIndex === "number"
+          ? section.lineIndex
+          : currentPrompt.slice(0, offset).split("\n").length - 1;
+      targetScroll = lineIndex * lineHeight;
+    }
+
+    const maxScroll = Math.max(0, promptBox.scrollHeight - promptBox.clientHeight);
+    promptBox.scrollTop = Math.min(Math.max(0, targetScroll), maxScroll);
+  };
+
+  requestAnimationFrame(applyScroll);
   window.setTimeout(() => promptBox?.classList.remove("section-focused"), 900);
 }
 
@@ -1171,6 +1201,7 @@ function showLoading(dataUrl) {
 
 function showResult(dataUrl, prompt, styleUsed, opts = {}) {
   promptBox.classList.remove("is-remixing", "just-remixed", "section-focused");
+  prompt = normalizePromptLayout(prompt);
   currentPrompt = prompt;
   currentDataUrl = dataUrl;
   currentStyle = isValidStyle(styleUsed) ? styleUsed : "photoreal";

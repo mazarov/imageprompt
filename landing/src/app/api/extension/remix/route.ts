@@ -51,11 +51,35 @@ async function getGeminiBaseUrl(supabase: ReturnType<typeof createSupabaseServer
   return GEMINI_DIRECT_BASE_URL;
 }
 
+function normalizeLocale(value: unknown): string {
+  if (typeof value !== "string") return "en";
+
+  const raw = value.trim();
+  if (!raw || raw.length > 32) return "en";
+
+  try {
+    return new Intl.Locale(raw).toString();
+  } catch {
+    return "en";
+  }
+}
+
+function remixLanguageInstruction(locale: string): string {
+  if (locale === "en") return "";
+
+  return [
+    `Write the rewritten descriptive content in the user's locale: ${locale}.`,
+    "Preserve existing section headings exactly as provided.",
+    "Do not translate technical generator syntax, style flags, or section headings.",
+  ].join("\n");
+}
+
 function buildSectionInstruction(
   sectionLabel: string,
   sectionText: string,
   changeRequest: string,
   style: Style,
+  locale: string,
 ): string {
   const styleLine =
     style === "photoreal" ? "" : `Keep the wording compatible with this target style: ${STYLE_HINT[style]}.`;
@@ -63,8 +87,10 @@ function buildSectionInstruction(
   return [
     `Rewrite only the "${sectionLabel}" section of an AI image prompt according to this edit: ${changeRequest}.`,
     "Preserve the section heading and heading style exactly as in the input.",
+    remixLanguageInstruction(locale),
     "Do not rewrite, add, or mention any other prompt sections.",
     "Return only the rewritten section text (heading plus body).",
+    "End the section body with a newline. Never append the next section heading.",
     styleLine,
     "",
     sectionText,
@@ -73,13 +99,14 @@ function buildSectionInstruction(
     .join("\n");
 }
 
-function buildInstruction(originalPrompt: string, changeRequest: string, style: Style): string {
+function buildInstruction(originalPrompt: string, changeRequest: string, style: Style, locale: string): string {
   const styleLine =
     style === "photoreal" ? "" : `Keep the wording compatible with this target style: ${STYLE_HINT[style]}.`;
 
   return [
     `Rewrite this AI image prompt according to this edit: ${changeRequest}.`,
     "Keep the same section headings and details.",
+    remixLanguageInstruction(locale),
     styleLine,
     "Return only the rewritten prompt.",
     "",
@@ -100,6 +127,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     style?: unknown;
     sectionLabel?: unknown;
     sectionText?: unknown;
+    locale?: unknown;
   };
   try {
     body = await req.json();
@@ -154,9 +182,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? (body.style as Style)
       : "photoreal";
 
+  const locale = normalizeLocale(body.locale);
+
   instruction = isSectionMode
-    ? buildSectionInstruction(sectionLabel, sectionText, changeRequest, style)
-    : buildInstruction(originalPrompt, changeRequest, style);
+    ? buildSectionInstruction(sectionLabel, sectionText, changeRequest, style, locale)
+    : buildInstruction(originalPrompt, changeRequest, style, locale);
   if (isSectionMode) maxOutputTokens = 2048;
 
   const supabase = createSupabaseServer();

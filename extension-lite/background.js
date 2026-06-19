@@ -1,5 +1,5 @@
 import { resizeImageToDataUrl } from "./lib/image-utils.js";
-import { initI18n, reloadI18n, t, UI_LANG_STORAGE_KEY } from "./lib/i18n.js";
+import { initI18n, reloadI18n, t, UI_LANG_STORAGE_KEY, getUiLanguage } from "./lib/i18n.js";
 import { replacePromptSection, normalizeSectionText } from "./lib/prompt-sections.js";
 
 const PENDING_IMAGE_KEY = "pending_image";
@@ -37,6 +37,15 @@ function isLiteHost(hostname) {
 
 function isValidStyle(style) {
   return ["photoreal", "midjourney", "sd", "flux"].includes(style);
+}
+
+async function getLitePromptLocale() {
+  try {
+    await initI18n();
+    return getUiLanguage() || "en";
+  } catch {
+    return "en";
+  }
 }
 
 // ── Side panel ──
@@ -597,12 +606,13 @@ async function liteOverlayAnalyze(dataUrl, style) {
   let res;
   try {
     const token = await getLiteAuthToken();
+    const locale = await getLitePromptLocale();
     const headers = { "Content-Type": "application/json", "X-Client": "extension_lite" };
     if (token) headers.Authorization = `Bearer ${token}`;
     res = await fetch(LITE_ANALYZE_API_URL, {
       method: "POST",
       headers,
-      body: JSON.stringify({ image_base64: dataUrl, style }),
+      body: JSON.stringify({ image_base64: dataUrl, style, locale }),
       signal: AbortSignal.timeout(ANALYSIS_FETCH_TIMEOUT_MS),
     });
   } catch (err) {
@@ -655,12 +665,13 @@ async function liteRemix(sectionLabel, sectionText, changeRequest, style) {
   let res;
   try {
     const token = await getLiteAuthToken();
+    const locale = await getLitePromptLocale();
     const headers = { "Content-Type": "application/json", "X-Client": "extension_lite" };
     if (token) headers.Authorization = `Bearer ${token}`;
     res = await fetch(LITE_REMIX_API_URL, {
       method: "POST",
       headers,
-      body: JSON.stringify({ sectionLabel, sectionText, changeRequest, style }),
+      body: JSON.stringify({ sectionLabel, sectionText, changeRequest, style, locale }),
       signal: AbortSignal.timeout(LITE_REMIX_FETCH_TIMEOUT_MS),
     });
   } catch (err) {
