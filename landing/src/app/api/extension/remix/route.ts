@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSectionSpec } from "@/lib/extension-prompt-sections";
 import {
   beginExtensionRateLimit,
   confirmExtensionRateLimitOnSuccess,
@@ -74,6 +75,17 @@ function remixLanguageInstruction(locale: string): string {
   ].join("\n");
 }
 
+const SECTION_FEWSHOT = `\
+Example of the expected transformation (illustrative only; never copy its wording):
+--- Input section ---
+Scene:
+A person stands in a room.
+--- Edit ---
+just a plain room with a white wall
+--- Rewritten section ---
+Scene:
+The subject stands in a plain, minimalist room with a smooth white wall behind them under even neutral daylight, no furniture or props in frame.`;
+
 function buildSectionInstruction(
   sectionLabel: string,
   sectionText: string,
@@ -84,10 +96,13 @@ function buildSectionInstruction(
   const styleLine =
     style === "photoreal" ? "" : `Keep the wording compatible with this target style: ${STYLE_HINT[style]}.`;
 
+  const spec = getSectionSpec(sectionLabel);
+
   return [
     `Rewrite only the "${sectionLabel}" section of an AI image prompt according to this edit: ${changeRequest}.`,
     "Preserve the section heading and heading style exactly as in the input.",
     remixLanguageInstruction(locale),
+    spec ? `This section must follow its original specification:\n${spec}` : "",
     "Treat the edit as user intent, not as final copy. Do not paste a short or plain edit verbatim unless it is already a complete polished prompt section.",
     "Use the current section as the baseline and expand terse edits into a rich, concrete, generator-ready description for this section.",
     "Preserve useful compatible details from the current section, but replace details that conflict with the edit.",
@@ -95,7 +110,9 @@ function buildSectionInstruction(
     "Return only the rewritten section text (heading plus body).",
     "End the section body with a newline. Never append the next section heading.",
     styleLine,
+    spec ? SECTION_FEWSHOT : "",
     "",
+    "Current section to rewrite:",
     sectionText,
   ]
     .filter(Boolean)

@@ -2,7 +2,7 @@
 
 > Доработка существующей фичи: после получения промпта (из картинки) пользователь выбирает **конкретную секцию** (`Scene`, `Genre`, `Pose`, …), описывает изменение и получает переписанный промпт — меняется только выбранный абзац, остальное сохраняется локально без повторной загрузки картинки.
 > Бэкенд-эндпоинт `POST /api/extension/remix` реализован в `landing/src/app/api/extension/remix/route.ts`. UI в `extension-lite/` — section-scoped remix composer.
-> Дата: 18.06.2026 (обновлено 19.06.2026 — section mode).
+> Дата: 18.06.2026 (обновлено 19.06.2026 — section mode, per-section spec + few-shot).
 
 ## 1. Идея
 
@@ -69,6 +69,9 @@ Gemini переписывает только переданную секцию. 
 - **Rate-limit:** общий с analyze; reserve → Gemini → confirm/release.
 - **Provider:** Gemini 2.5 Flash-Lite, `temperature: 0.4`, `thinkingBudget: 0`.
 - Section instruction: переписать только переданную секцию, сохранить heading, не упоминать другие секции, вернуть только текст секции.
+- **Per-section spec**: в section-mode инструкция содержит контракт выбранной секции (длина, что можно/нельзя, порядок деталей) — идентичный тому, по которому `analyze` генерит секции. Источник правды: `landing/src/lib/extension-prompt-sections.ts`.
+- **Few-shot**: для структурированных секций (photoreal) в инструкцию добавляется пример раскрытия короткой правки в полноценный section body.
+- Для `Prompt`-fallback-секции и non-photoreal стилей (`spec === null`) spec и few-shot не добавляются — инструкция работает в режиме "как было".
 
 ## 4. Реализация в `extension-lite/`
 
