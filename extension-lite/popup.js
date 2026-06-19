@@ -1,4 +1,5 @@
 import { prepareUploadFile } from "./lib/image-utils.js";
+import { parsePromptSections } from "./lib/prompt-sections.js";
 import {
   t,
   applyI18n,
@@ -18,6 +19,7 @@ import {
 const PENDING_IMAGE_KEY = "pending_image";
 const POPUP_STATE_KEY = "extension_lite_popup_state_v1";
 const ANALYSIS_JOB_KEY = "extension_lite_analysis_job_v1";
+const REMIX_JOB_KEY = "extension_lite_remix_job_v1";
 const QUOTA_KEY = "extension_lite_quota_v1";
 const SITE_URL = "https://imageprompt.tools/";
 const SITE_PRICING_URL = "https://imageprompt.tools/#stv-pricing";
@@ -25,6 +27,7 @@ const DEV_BRAND_TAP_WINDOW_MS = 2000;
 const DEV_BRAND_TAPS_TO_UNLOCK = 5;
 const BRAND_OPEN_SITE_DELAY_MS = 350;
 const ANALYSIS_STALE_AFTER_MS = 90_000;
+const REMIX_STALE_AFTER_MS = 90_000;
 const DRAFT_HINT_DEFAULT = () => t("draftHint");
 const ANALYSIS_TIMEOUT_MESSAGE = () => t("errorTimeout");
 const UNSUPPORTED_IMAGE_MESSAGE = () => t("errorInvalidType");
@@ -95,7 +98,7 @@ const dropzone        = document.getElementById("dropzone");
 const stylePresetRow  = document.getElementById("style-preset-row");
 const remixInput      = document.getElementById("remix-input");
 const btnRemix        = document.getElementById("btn-remix");
-const remixChipRow    = document.querySelector(".remix-chip-row");
+const remixSectionRow = document.getElementById("remix-section-row");
 const shellBody       = document.getElementById("body-analyze");
 const bodyHistory     = document.getElementById("body-history");
 const historyList     = document.getElementById("history-list");
@@ -134,6 +137,8 @@ function styleLabel(style) {
 
 // ── State ──
 let currentPrompt = "";
+let currentPromptSections = [];
+let selectedRemixSectionKey = "";
 let currentDataUrl = "";
 let currentStyle = "photoreal";
 let isRemixing = false;
@@ -162,7 +167,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!consumedPending) {
     const restoredJob = await restoreAnalysisJob();
     if (!restoredJob) {
-      await restorePopupState();
+      const restoredRemix = await restoreRemixJob();
+      if (!restoredRemix) {
+        await restorePopupState();
+      }
     }
   }
 });
@@ -271,6 +279,9 @@ function bindEvents() {
     } else if (msg?.type === "LITE_ANALYSIS_JOB_UPDATED") {
       handleAnalysisJob(msg.job);
       if (msg.job?.status === "result") historyLoaded = false;
+    } else if (msg?.type === "LITE_REMIX_JOB_UPDATED") {
+      handleRemixJob(msg.job);
+      if (msg.job?.status === "result") historyLoaded = false;
     } else if (msg?.type === "LITE_AUTH_UPDATED") {
       applyAuthStatus(msg);
     } else if (msg?.type === "LITE_UI_LANG_CHANGED") {
@@ -300,6 +311,8 @@ function bindEvents() {
     if (areaName === "local") {
       const job = changes[ANALYSIS_JOB_KEY]?.newValue;
       if (job) handleAnalysisJob(job);
+      const remixJob = changes[REMIX_JOB_KEY]?.newValue;
+      if (remixJob) handleRemixJob(remixJob);
     }
   });
 
@@ -451,14 +464,16 @@ function bindEvents() {
   remixInput?.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      if (isRemixing) return;
       void submitRemix();
     }
   });
   btnRemix?.addEventListener("click", () => void submitRemix());
-  remixChipRow?.addEventListener("click", (e) => {
+  remixSectionRow?.addEventListener("click", (e) => {
     const chip = /** @type {HTMLElement} */ (e.target).closest(".remix-chip");
     if (!chip || isRemixing) return;
-    appendChipText(chip.textContent.trim());
+    const key = chip.dataset.sectionKey;
+    if (key) selectRemixSection(key);
   });
 
   setupBrandTapDevUnlock();
@@ -780,17 +795,63 @@ function autoGrowRemix() {
 function updateRemixButton() {
   if (!btnRemix) return;
   const hasText = Boolean(remixInput?.value.trim());
-  btnRemix.disabled = !hasText || isRemixing;
+  btnRemix.disabled = !hasText || isRemixing || !selectedRemixSectionKey;
 }
 
-function appendChipText(text) {
-  if (!remixInput || !text) return;
-  const cur = remixInput.value.trim();
-  remixInput.value = cur ? `${cur}, ${text}` : text;
-  remixInput.focus();
-  const len = remixInput.value.length;
-  remixInput.setSelectionRange(len, len);
-  autoGrowRemix();
+function getSelectedPromptSection() {
+  return currentPromptSections.find((s) => s.key === selectedRemixSectionKey) ?? null;
+}
+
+function renderRemixSectionChips() {
+  if (!remixSectionRow) return;
+  remixSectionRow.replaceChildren();
+  for (const section of currentPromptSections) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "remix-chip";
+    btn.role = "radio";
+    btn.dataset.sectionKey = section.key;
+    btn.textContent = section.chipLabel;
+    btn.setAttribute("aria-checked", section.key === selectedRemixSectionKey ? "true" : "false");
+    if (section.key === selectedRemixSectionKey) btn.classList.add("is-selected");
+    btn.disabled = isRemixing;
+    remixSectionRow.appendChild(btn);
+  }
+}
+
+function focusPromptSection(section) {
+  if (!promptBox || !section || !currentPrompt) return;
+  promptBox.classList.remove("section-focused");
+  void promptBox.offsetWidth;
+  promptBox.classList.add("section-focused");
+  const ratio = section.start / Math.max(currentPrompt.length, 1);
+  const maxScroll = Math.max(0, promptBox.scrollHeight - promptBox.clientHeight);
+  promptBox.scrollTop = Math.max(0, ratio * maxScroll - promptBox.clientHeight * 0.12);
+  window.setTimeout(() => promptBox?.classList.remove("section-focused"), 900);
+}
+
+function selectRemixSection(key, { focusPrompt = true } = {}) {
+  if (!currentPromptSections.some((s) => s.key === key)) return;
+  selectedRemixSectionKey = key;
+  renderRemixSectionChips();
+  if (focusPrompt) focusPromptSection(getSelectedPromptSection());
+  updateRemixButton();
+}
+
+function syncPromptSections({ focusPrompt = false } = {}) {
+  const prevKey = selectedRemixSectionKey;
+  currentPromptSections = parsePromptSections(currentPrompt);
+  if (prevKey && currentPromptSections.some((s) => s.key === prevKey)) {
+    selectedRemixSectionKey = prevKey;
+  } else if (currentPromptSections.length > 0) {
+    selectedRemixSectionKey = currentPromptSections[0].key;
+  } else {
+    selectedRemixSectionKey = "";
+  }
+  renderRemixSectionChips();
+  if (focusPrompt && selectedRemixSectionKey) {
+    focusPromptSection(getSelectedPromptSection());
+  }
   updateRemixButton();
 }
 
@@ -800,10 +861,10 @@ function setRemixing(on) {
   if (remixInput) remixInput.disabled = on;
   if (btnRemix) {
     btnRemix.classList.toggle("is-busy", on);
-    btnRemix.disabled = on || !remixInput?.value.trim();
+    btnRemix.disabled = on || !remixInput?.value.trim() || !selectedRemixSectionKey;
   }
-  if (remixChipRow) {
-    for (const chip of remixChipRow.querySelectorAll(".remix-chip")) {
+  if (remixSectionRow) {
+    for (const chip of remixSectionRow.querySelectorAll(".remix-chip")) {
       /** @type {HTMLButtonElement} */ (chip).disabled = on;
     }
   }
@@ -818,8 +879,19 @@ function flashRemixed() {
 
 async function submitRemix() {
   const changeRequest = remixInput?.value.trim() ?? "";
-  if (!currentPrompt || !changeRequest || changeRequest.length > 1000 || isRemixing) return;
+  if (!currentPrompt || !changeRequest || changeRequest.length > 1000) return;
 
+  let selectedSection = getSelectedPromptSection();
+  if (!selectedSection) {
+    syncPromptSections();
+    selectedSection = getSelectedPromptSection();
+  }
+  if (!selectedSection) {
+    showInlineError(t("remixSelectSectionError"));
+    return;
+  }
+
+  clearRemixJob();
   setRemixing(true);
   if (errorBanner) errorBanner.hidden = true;
 
@@ -827,32 +899,121 @@ async function submitRemix() {
     const res = await sendRuntimeMessage({
       type: "START_LITE_REMIX",
       originalPrompt: currentPrompt,
+      sectionKey: selectedSection.key,
+      sectionLabel: selectedSection.label,
+      sectionText: selectedSection.text,
+      sectionHeading: selectedSection.heading,
       changeRequest,
       style: currentStyle,
       dataUrl: currentDataUrl,
     });
 
-    if (res?.ok && typeof res.prompt === "string" && res.prompt) {
-      if (remixInput) {
-        remixInput.value = "";
-        autoGrowRemix();
-      }
-      showResult(currentDataUrl, res.prompt, currentStyle); // updates currentPrompt + persists
-      flashRemixed();
-      historyLoaded = false; // force History tab reload on next open
-      if (typeof res.remaining === "number") {
-        renderQuota({ remaining: res.remaining, ts: Date.now() });
-      }
-    } else if (res?.error === "rate_limited" || String(res?.statusCode) === "429") {
+    if (!res?.ok || !res.job) {
+      showInlineError(t("remixError"));
+      setRemixing(false);
+      return;
+    }
+
+    if (!handleRemixJob(res.job)) {
+      showInlineError(t("remixError"));
+      setRemixing(false);
+    }
+  } catch (err) {
+    console.warn("[aid] remix start failed", err);
+    showInlineError(t("remixError"));
+    setRemixing(false);
+  }
+}
+
+async function restoreRemixJob() {
+  let job;
+  try {
+    const result = await chrome.storage.local.get(REMIX_JOB_KEY);
+    job = result?.[REMIX_JOB_KEY];
+  } catch {
+    return false;
+  }
+  if (job?.status === "remixing") {
+    const lastTouched = Number(job.updatedAt || job.createdAt || 0);
+    if (lastTouched > 0 && Date.now() - lastTouched > REMIX_STALE_AFTER_MS) {
+      clearRemixJob();
+      return false;
+    }
+    void sendRuntimeMessage({ type: "RESUME_LITE_REMIX_JOB" }).catch(() => {});
+  }
+  return handleRemixJob(job);
+}
+
+function clearRemixJob() {
+  try {
+    chrome.storage.local.remove(REMIX_JOB_KEY).catch(() => {});
+  } catch {
+    // ignore
+  }
+  try {
+    chrome.runtime.sendMessage({ type: "CLEAR_LITE_REMIX_JOB" }).catch(() => {});
+  } catch {
+    // ignore
+  }
+}
+
+function handleRemixJob(job) {
+  if (!job || typeof job !== "object" || typeof job.originalPrompt !== "string") return false;
+
+  const style = isValidStyle(job.style) ? job.style : "photoreal";
+  const dataUrl = isImageDataUrl(job.dataUrl) ? job.dataUrl : currentDataUrl;
+
+  if (job.status === "remixing") {
+    if (dataUrl) {
+      showResult(dataUrl, job.originalPrompt, style, { persist: false });
+    }
+    setRemixing(true);
+    const lastTouched = Number(job.updatedAt || job.createdAt || 0);
+    if (lastTouched > 0 && Date.now() - lastTouched > REMIX_STALE_AFTER_MS) {
+      clearRemixJob();
+      setRemixing(false);
+      showInlineError(t("remixError"));
+      return true;
+    }
+    return true;
+  }
+
+  if (job.status === "result" && typeof job.prompt === "string" && job.prompt) {
+    setRemixing(false);
+    if (remixInput) {
+      remixInput.value = "";
+      autoGrowRemix();
+    }
+    if (dataUrl) {
+      showResult(dataUrl, job.prompt, style);
+    } else {
+      currentPrompt = job.prompt;
+      if (promptBox) promptBox.textContent = job.prompt;
+    }
+    flashRemixed();
+    historyLoaded = false;
+    if (typeof job.remaining === "number") {
+      renderQuota({ remaining: job.remaining, ts: Date.now() });
+    }
+    clearRemixJob();
+    return true;
+  }
+
+  if (job.status === "error") {
+    setRemixing(false);
+    if (dataUrl) {
+      showResult(dataUrl, job.originalPrompt, style, { persist: false });
+    }
+    if (job.error === "rate_limited" || String(job.statusCode) === "429") {
       showRateLimitError();
     } else {
       showInlineError(t("remixError"));
     }
-  } catch {
-    showInlineError(t("remixError"));
-  } finally {
-    setRemixing(false); // clears .is-remixing + re-evaluates button
+    clearRemixJob();
+    return true;
   }
+
+  return false;
 }
 
 function isValidStyle(style) {
@@ -1009,7 +1170,7 @@ function showLoading(dataUrl) {
 }
 
 function showResult(dataUrl, prompt, styleUsed, opts = {}) {
-  promptBox.classList.remove("is-remixing", "just-remixed");
+  promptBox.classList.remove("is-remixing", "just-remixed", "section-focused");
   currentPrompt = prompt;
   currentDataUrl = dataUrl;
   currentStyle = isValidStyle(styleUsed) ? styleUsed : "photoreal";
@@ -1019,6 +1180,7 @@ function showResult(dataUrl, prompt, styleUsed, opts = {}) {
   promptBox.scrollTop = 0;
   errorBanner.hidden = true;
   showPanel("result");
+  syncPromptSections({ focusPrompt: false });
 
   if (opts.persist !== false) {
     savePopupState({ kind: "result", dataUrl, prompt, style: currentStyle });

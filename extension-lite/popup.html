@@ -142,12 +142,10 @@
       </div>
 
       <div class="remix-block">
-        <div class="remix-chip-row" role="group" data-i18n-aria="remixChipsAria" aria-label="Quick edits">
-          <button type="button" class="remix-chip" data-i18n="remixChipNight">Make it night</button>
-          <button type="button" class="remix-chip" data-i18n="remixChipNoPeople">Remove people</button>
-          <button type="button" class="remix-chip" data-i18n="remixChipDetail">More detail</button>
-          <button type="button" class="remix-chip" data-i18n="remixChipWide">16:9</button>
+        <div class="remix-section-head">
+          <span data-i18n="remixSectionLabel">Edit section</span>
         </div>
+        <div class="remix-chip-row" id="remix-section-row" role="radiogroup" data-i18n-aria="remixChipsAria" aria-label="Prompt sections"></div>
         <div class="remix-composer">
           <textarea
             id="remix-input"
@@ -155,7 +153,7 @@
             rows="1"
             maxlength="1000"
             data-i18n-placeholder="remixPlaceholder"
-            placeholder="Describe a change…"
+            placeholder="Change this section…"
           ></textarea>
           <button type="button" class="remix-send" id="btn-remix" disabled
                   data-i18n-aria="remixButtonAria" aria-label="Remix prompt">

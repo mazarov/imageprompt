@@ -18,6 +18,8 @@ const GEMINI_TIMEOUT_MS = 45_000;
 
 const MAX_ORIGINAL_LEN = 8000;
 const MAX_CHANGE_LEN = 1000;
+const MAX_SECTION_LEN = 3000;
+const MAX_SECTION_LABEL_LEN = 64;
 
 type Style = "photoreal" | "midjourney" | "sd" | "flux";
 const VALID_STYLES: Style[] = ["photoreal", "midjourney", "sd", "flux"];
@@ -49,6 +51,28 @@ async function getGeminiBaseUrl(supabase: ReturnType<typeof createSupabaseServer
   return GEMINI_DIRECT_BASE_URL;
 }
 
+function buildSectionInstruction(
+  sectionLabel: string,
+  sectionText: string,
+  changeRequest: string,
+  style: Style,
+): string {
+  const styleLine =
+    style === "photoreal" ? "" : `Keep the wording compatible with this target style: ${STYLE_HINT[style]}.`;
+
+  return [
+    `Rewrite only the "${sectionLabel}" section of an AI image prompt according to this edit: ${changeRequest}.`,
+    "Preserve the section heading and heading style exactly as in the input.",
+    "Do not rewrite, add, or mention any other prompt sections.",
+    "Return only the rewritten section text (heading plus body).",
+    styleLine,
+    "",
+    sectionText,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function buildInstruction(originalPrompt: string, changeRequest: string, style: Style): string {
   const styleLine =
     style === "photoreal" ? "" : `Keep the wording compatible with this target style: ${STYLE_HINT[style]}.`;
@@ -70,7 +94,13 @@ export async function OPTIONS() {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  let body: { originalPrompt?: unknown; changeRequest?: unknown; style?: unknown };
+  let body: {
+    originalPrompt?: unknown;
+    changeRequest?: unknown;
+    style?: unknown;
+    sectionLabel?: unknown;
+    sectionText?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
@@ -80,15 +110,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const originalPrompt = String(body.originalPrompt ?? "").trim();
   const changeRequest = String(body.changeRequest ?? "").trim();
-
-  if (!originalPrompt || originalPrompt.length > MAX_ORIGINAL_LEN) {
-    return NextResponse.json(
-      { error: "invalid_request", message: "originalPrompt is required and must be under 8000 chars." },
-      { status: 400 },
-    );
-  }
   if (!changeRequest || changeRequest.length > MAX_CHANGE_LEN) {
     return NextResponse.json(
       { error: "invalid_request", message: "changeRequest is required and must be under 1000 chars." },
@@ -96,10 +118,46 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  const sectionLabel = String(body.sectionLabel ?? "").trim();
+  const sectionText = String(body.sectionText ?? "").trim();
+  const isSectionMode = Boolean(sectionLabel && sectionText);
+
+  let originalPrompt = "";
+  let instruction = "";
+  let maxOutputTokens = 8192;
+
+  if (isSectionMode) {
+    if (sectionLabel.length > MAX_SECTION_LABEL_LEN) {
+      return NextResponse.json(
+        { error: "invalid_request", message: "sectionLabel must be under 64 chars." },
+        { status: 400 },
+      );
+    }
+    if (sectionText.length > MAX_SECTION_LEN) {
+      return NextResponse.json(
+        { error: "invalid_request", message: "sectionText must be under 3000 chars." },
+        { status: 400 },
+      );
+    }
+  } else {
+    originalPrompt = String(body.originalPrompt ?? "").trim();
+    if (!originalPrompt || originalPrompt.length > MAX_ORIGINAL_LEN) {
+      return NextResponse.json(
+        { error: "invalid_request", message: "originalPrompt is required and must be under 8000 chars." },
+        { status: 400 },
+      );
+    }
+  }
+
   const style: Style =
     typeof body.style === "string" && VALID_STYLES.includes(body.style as Style)
       ? (body.style as Style)
       : "photoreal";
+
+  instruction = isSectionMode
+    ? buildSectionInstruction(sectionLabel, sectionText, changeRequest, style)
+    : buildInstruction(originalPrompt, changeRequest, style);
+  if (isSectionMode) maxOutputTokens = 2048;
 
   const supabase = createSupabaseServer();
   const session = await beginExtensionRateLimit(req, supabase, "remix");
@@ -140,12 +198,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     contents: [
       {
         role: "user",
-        parts: [{ text: buildInstruction(originalPrompt, changeRequest, style) }],
+        parts: [{ text: instruction }],
       },
     ],
     generationConfig: {
       temperature: 0.4,
-      maxOutputTokens: 8192,
+      maxOutputTokens,
       thinkingConfig: {
         thinkingBudget: 0,
       },
@@ -276,8 +334,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     rateLimitResult?.allowed ?? false,
   );
 
-  return NextResponse.json({
-    prompt: rawText,
-    ...extensionRateLimitQuotaFields(finalCheck),
-  });
+  return NextResponse.json(
+    isSectionMode
+      ? { sectionText: rawText, ...extensionRateLimitQuotaFields(finalCheck) }
+      : { prompt: rawText, ...extensionRateLimitQuotaFields(finalCheck) },
+  );
 }

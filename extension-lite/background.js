@@ -1,5 +1,6 @@
 import { resizeImageToDataUrl } from "./lib/image-utils.js";
 import { initI18n, reloadI18n, t, UI_LANG_STORAGE_KEY } from "./lib/i18n.js";
+import { replacePromptSection, normalizeSectionText } from "./lib/prompt-sections.js";
 
 const PENDING_IMAGE_KEY = "pending_image";
 const CONTEXT_MENU_ID = "analyze-image";
@@ -9,6 +10,7 @@ const HISTORY_QUEUE_KEY = "extension_lite_history_queue_v1";
 const HISTORY_STORE_KEY = "extension_lite_history_store_v1";
 const QUOTA_KEY = "extension_lite_quota_v1";
 const ANALYSIS_JOB_KEY = "extension_lite_analysis_job_v1";
+const REMIX_JOB_KEY = "extension_lite_remix_job_v1";
 const MAX_HISTORY_QUEUE_ENTRIES = 45;
 const MAX_SW_FETCH_BYTES = 10 * 1024 * 1024;
 const ANALYSIS_FETCH_TIMEOUT_MS = 45_000;
@@ -67,22 +69,60 @@ function createJobId() {
 }
 
 // Register context menus once on install / service worker startup.
+/** @type {Promise<void> | undefined} */
+let contextMenuSync;
+
 function registerContextMenus() {
-  chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({
-      id: CONTEXT_MENU_ID,
-      title: t("ctxGetPrompt"),
-      contexts: ["image"],
-    });
-    chrome.contextMenus.create({
-      id: CONTEXT_OPEN_SITE,
-      title: t("ctxOpenSite"),
-      contexts: ["image"],
-    });
-  });
+  contextMenuSync = (contextMenuSync ?? Promise.resolve()).then(
+    () =>
+      new Promise((resolve) => {
+        chrome.contextMenus.removeAll(() => {
+          void chrome.runtime.lastError;
+          let pending = 2;
+          const done = () => {
+            pending -= 1;
+            if (pending <= 0) resolve();
+          };
+          chrome.contextMenus.create(
+            {
+              id: CONTEXT_MENU_ID,
+              title: t("ctxGetPrompt"),
+              contexts: ["image"],
+            },
+            () => {
+              void chrome.runtime.lastError;
+              done();
+            },
+          );
+          chrome.contextMenus.create(
+            {
+              id: CONTEXT_OPEN_SITE,
+              title: t("ctxOpenSite"),
+              contexts: ["image"],
+            },
+            () => {
+              void chrome.runtime.lastError;
+              done();
+            },
+          );
+        });
+      }),
+  );
+  return contextMenuSync;
 }
 
-void initI18n().then(() => registerContextMenus());
+void initI18n().then(() => {
+  registerContextMenus();
+  void resumePendingRemixJob();
+});
+
+async function resumePendingRemixJob() {
+  const job = await getRemixJob();
+  if (job?.status !== "remixing") return;
+  void completeLiteRemixJob(job).catch((e) =>
+    console.warn("[ai-image-describer] remix resume failed", e?.message ?? e),
+  );
+}
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes[UI_LANG_STORAGE_KEY]) return;
@@ -90,8 +130,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 chrome.runtime.onInstalled.addListener((details) => {
-  void reloadI18n().then(() => registerContextMenus());
-
   if (details.reason === chrome.runtime.OnInstalledReason.INSTALL) {
     const welcomeUrl = new URL("/welcome", SITE_URL).href;
     chrome.tabs.create({ url: welcomeUrl }).catch(() => {});
@@ -131,6 +169,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       sendResponse({ ok: true });
     });
+    return true;
+  }
+  if (msg?.type === "CLEAR_LITE_REMIX_JOB") {
+    chrome.storage.local.remove(REMIX_JOB_KEY, () => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+        return;
+      }
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+  if (msg?.type === "RESUME_LITE_REMIX_JOB") {
+    void resumePendingRemixJob()
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
     return true;
   }
   if (msg?.type === "GET_LITE_HISTORY_QUEUE") {
@@ -212,10 +266,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (
     msg?.type === "START_LITE_REMIX" &&
     typeof msg.originalPrompt === "string" &&
-    typeof msg.changeRequest === "string"
+    typeof msg.changeRequest === "string" &&
+    typeof msg.sectionKey === "string" &&
+    typeof msg.sectionLabel === "string" &&
+    typeof msg.sectionText === "string"
   ) {
-    startLiteRemix(msg.originalPrompt, msg.changeRequest, msg.style, msg.dataUrl)
-      .then((res) => sendResponse(res))
+    startLiteRemixJob({
+      originalPrompt: msg.originalPrompt,
+      changeRequest: msg.changeRequest,
+      style: msg.style,
+      dataUrl: msg.dataUrl,
+      sectionKey: msg.sectionKey,
+      sectionLabel: msg.sectionLabel,
+      sectionText: msg.sectionText,
+      sectionHeading: typeof msg.sectionHeading === "string" ? msg.sectionHeading : "",
+    })
+      .then((job) => sendResponse({ ok: true, job }))
       .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
     return true;
   }
@@ -366,6 +432,16 @@ async function setAnalysisJob(job) {
 async function getAnalysisJob() {
   const data = await chrome.storage.local.get(ANALYSIS_JOB_KEY);
   return data?.[ANALYSIS_JOB_KEY] ?? null;
+}
+
+async function setRemixJob(job) {
+  await chrome.storage.local.set({ [REMIX_JOB_KEY]: job });
+  chrome.runtime.sendMessage({ type: "LITE_REMIX_JOB_UPDATED", job }).catch(() => {});
+}
+
+async function getRemixJob() {
+  const data = await chrome.storage.local.get(REMIX_JOB_KEY);
+  return data?.[REMIX_JOB_KEY] ?? null;
 }
 
 async function getLiteAuthToken() {
@@ -571,11 +647,11 @@ async function liteOverlayAnalyze(dataUrl, style) {
 }
 
 /**
- * Remix an existing prompt via service worker fetch (mirrors liteOverlayAnalyze).
- * @returns {Promise<{ ok:true; prompt:string; remaining:number|null; max:number|null }
+ * Remix a prompt section via service worker fetch.
+ * @returns {Promise<{ ok:true; sectionText:string; remaining:number|null; max:number|null }
  *   | { ok:false; status?:number; error?:string }>}
  */
-async function liteRemix(originalPrompt, changeRequest, style) {
+async function liteRemix(sectionLabel, sectionText, changeRequest, style) {
   let res;
   try {
     const token = await getLiteAuthToken();
@@ -584,7 +660,7 @@ async function liteRemix(originalPrompt, changeRequest, style) {
     res = await fetch(LITE_REMIX_API_URL, {
       method: "POST",
       headers,
-      body: JSON.stringify({ originalPrompt, changeRequest, style }),
+      body: JSON.stringify({ sectionLabel, sectionText, changeRequest, style }),
       signal: AbortSignal.timeout(LITE_REMIX_FETCH_TIMEOUT_MS),
     });
   } catch (err) {
@@ -608,52 +684,120 @@ async function liteRemix(originalPrompt, changeRequest, style) {
     return { ok: false, status: res.status, error: d.error ?? "request_failed" };
   }
 
-  if (!data || typeof data !== "object" || typeof data.prompt !== "string" || !data.prompt) {
+  const sectionResult =
+    data && typeof data === "object" && typeof data.sectionText === "string"
+      ? data.sectionText
+      : data && typeof data === "object" && typeof data.prompt === "string"
+        ? data.prompt
+        : "";
+
+  if (!sectionResult) {
     return { ok: false, error: "empty_prompt" };
   }
 
   return {
     ok: true,
-    prompt: data.prompt,
+    sectionText: sectionResult,
     remaining: typeof data.remaining === "number" ? data.remaining : null,
     max: typeof data.max === "number" ? data.max : null,
   };
 }
 
 /**
- * Orchestrate remix: call API, broadcast quota, append to History.
+ * Start remix job: return immediately; completeLiteRemixJob finishes in background.
  */
-async function startLiteRemix(originalPrompt, changeRequest, styleValue, dataUrl) {
+async function startLiteRemixJob({
+  originalPrompt,
+  changeRequest,
+  style: styleValue,
+  dataUrl,
+  sectionKey,
+  sectionLabel,
+  sectionText,
+  sectionHeading = "",
+}) {
   const style = isValidStyle(styleValue) ? styleValue : "photoreal";
-  const result = await liteRemix(originalPrompt, changeRequest, style);
-
-  if (!result.ok) {
-    return { ok: false, error: result.error || "request_failed", statusCode: result.status };
-  }
-
-  // Quota broadcast — same shape as completeLiteAnalysisJob
-  if (typeof result.remaining === "number") {
-    const quota = { remaining: result.remaining, max: result.max ?? null, ts: Date.now() };
-    await chrome.storage.local.set({ [QUOTA_KEY]: quota });
-    chrome.runtime.sendMessage({ type: "LITE_QUOTA_UPDATED", ...quota }).catch(() => {});
-  }
-
-  // History — write each remix as a new entry (reuses existing helpers)
-  let historyEntryId = null;
-  if (typeof dataUrl === "string" && dataUrl) {
-    const entry = createLiteHistoryEntry(dataUrl, style, result.prompt);
-    historyEntryId = entry.id;
-    await relayOrQueueLiteHistoryEntry(entry);
-    await appendLiteHistoryStore(entry);
-  }
-
-  return {
-    ok: true,
-    prompt: result.prompt,
-    remaining: result.remaining,
-    max: result.max,
-    historyEntryId,
+  const job = {
+    id: createJobId(),
+    status: "remixing",
+    originalPrompt,
+    changeRequest,
+    sectionKey,
+    sectionLabel,
+    sectionText,
+    sectionHeading,
+    dataUrl: typeof dataUrl === "string" ? dataUrl : "",
+    style,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
+
+  await setRemixJob(job);
+  void completeLiteRemixJob(job).catch((e) =>
+    console.warn("[ai-image-describer] remix job failed", e?.message ?? e),
+  );
+  return job;
+}
+
+async function completeLiteRemixJob(startedJob) {
+  const result = await liteRemix(
+    startedJob.sectionLabel,
+    startedJob.sectionText,
+    startedJob.changeRequest,
+    startedJob.style,
+  );
+  const current = await getRemixJob();
+  if (!current || current.id !== startedJob.id) return;
+
+  if (result.ok && typeof result.sectionText === "string" && result.sectionText) {
+    const normalizedSectionText = normalizeSectionText(
+      startedJob.sectionLabel,
+      result.sectionText,
+      startedJob.sectionHeading || "",
+    );
+    const fullPrompt = replacePromptSection(
+      startedJob.originalPrompt,
+      startedJob.sectionKey,
+      normalizedSectionText,
+    );
+
+    if (typeof result.remaining === "number") {
+      const quota = { remaining: result.remaining, max: result.max ?? null, ts: Date.now() };
+      await chrome.storage.local.set({ [QUOTA_KEY]: quota });
+      chrome.runtime.sendMessage({ type: "LITE_QUOTA_UPDATED", ...quota }).catch(() => {});
+    }
+
+    let historyEntryId = null;
+    if (typeof startedJob.dataUrl === "string" && startedJob.dataUrl) {
+      const entry = createLiteHistoryEntry(startedJob.dataUrl, startedJob.style, fullPrompt);
+      historyEntryId = entry.id;
+      await relayOrQueueLiteHistoryEntry(entry);
+      await appendLiteHistoryStore(entry);
+    }
+
+    await setRemixJob({
+      ...startedJob,
+      status: "result",
+      prompt: fullPrompt,
+      remaining: result.remaining ?? null,
+      max: result.max ?? null,
+      historyEntryId,
+      updatedAt: Date.now(),
+    });
+    return;
+  }
+
+  await setRemixJob({
+    ...startedJob,
+    status: "error",
+    error: result.error || "request_failed",
+    statusCode: result.status,
+    updatedAt: Date.now(),
+  });
+
+  if (result.error === "rate_limited" || result.status === 429) {
+    void fetchLiteQuota().catch(() => {});
+  }
 }
 
 /**

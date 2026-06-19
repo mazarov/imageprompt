@@ -293,13 +293,11 @@
   "uiLangAuto": {
     "message": "Auto (browser)"
   },
-  "remixPlaceholder": { "message": "Describe a change…" },
+  "remixPlaceholder": { "message": "Change this section…" },
   "remixButtonAria": { "message": "Remix prompt" },
-  "remixChipsAria": { "message": "Quick edits" },
+  "remixChipsAria": { "message": "Prompt sections" },
+  "remixSectionLabel": { "message": "Edit section" },
+  "remixSelectSectionError": { "message": "Choose a section to edit." },
   "remixLoading": { "message": "Remixing…" },
-  "remixError": { "message": "Couldn't remix the prompt. Please try again." },
-  "remixChipNight": { "message": "Make it night" },
-  "remixChipNoPeople": { "message": "Remove people" },
-  "remixChipDetail": { "message": "More detail" },
-  "remixChipWide": { "message": "16:9" }
+  "remixError": { "message": "Couldn't remix the prompt. Please try again." }
 }

@@ -1066,23 +1066,26 @@ html, body {
   fill: #ffc711;
 }
 
-/* ── Remix (composer + quick-chips on result) ── */
+/* ── Remix (section chips + composer on result) ── */
 .remix-block {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
+}
+
+.remix-section-head {
+  font: 600 10px/1.2 inherit;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
 }
 
 .remix-chip-row {
   display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 10px), transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+  flex-wrap: wrap;
+  gap: 5px;
 }
-.remix-chip-row::-webkit-scrollbar { display: none; }
 
 .remix-chip {
   flex: 0 0 auto;
@@ -1099,6 +1102,11 @@ html, body {
 }
 .remix-chip:hover { color: var(--text); border-color: rgb(129 140 248 / 0.5); }
 .remix-chip:active { background: rgb(129 140 248 / 0.16); }
+.remix-chip.is-selected {
+  color: var(--text);
+  background: rgb(99 102 241 / 0.16);
+  border-color: rgb(129 140 248 / 0.65);
+}
 .remix-chip:disabled { opacity: 0.45; cursor: default; }
 .remix-chip:focus-visible {
   outline: none;
@@ -1185,6 +1193,10 @@ html, body {
   background: rgb(99 102 241 / 0.85);
   animation: load-shuttle 1.25s ease-in-out infinite alternate;
 }
+.prompt-box.section-focused {
+  box-shadow: var(--ring-inset), inset 3px 0 0 rgb(129 140 248 / 0.55);
+  transition: box-shadow .25s ease;
+}
 .prompt-box.just-remixed { animation: remix-flash .6s ease-out; }
 @keyframes remix-flash {
   0%   { box-shadow: var(--ring-inset), inset 3px 0 0 var(--accent-glow); }
@@ -1206,4 +1218,5 @@ html, body {
   .remix-send.is-busy::after { animation: none; }
   .prompt-box.is-remixing::before { animation: none; }
   .prompt-box.just-remixed { animation: none; }
+  .prompt-box.section-focused { transition: none; }
 }
