@@ -23,6 +23,9 @@
   "tabHistory": {
     "message": "История"
   },
+  "tabSettings": {
+    "message": "Настройки"
+  },
   "navMainAria": {
     "message": "Основная навигация"
   },
@@ -286,5 +289,50 @@
   },
   "errorContextInvalidated": {
     "message": "Расширение обновлено. Обновите эту страницу (F5) и попробуйте снова."
+  },
+  "settingsOpenAria": {
+    "message": "Открыть настройки"
+  },
+  "settingsCloseAria": {
+    "message": "Закрыть настройки"
+  },
+  "settingsTitle": {
+    "message": "Настройки"
+  },
+  "settingsSubtitle": {
+    "message": "Настройте боковую панель."
+  },
+  "settingsLanguageLabel": {
+    "message": "Язык"
+  },
+  "settingsLanguageHint": {
+    "message": "Выберите язык интерфейса боковой панели."
+  },
+  "uiLangLabel": {
+    "message": "Язык интерфейса"
+  },
+  "uiLangAuto": {
+    "message": "Авто (браузер)"
+  },
+  "remixPlaceholder": {
+    "message": "Измените этот раздел…"
+  },
+  "remixButtonAria": {
+    "message": "Ремикс промпта"
+  },
+  "remixChipsAria": {
+    "message": "Разделы промпта"
+  },
+  "remixSectionLabel": {
+    "message": "Редактировать раздел"
+  },
+  "remixSelectSectionError": {
+    "message": "Выберите раздел для редактирования."
+  },
+  "remixLoading": {
+    "message": "Ремиксуем…"
+  },
+  "remixError": {
+    "message": "Не удалось обновить промпт. Попробуйте снова."
   }
 }

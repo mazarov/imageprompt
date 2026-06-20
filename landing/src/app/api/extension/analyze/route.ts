@@ -409,7 +409,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       },
     ],
     generationConfig: {
-      temperature: 0.4,
+      temperature: style === "photoreal" ? 0.3 : 0.4,
       maxOutputTokens: style === "photoreal" ? 2048 : 1024,
     },
   };

@@ -101,9 +101,11 @@ const btnRemix        = document.getElementById("btn-remix");
 const remixSectionRow = document.getElementById("remix-section-row");
 const shellBody       = document.getElementById("body-analyze");
 const bodyHistory     = document.getElementById("body-history");
+const bodySettings    = document.getElementById("body-settings");
 const historyList     = document.getElementById("history-list");
 const historyEmpty    = document.getElementById("history-empty");
 const tabBar          = document.querySelector(".tab-bar");
+const shellRoot       = document.querySelector(".shell");
 const brandDevTrigger = document.getElementById("brand-dev-trigger");
 const devSettings     = document.getElementById("dev-settings");
 const devIpHashValue  = document.getElementById("dev-ip-hash-value");
@@ -116,6 +118,8 @@ const btnAuthGoogle   = document.getElementById("btn-auth-google");
 const btnAuthSignOut  = document.getElementById("btn-auth-sign-out");
 const topbarQuota     = document.getElementById("topbar-quota");
 const uiLangSelect    = document.getElementById("ui-lang-select");
+const btnSettings     = document.getElementById("btn-settings");
+const activeBackdropPreview = document.getElementById("active-backdrop-preview");
 
 // ── Style pill helpers ──
 function getSelectedStyle() {
@@ -228,6 +232,17 @@ function setupLangSelect() {
   });
 }
 
+function setActiveBackdrop(dataUrl) {
+  if (!shellRoot || !activeBackdropPreview) return;
+  if (isImageDataUrl(dataUrl)) {
+    activeBackdropPreview.src = dataUrl;
+    shellRoot.classList.add("has-active-image");
+    return;
+  }
+  activeBackdropPreview.removeAttribute("src");
+  shellRoot.classList.remove("has-active-image");
+}
+
 async function checkPendingImage() {
   let pending;
   try {
@@ -273,6 +288,8 @@ async function handlePendingImage(pending) {
 }
 
 function bindEvents() {
+  btnSettings?.addEventListener("click", () => switchTab("settings"));
+
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg?.type === "LITE_PENDING_IMAGE_READY") {
       void handlePendingImage(msg.pending);
@@ -1181,6 +1198,7 @@ function showDraft(dataUrl, styleUsed, opts = {}) {
   setSelectedStyle(currentStyle);
   if (draftHint) draftHint.textContent = opts.hint || DRAFT_HINT_DEFAULT();
   draftPreview.src = dataUrl;
+  setActiveBackdrop(dataUrl);
   showPanel("draft");
 
   if (opts.persist !== false) {
@@ -1190,10 +1208,13 @@ function showDraft(dataUrl, styleUsed, opts = {}) {
 
 function showLoading(dataUrl) {
   uploadLog("showLoading", { hasPreview: Boolean(dataUrl) });
-  currentDataUrl = dataUrl;
-  if (dataUrl) {
-    loadingPreview.src = dataUrl;
+  const candidate = isImageDataUrl(dataUrl) ? dataUrl : currentDataUrl;
+  if (isImageDataUrl(candidate)) {
+    currentDataUrl = candidate;
+    loadingPreview.src = candidate;
+    setActiveBackdrop(candidate);
   } else {
+    currentDataUrl = "";
     loadingPreview.removeAttribute("src");
   }
   showPanel("loading");
@@ -1207,6 +1228,7 @@ function showResult(dataUrl, prompt, styleUsed, opts = {}) {
   currentStyle = isValidStyle(styleUsed) ? styleUsed : "photoreal";
   setSelectedStyle(currentStyle);
   resultPreview.src = dataUrl;
+  setActiveBackdrop(dataUrl);
   promptBox.textContent = prompt;
   promptBox.scrollTop = 0;
   errorBanner.hidden = true;
@@ -1226,6 +1248,7 @@ function resetToEmpty() {
   currentStyle = getSelectedStyle();
   clearPopupState();
   clearAnalysisJob();
+  setActiveBackdrop("");
   showPanel("empty");
 }
 
@@ -1313,8 +1336,10 @@ function switchTab(tab) {
     btn.classList.toggle("active", btn.dataset.tab === tab);
   }
   const isHistory = tab === "history";
-  if (shellBody) shellBody.hidden = isHistory;
+  const isSettings = tab === "settings";
+  if (shellBody) shellBody.hidden = isHistory || isSettings;
   if (bodyHistory) bodyHistory.hidden = !isHistory;
+  if (bodySettings) bodySettings.hidden = !isSettings;
   if (isHistory) void loadHistory();
 }
 

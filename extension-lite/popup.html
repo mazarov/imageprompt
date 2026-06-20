@@ -9,18 +9,34 @@
 <body>
 
   <div class="shell">
+    <div class="app-image-backdrop" aria-hidden="true">
+      <img id="active-backdrop-preview" class="app-image-backdrop-img" alt="" />
+      <div class="app-image-backdrop-scrim"></div>
+    </div>
 
     <!-- Top bar -->
     <header class="topbar">
       <div class="topbar-brand" id="brand-dev-trigger">
         <img class="brand-mark" src="icons/icon32.png" width="26" height="26" alt="" />
-        <span class="brand-name" data-i18n="brandWordmark">AI Image Describer</span>
+        <span class="brand-name">imageprompt.tools</span>
       </div>
       <div class="topbar-end">
-        <select id="ui-lang-select" class="topbar-lang-select" data-i18n-aria="uiLangLabel" aria-label="Interface language"></select>
         <span class="topbar-quota" id="topbar-quota" hidden></span>
         <button type="button" class="topbar-auth" id="btn-auth-google" data-i18n="signIn">Sign in</button>
         <button type="button" class="topbar-auth" id="btn-auth-sign-out" hidden data-i18n="signOut">Sign out</button>
+        <button
+          type="button"
+          class="topbar-icon-btn"
+          id="btn-settings"
+          data-i18n-aria="settingsOpenAria"
+          aria-label="Open settings"
+          aria-controls="body-settings"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.25" />
+            <path d="M19.38 14.95a1 1 0 0 0 .2 1.1l.04.04a1.95 1.95 0 0 1-2.76 2.76l-.04-.04a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.92V20a1.95 1.95 0 1 1-3.9 0v-.07a1 1 0 0 0-.6-.92 1 1 0 0 0-1.1.2l-.04.04a1.95 1.95 0 0 1-2.76-2.76l.04-.04a1 1 0 0 0 .2-1.1 1 1 0 0 0-.92-.6H4a1.95 1.95 0 1 1 0-3.9h.07a1 1 0 0 0 .92-.6 1 1 0 0 0-.2-1.1l-.04-.04a1.95 1.95 0 1 1 2.76-2.76l.04.04a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.92V4a1.95 1.95 0 1 1 3.9 0v.07a1 1 0 0 0 .6.92 1 1 0 0 0 1.1-.2l.04-.04a1.95 1.95 0 1 1 2.76 2.76l-.04.04a1 1 0 0 0-.2 1.1 1 1 0 0 0 .92.6H20a1.95 1.95 0 1 1 0 3.9h-.07a1 1 0 0 0-.92.6z" />
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -122,47 +138,44 @@
 
     <!-- ── RESULT STATE ── -->
     <section id="state-result" class="panel panel-result">
-      <div class="preview-frame preview-frame-result" aria-hidden="true">
-        <div class="result-actions" role="group" data-i18n-aria="promptActionsAria" aria-label="Prompt actions">
-          <button class="btn btn-overlay btn-overlay-primary" id="btn-copy" type="button" data-i18n="copyShort">Copy</button>
-          <button class="btn btn-overlay" id="btn-retry" type="button" data-i18n="another">Another</button>
-        </div>
-        <div class="preview-frame-inner">
-          <img id="result-preview" class="preview-img" src="" alt="" />
-        </div>
-      </div>
-
-      <div id="error-banner" class="error-banner" role="alert" hidden></div>
-
-      <div class="prompt-box-wrap">
-        <div class="result-header">
-          <span class="result-title" data-i18n="resultTitle">Prompt</span>
-        </div>
-        <pre id="prompt-box" class="prompt-box" tabindex="0"></pre>
-      </div>
-
-      <div class="remix-block">
-        <div class="remix-section-head">
-          <span data-i18n="remixSectionLabel">Edit section</span>
-        </div>
-        <div class="remix-chip-row" id="remix-section-row" role="radiogroup" data-i18n-aria="remixChipsAria" aria-label="Prompt sections"></div>
-        <div class="remix-composer">
-          <textarea
-            id="remix-input"
-            class="remix-input"
-            rows="1"
-            maxlength="1000"
-            data-i18n-placeholder="remixPlaceholder"
-            placeholder="Change this section…"
-          ></textarea>
-          <button type="button" class="remix-send" id="btn-remix" disabled
-                  data-i18n-aria="remixButtonAria" aria-label="Remix prompt">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 19V5" />
-              <path d="M5 12l7-7 7 7" />
-            </svg>
-          </button>
+      <div class="result-stage">
+        <img id="result-preview" class="result-preview-compat" src="" alt="" aria-hidden="true" />
+        <div class="result-glass-card">
+          <div id="error-banner" class="error-banner" role="alert" hidden></div>
+          <div class="prompt-box-wrap">
+            <div class="result-header">
+              <span class="result-title" data-i18n="resultTitle">Prompt</span>
+            </div>
+            <pre id="prompt-box" class="prompt-box" tabindex="0"></pre>
+            <div class="result-actions" role="group" data-i18n-aria="promptActionsAria" aria-label="Prompt actions">
+              <button class="btn btn-overlay btn-overlay-primary" id="btn-copy" type="button" data-i18n="copyShort">Copy</button>
+              <button class="btn btn-overlay" id="btn-retry" type="button" data-i18n="another">Another</button>
+            </div>
+          </div>
+          <div class="remix-block">
+            <div class="remix-section-head">
+              <span data-i18n="remixSectionLabel">Edit section</span>
+            </div>
+            <div class="remix-chip-row" id="remix-section-row" role="radiogroup" data-i18n-aria="remixChipsAria" aria-label="Prompt sections"></div>
+            <div class="remix-composer">
+              <textarea
+                id="remix-input"
+                class="remix-input"
+                rows="1"
+                maxlength="1000"
+                data-i18n-placeholder="remixPlaceholder"
+                placeholder="Change this section…"
+              ></textarea>
+              <button type="button" class="remix-send" id="btn-remix" disabled
+                      data-i18n-aria="remixButtonAria" aria-label="Remix prompt">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 19V5" />
+                  <path d="M5 12l7-7 7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -200,6 +213,19 @@
     <div class="shell-body" id="body-history" hidden>
       <div id="history-list" class="history-list"></div>
       <p id="history-empty" class="history-empty" data-i18n="historyEmpty">No analyses yet.</p>
+    </div>
+
+    <!-- Settings tab body -->
+    <div class="shell-body shell-body-settings" id="body-settings" hidden>
+      <section class="settings-screen" aria-labelledby="settings-title">
+        <div class="settings-screen-card">
+          <h2 id="settings-title" class="settings-screen-title" data-i18n="settingsTitle">Settings</h2>
+          <p class="settings-screen-subtitle" data-i18n="settingsSubtitle">Personalize the side panel.</p>
+          <label class="settings-field-label" for="ui-lang-select" data-i18n="settingsLanguageLabel">Language</label>
+          <select id="ui-lang-select" class="settings-lang-select" data-i18n-aria="uiLangLabel" aria-label="Interface language"></select>
+          <p class="settings-field-hint" data-i18n="settingsLanguageHint">Choose the interface language for this side panel.</p>
+        </div>
+      </section>
     </div>
 
     <!-- Rating / feedback module -->

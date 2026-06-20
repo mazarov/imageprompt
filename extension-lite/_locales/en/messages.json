@@ -23,6 +23,9 @@
   "tabHistory": {
     "message": "History"
   },
+  "tabSettings": {
+    "message": "Settings"
+  },
   "navMainAria": {
     "message": "Main navigation"
   },
@@ -286,6 +289,24 @@
   },
   "errorContextInvalidated": {
     "message": "Extension updated. Refresh this page (F5) and try again."
+  },
+  "settingsOpenAria": {
+    "message": "Open settings"
+  },
+  "settingsCloseAria": {
+    "message": "Close settings"
+  },
+  "settingsTitle": {
+    "message": "Settings"
+  },
+  "settingsSubtitle": {
+    "message": "Personalize the side panel."
+  },
+  "settingsLanguageLabel": {
+    "message": "Language"
+  },
+  "settingsLanguageHint": {
+    "message": "Choose the interface language for this side panel."
   },
   "uiLangLabel": {
     "message": "Interface language"
