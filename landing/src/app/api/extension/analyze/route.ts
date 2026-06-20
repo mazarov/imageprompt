@@ -10,6 +10,11 @@ import {
   reserveExtensionRateLimit,
 } from "@/lib/extension-rate-limit-flow";
 import { extensionLog } from "@/lib/extension-pipeline-log";
+import {
+  logExtensionAnalyzeGeminiRequest,
+  logExtensionAnalyzeGeminiResponse,
+  logExtensionAnalyzeStart,
+} from "@/lib/extension-analyze-log";
 import { createSupabaseServer } from "@/lib/supabase";
 import { buildPhotorealExtractPrompt } from "@/lib/extension-prompt-sections";
 import {
@@ -360,6 +365,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       : "photoreal";
 
   const locale = normalizeLocale(body.locale);
+  const analyzeRequestId = crypto.randomUUID();
+  const imageSource: "base64" | "url" = hasUrl ? "url" : "base64";
+
+  logExtensionAnalyzeStart({
+    analyzeRequestId,
+    style,
+    locale,
+    imageSource,
+    imageMimeType: parsed.mimeType,
+    imageBase64Chars: parsed.data.length,
+  });
 
   const supabase = createSupabaseServer();
   const session = await beginExtensionRateLimit(req, supabase, "analyze");
@@ -397,22 +413,46 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const baseUrl = await getGeminiBaseUrl(supabase);
   const geminiUrl = `${baseUrl}/v1beta/models/${GEMINI_MODEL}:generateContent`;
+  const geminiEndpointHost = (() => {
+    try {
+      return new URL(baseUrl).hostname;
+    } catch {
+      return "invalid_base_url";
+    }
+  })();
+  const viaProxy = baseUrl !== GEMINI_DIRECT_BASE_URL;
+  const systemPromptText = systemPrompt(style, locale);
   const imageSettingsPromise = readImageSettingsFromBase64(parsed.data);
+  const generationConfig = {
+    temperature: style === "photoreal" ? 0.3 : 0.4,
+    maxOutputTokens: style === "photoreal" ? 2048 : 1024,
+  };
   const geminiBody = {
     contents: [
       {
         role: "user",
         parts: [
-          { text: systemPrompt(style, locale) },
+          { text: systemPromptText },
           { inlineData: { mimeType: parsed.mimeType, data: parsed.data } },
         ],
       },
     ],
-    generationConfig: {
-      temperature: style === "photoreal" ? 0.3 : 0.4,
-      maxOutputTokens: style === "photoreal" ? 2048 : 1024,
-    },
+    generationConfig,
   };
+
+  logExtensionAnalyzeGeminiRequest({
+    analyzeRequestId,
+    style,
+    locale,
+    model: GEMINI_MODEL,
+    endpointHost: geminiEndpointHost,
+    viaProxy,
+    systemPrompt: systemPromptText,
+    imageMimeType: parsed.mimeType,
+    imageBase64Chars: parsed.data.length,
+    generationConfig,
+    geminiBody,
+  });
 
   let geminiRes: Response;
   const geminiStartedAt = Date.now();
@@ -428,10 +468,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
   } catch (err) {
     console.error("[extension.analyze] gemini_fetch_failed", {
+      analyzeRequestId,
       message: err instanceof Error ? err.message : String(err),
     });
     extensionLog("gemini.call", {
       endpoint: "analyze",
+      analyzeRequestId,
       status: 503,
       latencyMs: Date.now() - geminiStartedAt,
     });
@@ -453,6 +495,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   extensionLog("gemini.call", {
     endpoint: "analyze",
+    analyzeRequestId,
     status: geminiRes.status,
     latencyMs: Date.now() - geminiStartedAt,
   });
@@ -460,6 +503,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!geminiRes.ok) {
     const errText = await geminiRes.text().catch(() => "");
     console.error("[extension.analyze] gemini_error_response", {
+      analyzeRequestId,
       status: geminiRes.status,
       body: errText.slice(0, 300),
     });
@@ -504,7 +548,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
   if (!rawText) {
-    console.error("[extension.analyze] gemini_empty_response", { data: JSON.stringify(geminiData).slice(0, 300) });
+    console.error("[extension.analyze] gemini_empty_response", {
+      analyzeRequestId,
+      data: JSON.stringify(geminiData).slice(0, 300),
+    });
     if (session && reserved) {
       await releaseExtensionRateLimitOnFailure(supabase, session);
     }
@@ -523,6 +570,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const promptText =
     style === "photoreal" ? `${rawText}\n\n${CRITICAL_RULES_SINGLE}` : rawText;
+
+  logExtensionAnalyzeGeminiResponse({
+    analyzeRequestId,
+    style,
+    locale,
+    model: GEMINI_MODEL,
+    httpStatus: geminiRes.status,
+    latencyMs: Date.now() - geminiStartedAt,
+    geminiData,
+    rawText,
+    promptText,
+    criticalRulesAppended: style === "photoreal",
+  });
 
   const imageSettings = await imageSettingsPromise;
 
