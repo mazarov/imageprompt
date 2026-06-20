@@ -557,11 +557,17 @@ async function completeLiteAnalysisJob(startedJob) {
   if (!current || current.id !== startedJob.id) return;
 
   if (result.ok && typeof result.prompt === "string") {
-    const entry = createLiteHistoryEntry(startedJob.dataUrl, startedJob.style, result.prompt);
+    const entry = createLiteHistoryEntry(
+      startedJob.dataUrl,
+      startedJob.style,
+      result.prompt,
+      result.imageSettings ?? null,
+    );
     await setAnalysisJob({
       ...startedJob,
       status: "result",
       prompt: result.prompt,
+      imageSettings: result.imageSettings ?? null,
       historyEntryId: entry.id,
       updatedAt: Date.now(),
     });
@@ -588,12 +594,13 @@ async function completeLiteAnalysisJob(startedJob) {
   }
 }
 
-function createLiteHistoryEntry(dataUrl, style, prompt) {
+function createLiteHistoryEntry(dataUrl, style, prompt, imageSettings = null) {
   return {
     id: createJobId(),
     createdAt: new Date().toISOString(),
     style,
     prompt,
+    ...(imageSettings ? { imageSettings } : {}),
     image: { mode: "data_url", dataUrl },
   };
 }
@@ -651,6 +658,12 @@ async function liteOverlayAnalyze(dataUrl, style) {
   return {
     ok: true,
     prompt: data.prompt,
+    imageSettings:
+      data.imageSettings &&
+      typeof data.imageSettings === "object" &&
+      typeof data.imageSettings.aspectRatio === "string"
+        ? data.imageSettings
+        : null,
     remaining: typeof data.remaining === "number" ? data.remaining : null,
     max: typeof data.max === "number" ? data.max : null,
   };

@@ -1,5 +1,6 @@
 /** Known prompt section headings from analyze output. */
 export const PROMPT_SECTION_LABELS = [
+  "Visual Hook",
   "Scene",
   "Genre",
   "Pose",
@@ -10,10 +11,12 @@ export const PROMPT_SECTION_LABELS = [
   "Clothing",
   "Makeup",
   "Composition",
+  "Avoid",
   "CRITICAL RULES",
 ];
 
 const SECTION_DEFS = [
+  { key: "visual_hook", label: "Visual Hook", chipLabel: "Hook", re: /^Visual Hook\s*:\s*$/i },
   { key: "scene", label: "Scene", chipLabel: "Scene", re: /^Scene\s*:\s*$/i },
   { key: "genre", label: "Genre", chipLabel: "Genre", re: /^Genre\s*:\s*$/i },
   { key: "pose", label: "Pose", chipLabel: "Pose", re: /^Pose\s*:\s*$/i },
@@ -24,6 +27,7 @@ const SECTION_DEFS = [
   { key: "clothing", label: "Clothing", chipLabel: "Clothing", re: /^Clothing\s*:\s*$/i },
   { key: "makeup", label: "Makeup", chipLabel: "Makeup", re: /^Makeup\s*:\s*$/i },
   { key: "composition", label: "Composition", chipLabel: "Composition", re: /^Composition\s*:\s*$/i },
+  { key: "avoid", label: "Avoid", chipLabel: "Avoid", re: /^Avoid\s*:\s*$/i },
   {
     key: "critical_rules",
     label: "CRITICAL RULES",

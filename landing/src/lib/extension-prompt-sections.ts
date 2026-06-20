@@ -5,6 +5,7 @@
  */
 
 export const SECTION_SPEC_ORDER = [
+  "Visual Hook",
   "Scene",
   "Genre",
   "Pose",
@@ -15,6 +16,7 @@ export const SECTION_SPEC_ORDER = [
   "Clothing",
   "Makeup",
   "Composition",
+  "Avoid",
 ] as const;
 
 export type SectionLabel = (typeof SECTION_SPEC_ORDER)[number];
@@ -31,6 +33,12 @@ the description starts on the next line. No extra commentary, no markdown fences
  * added later as a dedicated appearance section.
  */
 export const SECTION_SPECS: Record<SectionLabel, string> = {
+  "Visual Hook": `One concise polished art-direction sentence describing the main visual idea that makes the image
+compelling: contrast, silhouette, lighting concept, composition hook, mood, or fashion/editorial concept.
+Do not catalogue scene details, pose geometry, clothing details, lighting setup, camera details, or
+identity/biometric features. This should summarize the image's strongest creative hook for downstream
+image generation.`,
+
   Scene: `Where it is and what is happening — 1–2 sentences. Use a neutral subject label ("the subject",
 "a person"). Do NOT describe hair color, hair length, hair texture, facial features, skin tone,
 age, or body type here. Actions and props are fine.`,
@@ -75,6 +83,12 @@ makeup" if none is apparent, or "not visible" if the face is out of frame.`,
 rule-of-thirds, edge-weighted); (2) crop tightness and what is included; (3) vertical subject
 position in frame and horizon placement; (4) foreground/midground/background emphasis;
 (5) leading lines or framing elements; (6) notable negative space.`,
+
+  Avoid: `A compact comma-separated list or short sentence of visual mistakes and artifacts to avoid for this
+specific photoreal image. Include only relevant negative constraints such as 3D render look, cartoon
+styling, distorted hands, plastic skin, harsh over-retouching, extra objects, messy clothing, cheap
+accessories, wrong era/style, or flat lighting when applicable. Do not add constraints that contradict
+the positive prompt sections. Keep it short and generator-ready.`,
 };
 
 /**
@@ -98,8 +112,6 @@ export function getSectionSpec(label: string): string | null {
 
 /**
  * Assembles the full photoreal extract prompt from HEADER + SECTION_SPECS.
- * The output must be byte-for-byte identical to the former PHOTOREAL_EXTRACT_PROMPT
- * literal in analyze/route.ts (verified by the assertion in that file).
  */
 export function buildPhotorealExtractPrompt(): string {
   const sections = SECTION_SPEC_ORDER.map((label) => `${label}:\n${SECTION_SPECS[label]}`);

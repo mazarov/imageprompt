@@ -12,6 +12,11 @@ import {
 import { extensionLog } from "@/lib/extension-pipeline-log";
 import { createSupabaseServer } from "@/lib/supabase";
 import { buildPhotorealExtractPrompt } from "@/lib/extension-prompt-sections";
+import {
+  inferAspectRatioFromDimensions,
+  type ExtensionImageSettings,
+} from "@/lib/extension-image-settings";
+import sharp from "sharp";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES * (4 / 3)) + 100; // small header overhead
@@ -30,6 +35,19 @@ CRITICAL RULES
 - Subject must look naturally photographed in the setting, not pasted.
 - Photorealistic output, high textural detail, high quality, 8K-grade resolution and micro-detail (maximize sharpness and surface fidelity).
 `.trim();
+
+async function readImageSettingsFromBase64(data: string): Promise<ExtensionImageSettings | null> {
+  try {
+    const meta = await sharp(Buffer.from(data, "base64")).metadata();
+    const width = meta.width ?? 0;
+    const height = meta.height ?? 0;
+    const aspectRatio = inferAspectRatioFromDimensions(width, height);
+    if (!aspectRatio) return null;
+    return { aspectRatio, width, height };
+  } catch {
+    return null;
+  }
+}
 
 async function getGeminiBaseUrl(supabase: ReturnType<typeof createSupabaseServer>): Promise<string> {
   const proxyEnv = (process.env.GEMINI_PROXY_BASE_URL || "").replace(/\/+$/, "");
@@ -78,7 +96,7 @@ function outputLanguageInstruction(style: Style, locale: string): string {
     return [
       "",
       `Write all descriptive section body text in the user's locale: ${locale}.`,
-      "Keep every section heading exactly in English as specified: Scene:, Genre:, Pose:, Lighting:, Camera:, Mood:, Color:, Clothing:, Makeup:, Composition:, and CRITICAL RULES.",
+      "Keep every section heading exactly in English as specified: Visual Hook:, Scene:, Genre:, Pose:, Lighting:, Camera:, Mood:, Color:, Clothing:, Makeup:, Composition:, Avoid:, and CRITICAL RULES.",
       "Do not translate, rename, remove, or reorder section headings.",
     ].join("\n");
   }
@@ -379,6 +397,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const baseUrl = await getGeminiBaseUrl(supabase);
   const geminiUrl = `${baseUrl}/v1beta/models/${GEMINI_MODEL}:generateContent`;
+  const imageSettingsPromise = readImageSettingsFromBase64(parsed.data);
   const geminiBody = {
     contents: [
       {
@@ -505,6 +524,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const promptText =
     style === "photoreal" ? `${rawText}\n\n${CRITICAL_RULES_SINGLE}` : rawText;
 
+  const imageSettings = await imageSettingsPromise;
+
   const rateLimitResult = session
     ? await confirmExtensionRateLimitOnSuccess(supabase, session)
     : null;
@@ -519,6 +540,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({
     prompt: promptText,
+    ...(imageSettings ? { imageSettings } : {}),
     ...extensionRateLimitQuotaFields(finalCheck),
   });
 }
