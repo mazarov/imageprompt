@@ -78,7 +78,7 @@ function outputLanguageInstruction(style: Style, locale: string): string {
     return [
       "",
       `Write all descriptive section body text in the user's locale: ${locale}.`,
-      "Keep every section heading exactly in English as specified: Scene:, Genre:, Pose:, Lighting:, Camera:, Mood:, Color:, Clothing:, Composition:, and CRITICAL RULES.",
+      "Keep every section heading exactly in English as specified: Scene:, Genre:, Pose:, Lighting:, Camera:, Mood:, Color:, Clothing:, Makeup:, Composition:, and CRITICAL RULES.",
       "Do not translate, rename, remove, or reorder section headings.",
     ].join("\n");
   }
