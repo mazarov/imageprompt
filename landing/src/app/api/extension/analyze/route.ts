@@ -423,9 +423,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const viaProxy = baseUrl !== GEMINI_DIRECT_BASE_URL;
   const systemPromptText = systemPrompt(style, locale);
   const imageSettingsPromise = readImageSettingsFromBase64(parsed.data);
+  // gemini-2.5-flash counts thinking tokens against maxOutputTokens. Dynamic thinking
+  // was eating ~1900 tokens and truncating the visible response (finishReason MAX_TOKENS,
+  // missing sections). Disable thinking for this structured extraction so the full token
+  // budget goes to the labeled output, and keep headroom for the 12-section photoreal prompt.
   const generationConfig = {
     temperature: style === "photoreal" ? 0.3 : 0.4,
-    maxOutputTokens: style === "photoreal" ? 2048 : 1024,
+    maxOutputTokens: style === "photoreal" ? 3072 : 1536,
+    thinkingConfig: { thinkingBudget: 0 },
   };
   const geminiBody = {
     contents: [
