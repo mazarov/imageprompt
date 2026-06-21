@@ -429,7 +429,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // budget goes to the labeled output, and keep headroom for the 12-section photoreal prompt.
   const generationConfig = {
     temperature: style === "photoreal" ? 0.3 : 0.4,
-    maxOutputTokens: style === "photoreal" ? 3072 : 1536,
+    maxOutputTokens: style === "photoreal" ? 3584 : 1536,
     thinkingConfig: { thinkingBudget: 0 },
   };
   const geminiBody = {

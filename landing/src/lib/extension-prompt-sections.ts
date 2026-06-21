@@ -74,11 +74,29 @@ height relative to subject's eyes (below / eye level / slightly above / clearly 
   Color: `Color palette, grading style, contrast, saturation. Name dominant and accent colors, note any
 cinematic grade (e.g. "teal-orange grade", "muted desaturated", "warm golden hour").`,
 
-  Clothing: `One cohesive paragraph for IMAGE GENERATION. Cover in order: (1) upper body garment(s), neckline,
-sleeves, layers; (2) lower body if visible; (3) colors and patterns; (4) fabric/material read;
-(5) fit and styling details; (6) jewelry and piercings; (7) other worn accessories (footwear,
-headwear, belt, bag, etc.). Say "not visible" for out-of-frame regions; use "" only if nothing
-worn is visible at all. Describe garment construction and silhouette before any styling adjectives, and preserve distinctive structural features exactly (e.g. open-back cutout, wing/shoulder volume, feathers/beads/sequins, sleeve transparency, separate lower garment, jewelry). Do not simplify a distinctive outfit into a generic top or jacket.`,
+  Clothing: `One cohesive paragraph for IMAGE GENERATION. Describe garments, jewelry, and worn accessories on the
+subject only (not pose, not body-shape commentary unless it affects how the cloth reads).
+Cover in order (say "not visible" if a region is out of frame; use "" only if no clothing, jewelry, or
+worn accessories are visible at all, e.g. a face-only crop with nothing worn visible):
+(1) Upper body: garment type(s) (e.g. tank, tee, shirt, blouse, sweater, jacket, coat), neckline/collar,
+sleeve length and cut, layers (under/over).
+(2) Lower body if visible: pants, skirt, shorts, dress continuation — cut (wide, slim, straight),
+rise if inferable.
+(3) Colors and patterns: name dominant and accent colors; stripes, checks, solid, print motif if any.
+(4) Material read: what the fabric looks like (denim, ribbed knit, leather, satin, mesh, fleece, linen,
+suit wool, etc.) even if approximate.
+(5) Fit and styling: tight / fitted / relaxed / oversized; cropped, tucked vs untucked, rolled cuffs,
+undone buttons, off-shoulder, etc.
+(6) Jewelry and piercings: earrings (studs, hoops, drops), necklaces/chokers/chains, rings,
+bracelets/bangles, anklets, visible piercings, brooches, pins, body chains — metal color (gold, silver,
+rose) and stones if any; say "none visible" if absent.
+(7) Other worn accessories: footwear if visible; headwear (cap, beanie, headband); belt; watch;
+eyeglasses/sunglasses; gloves; scarf; bag/handbag/clutch on body or strap crossing torso — one short
+phrase each or "none visible".
+Describe garment construction and silhouette before any styling adjectives, and preserve distinctive
+structural features exactly (e.g. open-back cutout, wing/shoulder volume, feathers/beads/sequins, sleeve
+transparency, separate lower garment, jewelry). Do not simplify a distinctive outfit into a generic top
+or jacket.`,
 
   Makeup: `One cohesive paragraph for IMAGE GENERATION describing the subject's visible makeup. Cover in
 order: (1) overall look (no-makeup/natural, everyday, soft glam, full glam, editorial, dramatic);
