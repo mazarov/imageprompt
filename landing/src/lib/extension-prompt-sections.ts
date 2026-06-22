@@ -30,6 +30,13 @@ the description starts on the next line. No extra commentary, no markdown fences
 Fidelity priority:
 Describe exactly what is in this specific image, not an idealized or improved version of it. Be concrete and specific about the actual pose, head turn, body orientation, shoulder and hip alignment, crop, subject scale, camera angle, garment silhouette and construction (including open/closed areas and distinctive textures), lighting direction, background, color palette, and composition. State concrete geometry and spatial relationships before any mood or style language. Do not generalize a distinctive image into a generic fashion-editorial description. If a detail is unclear, give the most visually faithful estimate grounded in the image rather than inventing flattering details.
 
+Cross-section consistency (mandatory):
+Pose, Camera, and Composition must describe the SAME body orientation, head/gaze direction, and framing — they cannot contradict each other.
+- Orientation: if the torso is rotated away from the lens (any three-quarter or back angle) or the head turns toward the lens, Camera's horizontal viewing angle MUST reflect that same rotation. Never write "strict profile", "shot directly from the side", "no body rotation", or similar when the torso is turned or the subject gazes into the camera. Reserve "profile"/"near-profile" for a torso that is genuinely side-on to the lens.
+- Gaze: the head-turn and gaze direction stated in Pose must match the camera angle described in Camera (e.g. a subject looking into the lens cannot be photographed in pure profile).
+- Framing: Camera's framing scale and Composition's crop MUST include every body region named in Pose. If hands rest on the floor and knees are down, the framing cannot crop at the waist — extend it to include those parts.
+Re-read Pose before writing Camera and Composition, and make them agree.
+
 Completeness is mandatory. Always produce every section exactly once:
 Visual Hook, Scene, Genre, Pose, Lighting, Camera, Mood, Color, Clothing, Makeup, Composition, Avoid.
 Do not stop early, do not omit low-confidence sections, and do not end with an unfinished sentence.
@@ -54,7 +61,10 @@ age, or body type here. Actions and props are fine.`,
   Genre: `The photographic genre (fashion editorial, street photography, portrait, boudoir, fitness, etc.)`,
 
   Pose: `One cohesive paragraph for IMAGE GENERATION describing ONLY the subject's physical pose and body
-geometry. Cover in order: (1) head vs torso facing direction and tilt relative to camera;
+geometry. Start with an explicit, unambiguous statement of (a) which way the torso faces relative to the
+lens (frontal / slight three-quarter / strong three-quarter / near-profile / back) and (b) the head-turn
+and gaze direction (e.g. "head turned over the shoulder, gaze into the lens") — Camera and Composition
+must later agree with these two facts. Then cover in order: (1) head vs torso facing direction and tilt relative to camera;
 (2) shoulders and torso angle/lean; (3) arms and hands — positions, angles, contacts;
 (4) hips and legs if visible. End with one short posture label (e.g. "contrapposto", "upright
 formal", "relaxed slouch"). Do NOT include focal length, camera height, or framing here. Stay faithful to the actual pose: state the exact facing direction, head-turn direction and angle, torso rotation and how much of the back is visible, shoulder line, hip shift, and visible arm/hand positions. If the subject is shown from the back or three-quarter back, keep it that way — never convert a turned-away or back pose into a frontal portrait.`,
@@ -66,8 +76,8 @@ color temperature (warm/cool/neutral), visible shadows and highlights. Be specif
   Camera: `One paragraph covering in order: (1) estimated focal length class with plausible full-frame mm
 range; (2) framing scale (close-up / bust / waist-up / full body / environmental); (3) camera
 height relative to subject's eyes (below / eye level / slightly above / clearly above);
-(4) horizontal viewing angle (frontal / slight three-quarter / strong three-quarter / near-profile);
-(5) depth of field (shallow / moderate / deep, what is sharp vs blurred). Preserve the original crop, subject scale, camera height, and horizontal viewing angle; describe how much of the body is included (e.g. waist-up vs full body) and do not re-frame the shot.`,
+(4) horizontal viewing angle (frontal / slight three-quarter / strong three-quarter / near-profile) — this MUST be consistent with the torso rotation and head-turn described in Pose: do not write "profile"/"near-profile" unless the torso is genuinely side-on to the lens, and never claim "no rotation"/"strict profile" when Pose has a turned torso or a gaze into the camera;
+(5) depth of field (shallow / moderate / deep, what is sharp vs blurred). Preserve the original crop, subject scale, camera height, and horizontal viewing angle; describe how much of the body is included (e.g. waist-up vs full body) and do not re-frame the shot. The framing scale must include every body region named in Pose (e.g. do not crop at the waist if the hands and knees are part of the pose).`,
 
   Mood: `The emotional tone and atmosphere — adjectives plus brief interpretation.`,
 
