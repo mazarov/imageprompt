@@ -11,10 +11,12 @@ import {
 } from "@/lib/extension-rate-limit-flow";
 import { extensionLog } from "@/lib/extension-pipeline-log";
 import {
+  analyzePromptDiagnostics,
   logExtensionAnalyzeGeminiRequest,
   logExtensionAnalyzeGeminiResponse,
   logExtensionAnalyzeStart,
 } from "@/lib/extension-analyze-log";
+import { summarizeGeminiApiResponse } from "@/lib/gemini-vibe-debug-log";
 import { createSupabaseServer } from "@/lib/supabase";
 import { buildPhotorealExtractPrompt } from "@/lib/extension-prompt-sections";
 import {
@@ -381,8 +383,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const session = await beginExtensionRateLimit(req, supabase, "analyze");
   const preflightCheck = session?.check ?? null;
 
+  const outcomeBase = { locale, style, model: GEMINI_MODEL } as const;
+
   if (session && !session.check.allowed) {
-    recordExtensionRateLimitEvent(supabase, req, "analyze", session.check, false);
+    recordExtensionRateLimitEvent(supabase, req, "analyze", session.check, false, {
+      ...outcomeBase,
+      outcome: "rate_limited",
+      errorCode: "rate_limited",
+      httpStatus: 429,
+    });
     return NextResponse.json(extensionRateLimit429Body(session.check), { status: 429 });
   }
 
@@ -390,7 +399,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.error("[extension.analyze] GEMINI_API_KEY not set");
-    recordExtensionRateLimitEvent(supabase, req, "analyze", preflightCheck, false);
+    recordExtensionRateLimitEvent(supabase, req, "analyze", preflightCheck, false, {
+      ...outcomeBase,
+      outcome: "config_error",
+      errorCode: "config",
+      httpStatus: 500,
+    });
     return NextResponse.json(
       { error: "upstream_failed", message: "Service configuration error." },
       { status: 500 }
@@ -402,7 +416,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (session) {
     const reserveResult = await reserveExtensionRateLimit(supabase, session);
     if (reserveResult && !reserveResult.allowed) {
-      recordExtensionRateLimitEvent(supabase, req, "analyze", reserveResult, false);
+      recordExtensionRateLimitEvent(supabase, req, "analyze", reserveResult, false, {
+        ...outcomeBase,
+        outcome: "rate_limited",
+        errorCode: "rate_limited",
+        httpStatus: 429,
+      });
       return NextResponse.json(extensionRateLimit429Body(reserveResult), { status: 429 });
     }
     if (reserveResult) {
@@ -491,6 +510,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       "analyze",
       extensionRateLimitCheckFromSession(session, reservedCheck),
       false,
+      {
+        ...outcomeBase,
+        outcome: "upstream_error",
+        errorCode: "fetch_failed",
+        httpStatus: 503,
+        latencyMs: Date.now() - geminiStartedAt,
+      },
     );
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try another image." },
@@ -521,6 +547,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       "analyze",
       extensionRateLimitCheckFromSession(session, reservedCheck),
       false,
+      {
+        ...outcomeBase,
+        outcome: "upstream_error",
+        errorCode: "gemini_http",
+        httpStatus: geminiRes.status,
+        latencyMs: Date.now() - geminiStartedAt,
+      },
     );
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try another image." },
@@ -544,6 +577,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       "analyze",
       extensionRateLimitCheckFromSession(session, reservedCheck),
       false,
+      {
+        ...outcomeBase,
+        outcome: "upstream_error",
+        errorCode: "bad_response",
+        httpStatus: geminiRes.status,
+        latencyMs: Date.now() - geminiStartedAt,
+      },
     );
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try another image." },
@@ -566,6 +606,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       "analyze",
       extensionRateLimitCheckFromSession(session, reservedCheck),
       false,
+      {
+        ...outcomeBase,
+        outcome: "empty_response",
+        errorCode: "empty_prompt",
+        finishReason: String(summarizeGeminiApiResponse(geminiData).finishReason ?? ""),
+        httpStatus: geminiRes.status,
+        latencyMs: Date.now() - geminiStartedAt,
+      },
     );
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try another image." },
@@ -591,6 +639,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const imageSettings = await imageSettingsPromise;
 
+  const finishReason = summarizeGeminiApiResponse(geminiData).finishReason;
+  const diagnostics = analyzePromptDiagnostics(style, rawText, finishReason);
+
   const rateLimitResult = session
     ? await confirmExtensionRateLimitOnSuccess(supabase, session)
     : null;
@@ -601,6 +652,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     "analyze",
     finalCheck,
     rateLimitResult?.allowed ?? false,
+    {
+      ...outcomeBase,
+      outcome: diagnostics.likelyTruncated ? "truncated" : "success",
+      truncated: diagnostics.likelyTruncated,
+      finishReason: String(finishReason ?? ""),
+      missingSections: diagnostics.missingSections.length,
+      httpStatus: 200,
+      latencyMs: Date.now() - geminiStartedAt,
+    },
   );
 
   return NextResponse.json({

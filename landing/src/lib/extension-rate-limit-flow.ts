@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { recordAnalyzeEvent } from "@/lib/analyze-events";
+import { recordAnalyzeEvent, type AnalyzeEventInput } from "@/lib/analyze-events";
 import { resolveClientSource } from "@/lib/client-source";
 import type {
   ExtensionRateLimitCheckResult,
@@ -40,12 +40,29 @@ export function extensionRateLimitQuotaFields(rateLimit: ExtensionRateLimitCheck
   };
 }
 
+/** Backend-outcome detail recorded alongside the rate-limit fact row. */
+export type ExtensionEventOutcome = Pick<
+  AnalyzeEventInput,
+  | "outcome"
+  | "errorCode"
+  | "finishReason"
+  | "truncated"
+  | "httpStatus"
+  | "latencyMs"
+  | "locale"
+  | "style"
+  | "model"
+  | "missingSections"
+  | "correlationId"
+>;
+
 export function recordExtensionRateLimitEvent(
   supabase: SupabaseServer,
   req: NextRequest,
   endpoint: "analyze" | "remix",
   rateLimit: ExtensionRateLimitCheckResult | null,
   allowed: boolean,
+  outcome?: ExtensionEventOutcome,
 ): void {
   if (!rateLimit) return;
   const clientSource = resolveClientSource(req, {
@@ -58,6 +75,8 @@ export function recordExtensionRateLimitEvent(
     userId: rateLimit.userId,
     allowed,
     requestOrigin: req.headers.get("origin"),
+    correlationId: req.headers.get("x-correlation-id"),
+    ...outcome,
   });
 }
 

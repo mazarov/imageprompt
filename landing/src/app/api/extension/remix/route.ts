@@ -11,6 +11,7 @@ import {
   reserveExtensionRateLimit,
 } from "@/lib/extension-rate-limit-flow";
 import { extensionLog } from "@/lib/extension-pipeline-log";
+import { summarizeGeminiApiResponse } from "@/lib/gemini-vibe-debug-log";
 import { createSupabaseServer } from "@/lib/supabase";
 
 const GEMINI_MODEL = "gemini-2.5-flash-lite";
@@ -209,19 +210,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     : buildInstruction(originalPrompt, changeRequest, style, locale);
   if (isSectionMode) maxOutputTokens = 2048;
 
+  const outcomeBase = { locale, style, model: GEMINI_MODEL } as const;
+
   const supabase = createSupabaseServer();
   const session = await beginExtensionRateLimit(req, supabase, "remix");
   const preflightCheck = session?.check ?? null;
 
   if (session && !session.check.allowed) {
-    recordExtensionRateLimitEvent(supabase, req, "remix", session.check, false);
+    recordExtensionRateLimitEvent(supabase, req, "remix", session.check, false, {
+      ...outcomeBase,
+      outcome: "rate_limited",
+      errorCode: "rate_limited",
+      httpStatus: 429,
+    });
     return NextResponse.json(extensionRateLimit429Body(session.check), { status: 429 });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.error("[extension.remix] GEMINI_API_KEY not set");
-    recordExtensionRateLimitEvent(supabase, req, "remix", preflightCheck, false);
+    recordExtensionRateLimitEvent(supabase, req, "remix", preflightCheck, false, {
+      ...outcomeBase,
+      outcome: "config_error",
+      errorCode: "config",
+      httpStatus: 500,
+    });
     return NextResponse.json(
       { error: "upstream_failed", message: "Service configuration error." },
       { status: 500 },
@@ -233,7 +246,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (session) {
     const reserveResult = await reserveExtensionRateLimit(supabase, session);
     if (reserveResult && !reserveResult.allowed) {
-      recordExtensionRateLimitEvent(supabase, req, "remix", reserveResult, false);
+      recordExtensionRateLimitEvent(supabase, req, "remix", reserveResult, false, {
+        ...outcomeBase,
+        outcome: "rate_limited",
+        errorCode: "rate_limited",
+        httpStatus: 429,
+      });
       return NextResponse.json(extensionRateLimit429Body(reserveResult), { status: 429 });
     }
     if (reserveResult) {
@@ -290,6 +308,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       "remix",
       extensionRateLimitCheckFromSession(session, reservedCheck),
       false,
+      {
+        ...outcomeBase,
+        outcome: "upstream_error",
+        errorCode: "fetch_failed",
+        httpStatus: 503,
+        latencyMs: Date.now() - geminiStartedAt,
+      },
     );
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try again." },
@@ -318,6 +343,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       "remix",
       extensionRateLimitCheckFromSession(session, reservedCheck),
       false,
+      {
+        ...outcomeBase,
+        outcome: "upstream_error",
+        errorCode: "gemini_http",
+        httpStatus: geminiRes.status,
+        latencyMs: Date.now() - geminiStartedAt,
+      },
     );
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try again." },
@@ -341,6 +373,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       "remix",
       extensionRateLimitCheckFromSession(session, reservedCheck),
       false,
+      {
+        ...outcomeBase,
+        outcome: "upstream_error",
+        errorCode: "bad_response",
+        httpStatus: geminiRes.status,
+        latencyMs: Date.now() - geminiStartedAt,
+      },
     );
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try again." },
@@ -351,6 +390,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const rawText = geminiData.candidates?.[0]?.content?.parts
     ?.find((p) => typeof p.text === "string")
     ?.text?.trim();
+
+  const finishReason = summarizeGeminiApiResponse(geminiData).finishReason;
 
   if (!rawText) {
     console.error("[extension.remix] gemini_empty_response", {
@@ -365,12 +406,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       "remix",
       extensionRateLimitCheckFromSession(session, reservedCheck),
       false,
+      {
+        ...outcomeBase,
+        outcome: "empty_response",
+        errorCode: "empty_prompt",
+        finishReason: String(finishReason ?? ""),
+        httpStatus: geminiRes.status,
+        latencyMs: Date.now() - geminiStartedAt,
+      },
     );
     return NextResponse.json(
       { error: "upstream_failed", message: "Something went wrong. Please try again." },
       { status: 502 },
     );
   }
+
+  const remixTruncated = String(finishReason ?? "") === "MAX_TOKENS";
 
   const rateLimitResult = session
     ? await confirmExtensionRateLimitOnSuccess(supabase, session)
@@ -382,6 +433,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     "remix",
     finalCheck,
     rateLimitResult?.allowed ?? false,
+    {
+      ...outcomeBase,
+      outcome: remixTruncated ? "truncated" : "success",
+      truncated: remixTruncated,
+      finishReason: String(finishReason ?? ""),
+      httpStatus: 200,
+      latencyMs: Date.now() - geminiStartedAt,
+    },
   );
 
   return NextResponse.json(
