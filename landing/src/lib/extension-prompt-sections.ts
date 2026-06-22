@@ -30,6 +30,12 @@ the description starts on the next line. No extra commentary, no markdown fences
 Fidelity priority:
 Describe exactly what is in this specific image, not an idealized or improved version of it. Be concrete and specific about the actual pose, head turn, body orientation, shoulder and hip alignment, crop, subject scale, camera angle, garment silhouette and construction (including open/closed areas and distinctive textures), lighting direction, background, color palette, and composition. State concrete geometry and spatial relationships before any mood or style language. Do not generalize a distinctive image into a generic fashion-editorial description. If a detail is unclear, give the most visually faithful estimate grounded in the image rather than inventing flattering details.
 
+Magnitude fidelity (do not soften):
+Report the actual degree and extremity of every bend, lean, and angle. If the torso is folded sharply at the hips (e.g. ~90 degrees), the hips/buttocks are raised high, the back is deeply arched, or a limb is fully extended, say so explicitly — never downgrade an extreme or provocative pose into a mild one (e.g. do not write "slightly leaning forward" for a deep hip-hinge). Preserve the real intensity of the pose.
+
+Do not invent occluded or contact details:
+For limb arrangement, hand/foot placement, and points of support/contact, describe ONLY what is actually visible. If a limb is hidden or occluded, write "not visible" instead of guessing a position. Do not invent crossings, contacts, or supports (e.g. do not claim ankles are crossed or a hand rests somewhere unless it is clearly visible).
+
 Cross-section consistency (mandatory):
 Pose, Camera, and Composition must describe the SAME body orientation, head/gaze direction, and framing — they cannot contradict each other.
 - Orientation: if the torso is rotated away from the lens (any three-quarter or back angle) or the head turns toward the lens, Camera's horizontal viewing angle MUST reflect that same rotation. Never write "strict profile", "shot directly from the side", "no body rotation", or similar when the torso is turned or the subject gazes into the camera. Reserve "profile"/"near-profile" for a torso that is genuinely side-on to the lens.
@@ -51,8 +57,15 @@ export const SECTION_SPECS: Record<SectionLabel, string> = {
   "Visual Hook": `One concise polished art-direction sentence describing the main visual idea that makes the image
 compelling: contrast, silhouette, lighting concept, composition hook, mood, or fashion/editorial concept.
 Do not catalogue scene details, pose geometry, clothing details, lighting setup, camera details, or
-identity/biometric features. This should summarize the image's strongest creative hook for downstream
-image generation. Name the single most distinctive, must-survive feature of THIS specific image (for example the exact silhouette, a back-facing head turn, an open-back garment shape, or wing/feather geometry) instead of a generic "dramatic fashion statement".`,
+identity/biometric features. Do NOT name the location, furniture, props, or the literal action, and do not
+paraphrase the Scene section — if you cannot phrase the hook without naming the chair/setting or the action
+verb, that content belongs in Scene, not here. Keep it to the abstract aesthetic concept (silhouette idea,
+contrast, mood, editorial concept); a silhouette may be referenced as an abstract shape (e.g. "a sculptural
+deep-bend S-curve seen from behind") without listing individual body parts. This should summarize the image's
+strongest creative hook for downstream image generation. Name the single most distinctive, must-survive feature
+of THIS specific image (for example the exact silhouette, a deep bent-over-from-behind shape with raised hips, a
+back-facing head turn, an open-back garment shape, or wing/feather geometry) instead of a generic "dramatic
+fashion statement".`,
 
   Scene: `Where it is and what is happening — 1–2 sentences. Use a neutral subject label ("the subject",
 "a person"). Do NOT describe hair color, hair length, hair texture, facial features, skin tone,
@@ -67,7 +80,7 @@ and gaze direction (e.g. "head turned over the shoulder, gaze into the lens") �
 must later agree with these two facts. Then cover in order: (1) head vs torso facing direction and tilt relative to camera;
 (2) shoulders and torso angle/lean; (3) arms and hands — positions, angles, contacts;
 (4) hips and legs if visible. End with one short posture label (e.g. "contrapposto", "upright
-formal", "relaxed slouch"). Do NOT include focal length, camera height, or framing here. Stay faithful to the actual pose: state the exact facing direction, head-turn direction and angle, torso rotation and how much of the back is visible, shoulder line, hip shift, and visible arm/hand positions. If the subject is shown from the back or three-quarter back, keep it that way — never convert a turned-away or back pose into a frontal portrait.`,
+formal", "relaxed slouch"). Do NOT include focal length, camera height, or framing here. Stay faithful to the actual pose: state the exact facing direction, head-turn direction and angle, torso rotation and how much of the back is visible, shoulder line, hip shift, and visible arm/hand positions. State the magnitude of every bend and lean (e.g. a deep ~90-degree hip hinge with raised hips, a strongly arched back, fully extended legs) and never soften an extreme pose into a mild one. Describe only limbs, hands, feet, and contact/support points that are actually visible; if a limb is occluded write "not visible" and do not invent crossings, contacts, or supports. If the subject is shown from the back or three-quarter back, keep it that way — never convert a turned-away or back pose into a frontal portrait.`,
 
   Lighting: `Describe the lighting setup: key light direction and quality (hard/soft), fill and rim presence,
 color temperature (warm/cool/neutral), visible shadows and highlights. Be specific (e.g.
