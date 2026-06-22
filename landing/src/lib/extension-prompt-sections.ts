@@ -78,9 +78,11 @@ geometry. Start with an explicit, unambiguous statement of (a) which way the tor
 lens (frontal / slight three-quarter / strong three-quarter / near-profile / back) and (b) the head-turn
 and gaze direction (e.g. "head turned over the shoulder, gaze into the lens") — Camera and Composition
 must later agree with these two facts. Then cover in order: (1) head vs torso facing direction and tilt relative to camera;
-(2) shoulders and torso angle/lean; (3) arms and hands — positions, angles, contacts;
-(4) hips and legs if visible. End with one short posture label (e.g. "contrapposto", "upright
-formal", "relaxed slouch"). Do NOT include focal length, camera height, or framing here. Stay faithful to the actual pose: state the exact facing direction, head-turn direction and angle, torso rotation and how much of the back is visible, shoulder line, hip shift, and visible arm/hand positions. State the magnitude of every bend and lean (e.g. a deep ~90-degree hip hinge with raised hips, a strongly arched back, fully extended legs) and never soften an extreme pose into a mild one. Describe only limbs, hands, feet, and contact/support points that are actually visible; if a limb is occluded write "not visible" and do not invent crossings, contacts, or supports. If the subject is shown from the back or three-quarter back, keep it that way — never convert a turned-away or back pose into a frontal portrait.`,
+(2) shoulders and torso angle/lean; (3) spine and back line — the degree and direction of curvature as a
+continuous line: pronounced lower-back arch (lordosis) with raised chest and backward-tilted pelvis,
+neutral/straight, or rounded/hunched; name the overall body line (e.g. strong S-curve); (4) arms and hands
+— positions, angles, contacts; (5) hips and legs if visible. End with one short posture label (e.g. "contrapposto", "upright
+formal", "relaxed slouch"). Do NOT include focal length, camera height, or framing here. Stay faithful to the actual pose: state the exact facing direction, head-turn direction and angle, torso rotation and how much of the back is visible, shoulder line, spine/back curvature, hip shift, and visible arm/hand positions. State the magnitude of every bend and lean (e.g. a deep ~90-degree hip hinge with raised hips, a strongly arched back, fully extended legs) and never soften an extreme pose into a mild one. Describe only limbs, hands, feet, and contact/support points that are actually visible; if a limb is occluded write "not visible" and do not invent crossings, contacts, or supports. If the subject is shown from the back or three-quarter back, keep it that way — never convert a turned-away or back pose into a frontal portrait.`,
 
   Lighting: `Describe the lighting setup: key light direction and quality (hard/soft), fill and rim presence,
 color temperature (warm/cool/neutral), visible shadows and highlights. Be specific (e.g.
@@ -137,7 +139,7 @@ position in frame and horizon placement; (4) foreground/midground/background emp
 specific photoreal image. Include only relevant negative constraints such as 3D render look, cartoon
 styling, distorted hands, plastic skin, harsh over-retouching, extra objects, messy clothing, cheap
 accessories, wrong era/style, or flat lighting when applicable. Do not add constraints that contradict
-the positive prompt sections. Keep it short and generator-ready. Always include the anti-drift constraints relevant to this image: different pose, frontal portrait when the source is turned away, redesigned or simplified outfit, missing open-back or structural details, changed crop or camera angle, altered subject scale, and added props or background elements.`,
+the positive prompt sections. Keep it short and generator-ready. Always include the anti-drift constraints relevant to this image: different pose, frontal portrait when the source is turned away, straightened or flattened back when the source is arched, lost lower-back arch / spine curvature, redesigned or simplified outfit, missing open-back or structural details, changed crop or camera angle, altered subject scale, and added props or background elements.`,
 };
 
 /**
