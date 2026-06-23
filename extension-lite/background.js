@@ -1,4 +1,11 @@
 import { resizeImageToDataUrl } from "./lib/image-utils.js";
+import {
+  putImageBlob,
+  getImageDataUrl,
+  deleteImage,
+  pruneImages,
+  dataUrlToBlob,
+} from "./lib/image-store.js";
 import { initI18n, reloadI18n, t, UI_LANG_STORAGE_KEY, getUiLanguage } from "./lib/i18n.js";
 import { replacePromptSection, normalizeSectionText } from "./lib/prompt-sections.js";
 
@@ -11,7 +18,9 @@ const HISTORY_STORE_KEY = "extension_lite_history_store_v1";
 const QUOTA_KEY = "extension_lite_quota_v1";
 const ANALYSIS_JOB_KEY = "extension_lite_analysis_job_v1";
 const REMIX_JOB_KEY = "extension_lite_remix_job_v1";
-const MAX_HISTORY_QUEUE_ENTRIES = 45;
+const MAX_HISTORY_QUEUE_ENTRIES = 60;
+const HISTORY_THUMB_MAX_PX = 480;
+const HISTORY_THUMB_QUALITY = 0.72;
 const MAX_SW_FETCH_BYTES = 10 * 1024 * 1024;
 const ANALYSIS_FETCH_TIMEOUT_MS = 45_000;
 
@@ -123,7 +132,24 @@ function registerContextMenus() {
 void initI18n().then(() => {
   registerContextMenus();
   void resumePendingRemixJob();
+  void pruneOrphanImages();
 });
+
+async function pruneOrphanImages() {
+  try {
+    const data = await chrome.storage.local.get([HISTORY_STORE_KEY, HISTORY_QUEUE_KEY]);
+    const refIds = [];
+    for (const key of [HISTORY_STORE_KEY, HISTORY_QUEUE_KEY]) {
+      const entries = Array.isArray(data?.[key]?.entries) ? data[key].entries : [];
+      for (const e of entries) {
+        if (e?.image?.refId) refIds.push(e.image.refId);
+      }
+    }
+    await pruneImages(refIds);
+  } catch (err) {
+    console.warn("[ai-image-describer] prune orphan images failed", err?.message ?? err);
+  }
+}
 
 async function resumePendingRemixJob() {
   const job = await getRemixJob();
@@ -155,9 +181,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg?.type === "LITE_HISTORY_APPEND" && msg.entry != null) {
-    void relayOrQueueLiteHistoryEntry(msg.entry)
-      .then(() => sendResponse({ ok: true }))
-      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    (async () => {
+      try {
+        const lean = await ingestEntryToIdb(msg.entry);
+        await relayOrQueueLiteHistoryEntry(lean);
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message ?? e) });
+      }
+    })();
     return true;
   }
   if (msg?.type === "GET_LITE_ANALYSIS_JOB") {
@@ -267,7 +299,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       style: msg.style,
       dataUrlLen: msg.dataUrl.length,
     });
-    startLiteAnalysisJob(msg.dataUrl, msg.style)
+    startLiteAnalysisJob(msg.dataUrl, msg.style, msg.correlationId)
       .then((job) => sendResponse({ ok: true, job }))
       .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
     return true;
@@ -289,6 +321,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sectionLabel: msg.sectionLabel,
       sectionText: msg.sectionText,
       sectionHeading: typeof msg.sectionHeading === "string" ? msg.sectionHeading : "",
+      correlationId: typeof msg.correlationId === "string" ? msg.correlationId : "",
     })
       .then((job) => sendResponse({ ok: true, job }))
       .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
@@ -331,22 +364,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg?.type === "CONSUME_LITE_HISTORY_QUEUE") {
-    chrome.storage.local.get(HISTORY_QUEUE_KEY, (data) => {
-      if (chrome.runtime.lastError) {
-        sendResponse({ ok: false, error: chrome.runtime.lastError.message, entries: [] });
-        return;
+    (async () => {
+      try {
+        const data = await chrome.storage.local.get(HISTORY_QUEUE_KEY);
+        const lean = Array.isArray(data?.[HISTORY_QUEUE_KEY]?.entries)
+          ? data[HISTORY_QUEUE_KEY].entries
+          : [];
+        await chrome.storage.local.remove(HISTORY_QUEUE_KEY);
+        const resolved = await Promise.all(lean.map((e) => toSiteEntry(e)));
+        sendResponse({ ok: true, entries: resolved.filter(Boolean) });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message ?? e), entries: [] });
       }
-      const entries = Array.isArray(data?.[HISTORY_QUEUE_KEY]?.entries)
-        ? data[HISTORY_QUEUE_KEY].entries
-        : [];
-      chrome.storage.local.remove(HISTORY_QUEUE_KEY, () => {
-        if (chrome.runtime.lastError) {
-          sendResponse({ ok: false, error: chrome.runtime.lastError.message, entries: [] });
-          return;
-        }
-        sendResponse({ ok: true, entries });
-      });
-    });
+    })();
     return true;
   }
   // Content scripts cannot reliably read chrome.storage.session — pop pending in the SW.
@@ -438,14 +468,35 @@ async function setAnalysisJob(job) {
   chrome.runtime.sendMessage({ type: "LITE_ANALYSIS_JOB_UPDATED", job }).catch(() => {});
 }
 
+async function clearAnalysisJobStorage() {
+  await chrome.storage.local.remove(ANALYSIS_JOB_KEY);
+}
+
 async function getAnalysisJob() {
   const data = await chrome.storage.local.get(ANALYSIS_JOB_KEY);
   return data?.[ANALYSIS_JOB_KEY] ?? null;
 }
 
+function isStorageQuotaError(err) {
+  const msg = String(err?.message ?? err);
+  return msg.includes("QUOTA_BYTES") || msg.includes("quota exceeded");
+}
+
+/** Smaller JPEG for history/queue — full analyze resolution is not needed in chrome.storage.local. */
+async function compactHistoryDataUrl(dataUrl) {
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) return dataUrl;
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    return await resizeImageToDataUrl(blob, HISTORY_THUMB_MAX_PX, HISTORY_THUMB_QUALITY);
+  } catch {
+    return dataUrl;
+  }
+}
+
 async function setRemixJob(job) {
-  await chrome.storage.local.set({ [REMIX_JOB_KEY]: job });
-  chrome.runtime.sendMessage({ type: "LITE_REMIX_JOB_UPDATED", job }).catch(() => {});
+  const { dataUrl: _drop, ...persisted } = job;
+  await chrome.storage.local.set({ [REMIX_JOB_KEY]: persisted });
+  chrome.runtime.sendMessage({ type: "LITE_REMIX_JOB_UPDATED", job: persisted }).catch(() => {});
 }
 
 async function getRemixJob() {
@@ -528,10 +579,10 @@ async function exchangeLiteAuthCode(code) {
   return status;
 }
 
-async function startLiteAnalysisJob(dataUrl, styleValue) {
+async function startLiteAnalysisJob(dataUrl, styleValue, correlationId) {
   const style = isValidStyle(styleValue) ? styleValue : "photoreal";
   const job = {
-    id: createJobId(),
+    id: typeof correlationId === "string" && correlationId ? correlationId : createJobId(),
     status: "analyzing",
     dataUrl,
     style,
@@ -539,17 +590,35 @@ async function startLiteAnalysisJob(dataUrl, styleValue) {
     updatedAt: Date.now(),
   };
 
-  await setAnalysisJob(job);
+  try {
+    await setAnalysisJob(job);
+  } catch (err) {
+    if (!isStorageQuotaError(err)) throw err;
+    await clearAnalysisJobStorage();
+    await chrome.storage.local.remove(REMIX_JOB_KEY).catch(() => {});
+    await trimHistoryStoreForQuota();
+    await setAnalysisJob(job);
+  }
   void completeLiteAnalysisJob(job).catch((e) =>
     console.warn("[ai-image-describer] analysis job failed", e?.message ?? e),
   );
   return job;
 }
 
+async function trimHistoryStoreForQuota() {
+  const prev = await chrome.storage.local.get(HISTORY_STORE_KEY);
+  const existing = Array.isArray(prev?.[HISTORY_STORE_KEY]?.entries)
+    ? prev[HISTORY_STORE_KEY].entries
+    : [];
+  if (!existing.length) return;
+  const trimmed = existing.slice(0, Math.max(5, Math.floor(existing.length / 2)));
+  await chrome.storage.local.set({ [HISTORY_STORE_KEY]: { entries: trimmed, ts: Date.now() } });
+}
+
 async function completeLiteAnalysisJob(startedJob) {
   let result;
   try {
-    result = await liteOverlayAnalyze(startedJob.dataUrl, startedJob.style);
+    result = await liteOverlayAnalyze(startedJob.dataUrl, startedJob.style, startedJob.id);
   } catch (err) {
     result = { ok: false, error: "request_failed", message: String(err?.message ?? err) };
   }
@@ -557,7 +626,7 @@ async function completeLiteAnalysisJob(startedJob) {
   if (!current || current.id !== startedJob.id) return;
 
   if (result.ok && typeof result.prompt === "string") {
-    const entry = createLiteHistoryEntry(
+    const entry = await buildLiteHistoryEntry(
       startedJob.dataUrl,
       startedJob.style,
       result.prompt,
@@ -573,6 +642,7 @@ async function completeLiteAnalysisJob(startedJob) {
     });
     await relayOrQueueLiteHistoryEntry(entry);
     await appendLiteHistoryStore(entry);
+    await clearAnalysisJobStorage();
     if (typeof result.remaining === "number") {
       const quota = { remaining: result.remaining, max: result.max ?? null, ts: Date.now() };
       await chrome.storage.local.set({ [QUOTA_KEY]: quota });
@@ -594,28 +664,72 @@ async function completeLiteAnalysisJob(startedJob) {
   }
 }
 
-function createLiteHistoryEntry(dataUrl, style, prompt, imageSettings = null) {
+function createLiteHistoryEntry(refId, style, prompt, imageSettings = null) {
   return {
-    id: createJobId(),
+    id: refId,
     createdAt: new Date().toISOString(),
     style,
     prompt,
     ...(imageSettings ? { imageSettings } : {}),
-    image: { mode: "data_url", dataUrl },
+    image: { mode: "idb", refId },
   };
+}
+
+// Store a compact JPEG blob in IndexedDB; the storage.local entry keeps only the refId.
+async function buildLiteHistoryEntry(dataUrl, style, prompt, imageSettings = null) {
+  const refId = createJobId();
+  try {
+    const compactDataUrl = await compactHistoryDataUrl(dataUrl);
+    const blob = await dataUrlToBlob(compactDataUrl);
+    await putImageBlob(refId, blob);
+  } catch (err) {
+    console.warn("[ai-image-describer] history image store failed", err?.message ?? err);
+  }
+  return createLiteHistoryEntry(refId, style, prompt, imageSettings);
+}
+
+// Normalize an incoming entry (possibly with inline dataUrl from overlay) to a lean refId entry.
+async function ingestEntryToIdb(entry) {
+  if (!entry || typeof entry !== "object") return entry;
+  const img = entry.image;
+  if (img?.mode === "idb" && img.refId) return entry;
+  if (img?.mode === "data_url" && typeof img.dataUrl === "string" && img.dataUrl) {
+    const refId = typeof entry.id === "string" && entry.id ? entry.id : createJobId();
+    try {
+      await putImageBlob(refId, await dataUrlToBlob(img.dataUrl));
+    } catch (err) {
+      console.warn("[ai-image-describer] ingest image failed", err?.message ?? err);
+      return entry;
+    }
+    return { ...entry, id: refId, image: { mode: "idb", refId } };
+  }
+  return entry;
+}
+
+// Resolve a lean entry to the site-shaped entry (full dataUrl) the website expects.
+async function toSiteEntry(leanEntry) {
+  const img = leanEntry?.image;
+  if (img?.mode === "idb" && img.refId) {
+    const dataUrl = await getImageDataUrl(img.refId);
+    if (!dataUrl) return null;
+    const { image, ...meta } = leanEntry;
+    return { ...meta, image: { mode: "data_url", dataUrl } };
+  }
+  return leanEntry;
 }
 
 /**
  * Analyze image from lite overlay/modal via service worker fetch (aligned with popup).
  * @returns {Promise<{ ok: true; prompt: string } | { ok: false; status?: number; error?: string }>}
  */
-async function liteOverlayAnalyze(dataUrl, style) {
+async function liteOverlayAnalyze(dataUrl, style, correlationId) {
   let res;
   try {
     const token = await getLiteAuthToken();
     const locale = await getLitePromptLocale();
     const headers = { "Content-Type": "application/json", "X-Client": "extension_lite" };
     if (token) headers.Authorization = `Bearer ${token}`;
+    if (typeof correlationId === "string" && correlationId) headers["X-Correlation-Id"] = correlationId;
     res = await fetch(LITE_ANALYZE_API_URL, {
       method: "POST",
       headers,
@@ -674,13 +788,14 @@ async function liteOverlayAnalyze(dataUrl, style) {
  * @returns {Promise<{ ok:true; sectionText:string; remaining:number|null; max:number|null }
  *   | { ok:false; status?:number; error?:string }>}
  */
-async function liteRemix(sectionLabel, sectionText, changeRequest, style) {
+async function liteRemix(sectionLabel, sectionText, changeRequest, style, correlationId) {
   let res;
   try {
     const token = await getLiteAuthToken();
     const locale = await getLitePromptLocale();
     const headers = { "Content-Type": "application/json", "X-Client": "extension_lite" };
     if (token) headers.Authorization = `Bearer ${token}`;
+    if (typeof correlationId === "string" && correlationId) headers["X-Correlation-Id"] = correlationId;
     res = await fetch(LITE_REMIX_API_URL, {
       method: "POST",
       headers,
@@ -739,10 +854,11 @@ async function startLiteRemixJob({
   sectionLabel,
   sectionText,
   sectionHeading = "",
+  correlationId = "",
 }) {
   const style = isValidStyle(styleValue) ? styleValue : "photoreal";
   const job = {
-    id: createJobId(),
+    id: typeof correlationId === "string" && correlationId ? correlationId : createJobId(),
     status: "remixing",
     originalPrompt,
     changeRequest,
@@ -750,14 +866,21 @@ async function startLiteRemixJob({
     sectionLabel,
     sectionText,
     sectionHeading,
-    dataUrl: typeof dataUrl === "string" ? dataUrl : "",
     style,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
 
-  await setRemixJob(job);
-  void completeLiteRemixJob(job).catch((e) =>
+  try {
+    await setRemixJob(job);
+  } catch (err) {
+    if (!isStorageQuotaError(err)) throw err;
+    await clearAnalysisJobStorage();
+    await chrome.storage.local.remove(REMIX_JOB_KEY).catch(() => {});
+    await trimHistoryStoreForQuota();
+    await setRemixJob(job);
+  }
+  void completeLiteRemixJob({ ...job, dataUrl: typeof dataUrl === "string" ? dataUrl : "" }).catch((e) =>
     console.warn("[ai-image-describer] remix job failed", e?.message ?? e),
   );
   return job;
@@ -769,6 +892,7 @@ async function completeLiteRemixJob(startedJob) {
     startedJob.sectionText,
     startedJob.changeRequest,
     startedJob.style,
+    startedJob.id,
   );
   const current = await getRemixJob();
   if (!current || current.id !== startedJob.id) return;
@@ -793,7 +917,7 @@ async function completeLiteRemixJob(startedJob) {
 
     let historyEntryId = null;
     if (typeof startedJob.dataUrl === "string" && startedJob.dataUrl) {
-      const entry = createLiteHistoryEntry(startedJob.dataUrl, startedJob.style, fullPrompt);
+    const entry = await buildLiteHistoryEntry(startedJob.dataUrl, startedJob.style, fullPrompt);
       historyEntryId = entry.id;
       await relayOrQueueLiteHistoryEntry(entry);
       await appendLiteHistoryStore(entry);
@@ -828,35 +952,38 @@ async function completeLiteRemixJob(startedJob) {
  * Persist recognition on the site origin: try all matching tabs via content-script;
  * if none ACK, queue until a tab loads content-bridge.
  */
-async function relayOrQueueLiteHistoryEntry(entry) {
+async function relayOrQueueLiteHistoryEntry(leanEntry) {
+  const siteEntry = await toSiteEntry(leanEntry);
   try {
     const tabs = await chrome.tabs.query({});
     let delivered = false;
-    await Promise.all(
-      tabs.map(async (tab) => {
-        try {
-          const raw = tab.url || "";
-          let hostname = "";
+    if (siteEntry) {
+      await Promise.all(
+        tabs.map(async (tab) => {
           try {
-            hostname = new URL(raw).hostname;
+            const raw = tab.url || "";
+            let hostname = "";
+            try {
+              hostname = new URL(raw).hostname;
+            } catch {
+              return;
+            }
+            if (!isLiteHost(hostname) || tab.id == null) return;
+            const ack = await chrome.tabs.sendMessage(tab.id, {
+              type: "LITE_HISTORY_APPEND",
+              entry: siteEntry,
+            });
+            if (ack?.ok) delivered = true;
           } catch {
-            return;
+            /** tab has no injected listener yet */
           }
-          if (!isLiteHost(hostname) || tab.id == null) return;
-          const ack = await chrome.tabs.sendMessage(tab.id, {
-            type: "LITE_HISTORY_APPEND",
-            entry,
-          });
-          if (ack?.ok) delivered = true;
-        } catch {
-          /** tab has no injected listener yet */
-        }
-      }),
-    );
-    if (!delivered) await enqueueLiteHistory(entry);
+        }),
+      );
+    }
+    if (!delivered) await enqueueLiteHistory(leanEntry);
   } catch (err) {
     console.warn("[ai-image-describer] history relay failed", err?.message ?? err);
-    await enqueueLiteHistory(entry);
+    await enqueueLiteHistory(leanEntry);
   }
 }
 
@@ -892,9 +1019,12 @@ async function appendLiteHistoryStore(entry) {
     : [];
   const deduped = [entry, ...existing.filter((e) => e?.id !== entry.id)];
   const capped = deduped.slice(0, MAX_HISTORY_QUEUE_ENTRIES);
-  await chrome.storage.local.set({
-    [HISTORY_STORE_KEY]: { entries: capped, ts: Date.now() },
-  });
+  await chrome.storage.local.set({ [HISTORY_STORE_KEY]: { entries: capped, ts: Date.now() } });
+  // GC IndexedDB blobs for entries dropped by the cap.
+  const keptIds = new Set(capped.map((e) => e?.id));
+  for (const e of deduped) {
+    if (e?.id && !keptIds.has(e.id)) await deleteImage(e?.image?.refId ?? e.id);
+  }
 }
 
 async function openSiteWithPendingImage(dataUrl) {

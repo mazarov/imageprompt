@@ -1,5 +1,7 @@
 import { prepareUploadFile } from "./lib/image-utils.js";
 import { parsePromptSections, normalizePromptLayout } from "./lib/prompt-sections.js";
+import { getImageBlob } from "./lib/image-store.js";
+import { track } from "./lib/telemetry.js";
 import {
   t,
   applyI18n,
@@ -159,6 +161,27 @@ let filePickerActive = false;
 /** @type {string | null} */
 let activeObjectPreviewUrl = null;
 let processingSelectedFile = false;
+/** Funnel correlation: shared with the background job id and the backend fact row. */
+let currentCorrelationId = "";
+/** ids we initiated this session, awaiting a result/error to report (avoids restore double-count). */
+const pendingCorrelations = new Map();
+
+function createCorrelationId() {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+/** Fire result_shown / error_shown once per id we started this session. */
+function reportOutcome(id, mode, kind, errorCode) {
+  if (!id || !pendingCorrelations.has(id)) return;
+  pendingCorrelations.delete(id);
+  if (kind === "result") {
+    track("result_shown", { mode, correlation_id: id });
+  } else {
+    track("error_shown", { mode, correlation_id: id, error_code: errorCode || "generic" });
+  }
+}
 
 // ── Init ──
 document.addEventListener("DOMContentLoaded", async () => {
@@ -182,6 +205,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 window.addEventListener("pagehide", () => {
   if (filePickerActive) return;
   clearActiveLoadingState();
+  revokeHistoryObjectUrls();
 });
 
 function setupLangSelect() {
@@ -280,7 +304,7 @@ async function handlePendingImage(pending) {
     setSelectedStyle(style);
     saveDraftState(pending.dataUrl, style);
     showLoading(pending.dataUrl);
-    await analyze(pending.dataUrl, style);
+    await analyze(pending.dataUrl, style, pending.source === "overlay" ? "overlay" : "context_menu");
     return true;
   }
 
@@ -343,7 +367,7 @@ function bindEvents() {
   btnAnalyzeDraft?.addEventListener("click", async () => {
     if (!currentDataUrl) return;
     showLoading(currentDataUrl);
-    await analyze(currentDataUrl, currentStyle);
+    await analyze(currentDataUrl, currentStyle, "draft");
   });
 
   btnDraftAnother?.addEventListener("click", () => resetToEmpty());
@@ -431,6 +455,11 @@ function bindEvents() {
   // Copy prompt
   btnCopy.addEventListener("click", async () => {
     if (!currentPrompt) return;
+    track("copy_prompt", {
+      surface: "result",
+      correlation_id: currentCorrelationId,
+      style: currentStyle,
+    });
     try {
       await navigator.clipboard.writeText(currentPrompt);
       const original = btnCopy.textContent;
@@ -781,24 +810,43 @@ function applyPreparedUploadError(error) {
   showInlineError(UNSUPPORTED_IMAGE_MESSAGE());
 }
 
-async function analyze(dataUrl, styleOverride) {
+async function analyze(dataUrl, styleOverride, trigger = "upload") {
   const style = styleOverride || getSelectedStyle();
   currentDataUrl = dataUrl;
   currentStyle = style;
+
+  const correlationId = createCorrelationId();
+  track("mode_click", { mode: "analyze", trigger, correlation_id: correlationId, style });
 
   try {
     const res = await chrome.runtime.sendMessage({
       type: "START_LITE_ANALYSIS",
       dataUrl,
       style,
+      correlationId,
     });
     if (!res?.ok || !res.job) {
+      track("request_start_error", {
+        mode: "analyze",
+        correlation_id: correlationId,
+        style,
+        error_code: "start_failed",
+      });
       showFullError(t("errorStartAnalysis"));
       return;
     }
+    currentCorrelationId = res.job.id || correlationId;
+    pendingCorrelations.set(currentCorrelationId, "analyze");
+    track("request_start_ok", { mode: "analyze", correlation_id: currentCorrelationId, style });
     handleAnalysisJob(res.job);
   } catch (err) {
     console.error("[aid] start analysis failed", err?.message);
+    track("request_start_error", {
+      mode: "analyze",
+      correlation_id: correlationId,
+      style,
+      error_code: "exception",
+    });
     showFullError(t("errorStartAnalysis"));
   }
 }
@@ -942,6 +990,15 @@ async function submitRemix() {
   setRemixing(true);
   if (errorBanner) errorBanner.hidden = true;
 
+  const correlationId = createCorrelationId();
+  track("mode_click", {
+    mode: "remix",
+    trigger: "remix_submit",
+    correlation_id: correlationId,
+    style: currentStyle,
+    detail: { section: selectedSection.key },
+  });
+
   try {
     const res = await sendRuntimeMessage({
       type: "START_LITE_REMIX",
@@ -953,13 +1010,28 @@ async function submitRemix() {
       changeRequest,
       style: currentStyle,
       dataUrl: currentDataUrl,
+      correlationId,
     });
 
     if (!res?.ok || !res.job) {
+      track("request_start_error", {
+        mode: "remix",
+        correlation_id: correlationId,
+        style: currentStyle,
+        error_code: "start_failed",
+      });
       showInlineError(t("remixError"));
       setRemixing(false);
       return;
     }
+
+    currentCorrelationId = res.job.id || correlationId;
+    pendingCorrelations.set(currentCorrelationId, "remix");
+    track("request_start_ok", {
+      mode: "remix",
+      correlation_id: currentCorrelationId,
+      style: currentStyle,
+    });
 
     if (!handleRemixJob(res.job)) {
       showInlineError(t("remixError"));
@@ -967,6 +1039,12 @@ async function submitRemix() {
     }
   } catch (err) {
     console.warn("[aid] remix start failed", err);
+    track("request_start_error", {
+      mode: "remix",
+      correlation_id: correlationId,
+      style: currentStyle,
+      error_code: "exception",
+    });
     showInlineError(t("remixError"));
     setRemixing(false);
   }
@@ -1042,6 +1120,7 @@ function handleRemixJob(job) {
     if (typeof job.remaining === "number") {
       renderQuota({ remaining: job.remaining, ts: Date.now() });
     }
+    reportOutcome(job.id, "remix", "result");
     clearRemixJob();
     return true;
   }
@@ -1051,11 +1130,13 @@ function handleRemixJob(job) {
     if (dataUrl) {
       showResult(dataUrl, job.originalPrompt, style, { persist: false });
     }
-    if (job.error === "rate_limited" || String(job.statusCode) === "429") {
+    const rateLimited = job.error === "rate_limited" || String(job.statusCode) === "429";
+    if (rateLimited) {
       showRateLimitError();
     } else {
       showInlineError(t("remixError"));
     }
+    reportOutcome(job.id, "remix", "error", rateLimited ? "rate_limited" : job.error || "generic");
     clearRemixJob();
     return true;
   }
@@ -1149,6 +1230,7 @@ function handleAnalysisJob(job) {
 
   if (job.status === "result" && typeof job.prompt === "string" && job.prompt) {
     showResult(job.dataUrl, job.prompt, style);
+    reportOutcome(job.id, "analyze", "result");
     return true;
   }
 
@@ -1156,11 +1238,13 @@ function handleAnalysisJob(job) {
     currentDataUrl = job.dataUrl;
     currentStyle = style;
     setSelectedStyle(currentStyle);
-    if (job.error === "rate_limited" || String(job.statusCode) === "429") {
+    const rateLimited = job.error === "rate_limited" || String(job.statusCode) === "429";
+    if (rateLimited) {
       showRateLimitError();
     } else {
       showFullError(getJobErrorMessage(job));
     }
+    reportOutcome(job.id, "analyze", "error", rateLimited ? "rate_limited" : job.error || "generic");
     return true;
   }
 
@@ -1375,6 +1459,7 @@ async function loadQuota() {
 
 // ── History ──
 let historyLoaded = false;
+let historyObjectUrls = [];
 
 async function loadHistory() {
   if (historyLoaded) return;
@@ -1389,8 +1474,16 @@ async function loadHistory() {
   historyLoaded = true;
 }
 
+function revokeHistoryObjectUrls() {
+  for (const url of historyObjectUrls) {
+    try { URL.revokeObjectURL(url); } catch { /* noop */ }
+  }
+  historyObjectUrls = [];
+}
+
 function renderHistoryList(entries) {
   if (!historyList || !historyEmpty) return;
+  revokeHistoryObjectUrls();
   historyList.innerHTML = "";
   const valid = entries.filter(
     (e) => e && typeof e.prompt === "string" && e.prompt,
@@ -1405,7 +1498,7 @@ function renderHistoryList(entries) {
     const card = document.createElement("div");
     card.className = "history-card";
 
-    const imgSrc =
+    const inlineSrc =
       entry.image?.mode === "data_url" && entry.image.dataUrl
         ? entry.image.dataUrl
         : entry.image?.mode === "image_url" && entry.image.imageUrl
@@ -1416,7 +1509,7 @@ function renderHistoryList(entries) {
     const timeStr = formatRelativeTime(entry.createdAt);
 
     card.innerHTML = `
-      ${imgSrc ? `<img class="history-card-thumb" src="${imgSrc}" alt="" loading="lazy" />` : ""}
+      <img class="history-card-thumb" src="${inlineSrc}" alt="" loading="lazy"${inlineSrc ? "" : " hidden"} />
       <div class="history-card-body">
         <div class="history-card-meta">
           ${styleLabelText ? `<span class="history-card-style">${styleLabelText}</span>` : ""}
@@ -1429,8 +1522,22 @@ function renderHistoryList(entries) {
       </div>
     `;
 
+    if (!inlineSrc && entry.image?.mode === "idb" && entry.image.refId) {
+      const imgEl = card.querySelector(".history-card-thumb");
+      if (imgEl) {
+        void getImageBlob(entry.image.refId).then((blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          historyObjectUrls.push(url);
+          imgEl.src = url;
+          imgEl.hidden = false;
+        });
+      }
+    }
+
     const copyBtn = card.querySelector(".history-card-copy");
     copyBtn?.addEventListener("click", async () => {
+      track("copy_prompt", { surface: "history", style: entry.style });
       try {
         await navigator.clipboard.writeText(entry.prompt);
         copyBtn.textContent = t("copiedExclaim");
