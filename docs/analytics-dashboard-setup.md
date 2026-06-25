@@ -13,10 +13,13 @@
 5. `docs/sql/14-05-analytics-origin-and-allowed-filter.sql` — колонка `request_origin`, вьюхи считают только `allowed=true` запросы.
 6. `docs/sql/14-06-extension-rate-limit-increment-if-allowed.sql` — атомарный increment без PK race (legacy; reserve flow в 14-07).
 7. `docs/sql/14-07-extension-rate-limit-reservations.sql` — колонка `pending`, RPC reserve/confirm/release (**обязательно перед деплоем landing с reserve flow**).
+8. `docs/sql/14-08-extension-events-outcome-and-client.sql` — таблица `extension_client_events`, колонки outcome в `extension_analyze_events`, вьюхи `analytics_extension_funnel` и `analytics_extension_outcomes_daily` (**обязательно перед деплоем блока Extension funnel / Backend outcomes в `/admin/analytics`**).
 
 После применения 14-01 и 14-02 — деплоить код лендинга (иначе insert с `client_source` упадёт на отсутствующую колонку).
 
 После применения 14-07 — деплоить landing с reserve/confirm/release (analyze + remix). Env для burst limit (опционально): `EXTENSION_BURST_LIMIT_ENABLED=true`, `EXTENSION_BURST_LIMIT_PER_MIN=10`.
+
+После применения 14-08 — деплоить landing с обновлённым `/admin/analytics` (extension funnel + backend outcomes).
 
 ## Структура данных
 
@@ -25,8 +28,13 @@
 | `analytics_requests` | Единая фактовая таблица: генерации + analyze/remix. Поля: `event_id`, `kind`, `event_time`, `user_id`, `ip_hash`, `client_source`, `allowed`, `request_origin`. |
 | `analytics_user_activity` | Сводка по пользователю: `total_requests`, `generations`, `analyzes`, `first_seen`, `last_seen`. |
 | `analytics_clients_daily` | Дневная разбивка по клиенту × виду запроса: `day`, `client_source`, `kind`, `requests`, `unique_actors`. |
+| `extension_client_events` | Клиентская воронка extension-lite: `mode_click`, `request_start_ok/error`, `result_shown`, `error_shown`, `copy_prompt` и др. |
+| `analytics_extension_funnel` | Дневная агрегация client funnel: clicks → starts → results → copies по mode/client/locale/browser. |
+| `analytics_extension_outcomes_daily` | Дневная агрегация backend outcomes: success/truncated/rate_limited/errors по endpoint/client/style/locale. |
 
 Канонические значения `client_source`: `site`, `embed_stv`, `extension_stv`, `extension_lite`, `promptshot`, `unknown`.
+
+Клиентские event names (extension-lite): `mode_click`, `request_start_ok`, `request_start_error`, `result_shown`, `error_shown`, `copy_prompt`, `image_ingest_error`.
 
 ## Встроенный дашборд на лендинге (рекомендуется)
 
@@ -41,6 +49,12 @@ ANALYTICS_ADMIN_EMAILS=you@example.com;other@example.com
 
 Карточки: всего пользователей, активные за 30 дней, запросы за период, генерации/analyze.  
 График: stacked bar по клиентам. Таблица: топ пользователей.
+
+**Extension funnel** (требует 14-08): clicks → starts ok → results shown → copies; conversion rates (start %, result %, copy %); breakdown по mode/client/locale/browser.
+
+**Backend outcomes** (требует 14-08): success/truncated/rate_limited/upstream/empty mix; breakdown по endpoint/client/style/locale.
+
+**Recent analyze events**: outcome, error_code, latency_ms, style, correlation_id для отладки.
 
 API: `GET /api/admin/analytics?days=30` (только для allowlist, cookie session).
 
@@ -127,4 +141,17 @@ group by 1, 2, 3;
 -- Дашборд-вьюха работает:
 select * from analytics_clients_daily
 order by day desc limit 20;
+
+-- Extension funnel (после 14-08):
+select * from analytics_extension_funnel
+order by day desc limit 20;
+
+-- Backend outcomes (после 14-08):
+select * from analytics_extension_outcomes_daily
+order by day desc limit 20;
+
+-- Client events пишутся из extension-lite:
+select event, count(*) from extension_client_events
+where created_at > now() - interval '1 hour'
+group by 1;
 ```

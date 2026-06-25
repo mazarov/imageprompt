@@ -1,11 +1,41 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import type { AnalyticsDashboardData } from "@/lib/analytics-data";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type {
+  AnalyticsDashboardData,
+  ExtensionFunnelRow,
+  ExtensionOutcomeRow,
+} from "@/lib/analytics-data";
 import { ClientsDailyChart } from "@/components/admin/ClientsDailyChart";
 import { clientSourceLabel } from "@/components/admin/analytics-constants";
 
 type KindFilter = "all" | "generation" | "analyze";
+
+type AggregatedFunnelRow = {
+  mode: string;
+  client_source: string;
+  locale: string;
+  browser: string;
+  clicks: number;
+  starts_ok: number;
+  starts_err: number;
+  results_shown: number;
+  errors_shown: number;
+  copies: number;
+};
+
+type AggregatedOutcomeRow = {
+  endpoint: string;
+  client_source: string;
+  style: string;
+  locale: string;
+  requests: number;
+  success: number;
+  truncated: number;
+  rate_limited: number;
+  upstream_error: number;
+  empty_response: number;
+};
 
 function StatCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
@@ -22,6 +52,75 @@ function formatDate(iso: string | null): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString();
+}
+
+function pct(numerator: number, denominator: number): string {
+  if (!denominator) return "0%";
+  return `${Math.round((numerator / denominator) * 100)}%`;
+}
+
+function sumRows<T>(rows: T[], pick: (row: T) => number): number {
+  return rows.reduce((sum, row) => sum + pick(row), 0);
+}
+
+function aggregateFunnel(rows: ExtensionFunnelRow[]): AggregatedFunnelRow[] {
+  const map = new Map<string, AggregatedFunnelRow>();
+  for (const row of rows) {
+    const key = `${row.mode}|${row.client_source}|${row.locale}|${row.browser}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.clicks += row.clicks;
+      existing.starts_ok += row.starts_ok;
+      existing.starts_err += row.starts_err;
+      existing.results_shown += row.results_shown;
+      existing.errors_shown += row.errors_shown;
+      existing.copies += row.copies;
+    } else {
+      map.set(key, {
+        mode: row.mode,
+        client_source: row.client_source,
+        locale: row.locale,
+        browser: row.browser,
+        clicks: row.clicks,
+        starts_ok: row.starts_ok,
+        starts_err: row.starts_err,
+        results_shown: row.results_shown,
+        errors_shown: row.errors_shown,
+        copies: row.copies,
+      });
+    }
+  }
+  return [...map.values()].sort((a, b) => b.clicks - a.clicks);
+}
+
+function aggregateOutcomes(rows: ExtensionOutcomeRow[]): AggregatedOutcomeRow[] {
+  const map = new Map<string, AggregatedOutcomeRow>();
+  for (const row of rows) {
+    const key = `${row.endpoint}|${row.client_source}|${row.style}|${row.locale}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.requests += row.requests;
+      existing.success += row.success;
+      existing.truncated += row.truncated;
+      existing.rate_limited += row.rate_limited;
+      existing.upstream_error += row.upstream_error;
+      existing.empty_response += row.empty_response;
+    } else {
+      map.set(key, {
+        endpoint: row.endpoint,
+        client_source: row.client_source,
+        style: row.style,
+        locale: row.locale,
+        requests: row.requests,
+        success: row.success,
+        truncated: row.truncated,
+        rate_limited: row.rate_limited,
+        upstream_error: row.upstream_error,
+        empty_response: row.empty_response,
+      });
+    }
+  }
+  return [...map.values()].sort((a, b) => b.requests - a.requests);
 }
 
 export function AnalyticsDashboard() {
@@ -64,6 +163,36 @@ export function AnalyticsDashboard() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const funnelAgg = useMemo(
+    () => (data ? aggregateFunnel(data.extensionFunnel) : []),
+    [data],
+  );
+  const outcomesAgg = useMemo(
+    () => (data ? aggregateOutcomes(data.extensionOutcomes) : []),
+    [data],
+  );
+
+  const funnelTotals = useMemo(() => {
+    if (!data) return null;
+    const clicks = sumRows(data.extensionFunnel, (r) => r.clicks);
+    const startsOk = sumRows(data.extensionFunnel, (r) => r.starts_ok);
+    const resultsShown = sumRows(data.extensionFunnel, (r) => r.results_shown);
+    const copies = sumRows(data.extensionFunnel, (r) => r.copies);
+    const errorsShown = sumRows(data.extensionFunnel, (r) => r.errors_shown);
+    return { clicks, startsOk, resultsShown, copies, errorsShown };
+  }, [data]);
+
+  const outcomeTotals = useMemo(() => {
+    if (!data) return null;
+    const requests = sumRows(data.extensionOutcomes, (r) => r.requests);
+    const success = sumRows(data.extensionOutcomes, (r) => r.success);
+    const truncated = sumRows(data.extensionOutcomes, (r) => r.truncated);
+    const rateLimited = sumRows(data.extensionOutcomes, (r) => r.rate_limited);
+    const upstreamError = sumRows(data.extensionOutcomes, (r) => r.upstream_error);
+    const emptyResponse = sumRows(data.extensionOutcomes, (r) => r.empty_response);
+    return { requests, success, truncated, rateLimited, upstreamError, emptyResponse };
+  }, [data]);
 
   if (error?.status === 401) {
     return (
@@ -179,6 +308,161 @@ export function AnalyticsDashboard() {
             <ClientsDailyChart rows={data.clientsDaily} kindFilter={kindFilter} />
           </section>
 
+          {funnelTotals ? (
+            <section className="rounded-2xl border border-white/10 bg-zinc-900/40 p-5 sm:p-6">
+              <h2 className="mb-1 text-sm font-semibold text-zinc-200">Extension funnel</h2>
+              <p className="mb-4 text-xs text-zinc-500">
+                Client-side events from extension-lite: clicks → start → result → copy.
+              </p>
+              <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard
+                  label="Clicks"
+                  value={funnelTotals.clicks}
+                  hint={`Start rate ${pct(funnelTotals.startsOk, funnelTotals.clicks)}`}
+                />
+                <StatCard
+                  label="Starts ok"
+                  value={funnelTotals.startsOk}
+                  hint={`Result rate ${pct(funnelTotals.resultsShown, funnelTotals.startsOk)}`}
+                />
+                <StatCard
+                  label="Results shown"
+                  value={funnelTotals.resultsShown}
+                  hint={`Copy rate ${pct(funnelTotals.copies, funnelTotals.resultsShown)}`}
+                />
+                <StatCard
+                  label="Copies"
+                  value={funnelTotals.copies}
+                  hint={`Errors shown ${funnelTotals.errorsShown}`}
+                />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-zinc-500">
+                      <th className="pb-2 pr-4 font-medium">Mode</th>
+                      <th className="pb-2 pr-4 font-medium">Client</th>
+                      <th className="pb-2 pr-4 font-medium">Locale</th>
+                      <th className="pb-2 pr-4 font-medium">Browser</th>
+                      <th className="pb-2 pr-4 font-medium">Clicks</th>
+                      <th className="pb-2 pr-4 font-medium">Start %</th>
+                      <th className="pb-2 pr-4 font-medium">Result %</th>
+                      <th className="pb-2 pr-4 font-medium">Copy %</th>
+                      <th className="pb-2 font-medium">Errors</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {funnelAgg.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-6 text-center text-zinc-500">
+                          No extension funnel data yet
+                        </td>
+                      </tr>
+                    ) : (
+                      funnelAgg.map((row) => (
+                        <tr
+                          key={`${row.mode}-${row.client_source}-${row.locale}-${row.browser}`}
+                          className="border-b border-white/5"
+                        >
+                          <td className="py-2.5 pr-4 text-zinc-200">{row.mode}</td>
+                          <td className="py-2.5 pr-4 text-zinc-300">
+                            {clientSourceLabel(row.client_source)}
+                          </td>
+                          <td className="py-2.5 pr-4 text-zinc-400">{row.locale}</td>
+                          <td className="py-2.5 pr-4 text-zinc-400">{row.browser}</td>
+                          <td className="py-2.5 pr-4 tabular-nums text-zinc-300">{row.clicks}</td>
+                          <td className="py-2.5 pr-4 tabular-nums text-zinc-400">
+                            {pct(row.starts_ok, row.clicks)}
+                          </td>
+                          <td className="py-2.5 pr-4 tabular-nums text-zinc-400">
+                            {pct(row.results_shown, row.starts_ok)}
+                          </td>
+                          <td className="py-2.5 pr-4 tabular-nums text-zinc-400">
+                            {pct(row.copies, row.results_shown)}
+                          </td>
+                          <td className="py-2.5 tabular-nums text-zinc-400">{row.errors_shown}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+
+          {outcomeTotals ? (
+            <section className="rounded-2xl border border-white/10 bg-zinc-900/40 p-5 sm:p-6">
+              <h2 className="mb-1 text-sm font-semibold text-zinc-200">Backend outcomes</h2>
+              <p className="mb-4 text-xs text-zinc-500">
+                Server-side analyze/remix results: success, truncation, and error mix.
+              </p>
+              <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <StatCard label="Requests" value={outcomeTotals.requests} />
+                <StatCard
+                  label="Success"
+                  value={outcomeTotals.success}
+                  hint={pct(outcomeTotals.success, outcomeTotals.requests)}
+                />
+                <StatCard label="Truncated" value={outcomeTotals.truncated} />
+                <StatCard label="Rate limited" value={outcomeTotals.rateLimited} />
+                <StatCard
+                  label="Upstream / empty"
+                  value={outcomeTotals.upstreamError + outcomeTotals.emptyResponse}
+                  hint={`${outcomeTotals.upstreamError} upstream · ${outcomeTotals.emptyResponse} empty`}
+                />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-zinc-500">
+                      <th className="pb-2 pr-4 font-medium">Endpoint</th>
+                      <th className="pb-2 pr-4 font-medium">Client</th>
+                      <th className="pb-2 pr-4 font-medium">Style</th>
+                      <th className="pb-2 pr-4 font-medium">Locale</th>
+                      <th className="pb-2 pr-4 font-medium">Requests</th>
+                      <th className="pb-2 pr-4 font-medium">Success %</th>
+                      <th className="pb-2 pr-4 font-medium">Truncated</th>
+                      <th className="pb-2 pr-4 font-medium">Rate limited</th>
+                      <th className="pb-2 pr-4 font-medium">Upstream</th>
+                      <th className="pb-2 font-medium">Empty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {outcomesAgg.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="py-6 text-center text-zinc-500">
+                          No backend outcome data yet
+                        </td>
+                      </tr>
+                    ) : (
+                      outcomesAgg.map((row) => (
+                        <tr
+                          key={`${row.endpoint}-${row.client_source}-${row.style}-${row.locale}`}
+                          className="border-b border-white/5"
+                        >
+                          <td className="py-2.5 pr-4 text-zinc-200">{row.endpoint}</td>
+                          <td className="py-2.5 pr-4 text-zinc-300">
+                            {clientSourceLabel(row.client_source)}
+                          </td>
+                          <td className="py-2.5 pr-4 text-zinc-400">{row.style}</td>
+                          <td className="py-2.5 pr-4 text-zinc-400">{row.locale}</td>
+                          <td className="py-2.5 pr-4 tabular-nums text-zinc-300">{row.requests}</td>
+                          <td className="py-2.5 pr-4 tabular-nums text-zinc-400">
+                            {pct(row.success, row.requests)}
+                          </td>
+                          <td className="py-2.5 pr-4 tabular-nums text-zinc-400">{row.truncated}</td>
+                          <td className="py-2.5 pr-4 tabular-nums text-zinc-400">{row.rate_limited}</td>
+                          <td className="py-2.5 pr-4 tabular-nums text-zinc-400">{row.upstream_error}</td>
+                          <td className="py-2.5 tabular-nums text-zinc-400">{row.empty_response}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+
           <section className="rounded-2xl border border-white/10 bg-zinc-900/40 p-5 sm:p-6">
             <h2 className="mb-4 text-sm font-semibold text-zinc-200">Top users by volume</h2>
             <div className="overflow-x-auto">
@@ -221,23 +505,27 @@ export function AnalyticsDashboard() {
           <section className="rounded-2xl border border-white/10 bg-zinc-900/40 p-5 sm:p-6">
             <h2 className="mb-1 text-sm font-semibold text-zinc-200">Recent analyze events</h2>
             <p className="mb-4 text-xs text-zinc-500">
-              Raw API calls (including blocked). Origin helps explain client attribution.
+              Raw API calls with outcome, error, latency, and correlation for debugging.
             </p>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full min-w-[900px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-zinc-500">
                     <th className="pb-2 pr-4 font-medium">Time</th>
+                    <th className="pb-2 pr-4 font-medium">Endpoint</th>
                     <th className="pb-2 pr-4 font-medium">Client</th>
-                    <th className="pb-2 pr-4 font-medium">Origin</th>
-                    <th className="pb-2 pr-4 font-medium">User</th>
-                    <th className="pb-2 font-medium">Allowed</th>
+                    <th className="pb-2 pr-4 font-medium">Outcome</th>
+                    <th className="pb-2 pr-4 font-medium">Error</th>
+                    <th className="pb-2 pr-4 font-medium">Latency</th>
+                    <th className="pb-2 pr-4 font-medium">Style</th>
+                    <th className="pb-2 pr-4 font-medium">Allowed</th>
+                    <th className="pb-2 font-medium">Correlation</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.recentEvents.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-zinc-500">
+                      <td colSpan={9} className="py-6 text-center text-zinc-500">
                         No analyze events yet
                       </td>
                     </tr>
@@ -250,17 +538,23 @@ export function AnalyticsDashboard() {
                         <td className="py-2.5 pr-4 tabular-nums text-zinc-400">
                           {formatDate(row.created_at)}
                         </td>
+                        <td className="py-2.5 pr-4 text-zinc-200">{row.endpoint || "—"}</td>
                         <td className="py-2.5 pr-4 text-zinc-200">
                           {clientSourceLabel(row.client_source)}
                         </td>
-                        <td className="max-w-[220px] truncate py-2.5 pr-4 font-mono text-xs text-zinc-500">
-                          {row.request_origin ?? "—"}
-                        </td>
+                        <td className="py-2.5 pr-4 text-zinc-300">{row.outcome ?? "—"}</td>
                         <td className="py-2.5 pr-4 font-mono text-xs text-zinc-500">
-                          {row.user_id ? `${row.user_id.slice(0, 8)}…` : "anon"}
+                          {row.error_code ?? "—"}
                         </td>
-                        <td className="py-2.5 tabular-nums text-zinc-400">
+                        <td className="py-2.5 pr-4 tabular-nums text-zinc-400">
+                          {row.latency_ms != null ? `${row.latency_ms}ms` : "—"}
+                        </td>
+                        <td className="py-2.5 pr-4 text-zinc-400">{row.style ?? "—"}</td>
+                        <td className="py-2.5 pr-4 tabular-nums text-zinc-400">
                           {row.allowed ? "yes" : "no"}
+                        </td>
+                        <td className="py-2.5 font-mono text-xs text-zinc-500">
+                          {row.correlation_id ? `${row.correlation_id.slice(0, 8)}…` : "—"}
                         </td>
                       </tr>
                     ))

@@ -16,6 +16,37 @@ export type TopUserRow = {
   last_seen: string | null;
 };
 
+export type ExtensionFunnelRow = {
+  day: string;
+  mode: string;
+  client_source: string;
+  locale: string;
+  platform: string;
+  browser: string;
+  clicks: number;
+  starts_ok: number;
+  starts_err: number;
+  results_shown: number;
+  errors_shown: number;
+  copies: number;
+  unique_users_clicked: number;
+};
+
+export type ExtensionOutcomeRow = {
+  day: string;
+  endpoint: string;
+  client_source: string;
+  locale: string;
+  style: string;
+  requests: number;
+  success: number;
+  truncated: number;
+  rate_limited: number;
+  upstream_error: number;
+  empty_response: number;
+  unique_actors: number;
+};
+
 export type RecentEventRow = {
   created_at: string;
   endpoint: string;
@@ -23,6 +54,11 @@ export type RecentEventRow = {
   request_origin: string | null;
   allowed: boolean;
   user_id: string | null;
+  outcome: string | null;
+  error_code: string | null;
+  latency_ms: number | null;
+  style: string | null;
+  correlation_id: string | null;
 };
 
 export type AnalyticsDashboardData = {
@@ -38,6 +74,8 @@ export type AnalyticsDashboardData = {
   clientsDaily: ClientsDailyRow[];
   topUsers: TopUserRow[];
   recentEvents: RecentEventRow[];
+  extensionFunnel: ExtensionFunnelRow[];
+  extensionOutcomes: ExtensionOutcomeRow[];
 };
 
 function daysAgoIso(days: number): string {
@@ -63,6 +101,8 @@ export async function fetchAnalyticsDashboard(days: number): Promise<AnalyticsDa
     topUsersRes,
     recentEventsRes,
     actorRowsRes,
+    extensionFunnelRes,
+    extensionOutcomesRes,
   ] = await Promise.all([
     supabase.from("imageprompt_users").select("id", { count: "exact", head: true }),
     supabase
@@ -83,7 +123,9 @@ export async function fetchAnalyticsDashboard(days: number): Promise<AnalyticsDa
       .limit(50),
     supabase
       .from("extension_analyze_events")
-      .select("created_at, endpoint, client_source, request_origin, allowed, user_id")
+      .select(
+        "created_at, endpoint, client_source, request_origin, allowed, user_id, outcome, error_code, latency_ms, style, correlation_id",
+      )
       .gte("created_at", sinceDay)
       .order("created_at", { ascending: false })
       .limit(50),
@@ -92,6 +134,20 @@ export async function fetchAnalyticsDashboard(days: number): Promise<AnalyticsDa
       .select("user_id, ip_hash")
       .gte("event_time", sinceDay)
       .eq("allowed", true),
+    supabase
+      .from("analytics_extension_funnel")
+      .select(
+        "day, mode, client_source, locale, platform, browser, clicks, starts_ok, starts_err, results_shown, errors_shown, copies, unique_users_clicked",
+      )
+      .gte("day", sinceDay)
+      .order("day", { ascending: true }),
+    supabase
+      .from("analytics_extension_outcomes_daily")
+      .select(
+        "day, endpoint, client_source, locale, style, requests, success, truncated, rate_limited, upstream_error, empty_response, unique_actors",
+      )
+      .gte("day", sinceDay)
+      .order("day", { ascending: true }),
   ]);
 
   if (totalUsersRes.error) {
@@ -111,6 +167,12 @@ export async function fetchAnalyticsDashboard(days: number): Promise<AnalyticsDa
   }
   if (actorRowsRes.error) {
     throw new Error(`analytics_requests actors: ${actorRowsRes.error.message}`);
+  }
+  if (extensionFunnelRes.error) {
+    throw new Error(`analytics_extension_funnel: ${extensionFunnelRes.error.message}`);
+  }
+  if (extensionOutcomesRes.error) {
+    throw new Error(`analytics_extension_outcomes_daily: ${extensionOutcomesRes.error.message}`);
   }
 
   const clientsDaily: ClientsDailyRow[] = (clientsDailyRes.data || []).map((row) => ({
@@ -147,6 +209,35 @@ export async function fetchAnalyticsDashboard(days: number): Promise<AnalyticsDa
       analyzesInPeriod,
     },
     clientsDaily,
+    extensionFunnel: (extensionFunnelRes.data || []).map((row) => ({
+      day: String(row.day),
+      mode: String(row.mode ?? "unknown"),
+      client_source: String(row.client_source ?? "unknown"),
+      locale: String(row.locale ?? "unknown"),
+      platform: String(row.platform ?? "unknown"),
+      browser: String(row.browser ?? "unknown"),
+      clicks: Number(row.clicks ?? 0) || 0,
+      starts_ok: Number(row.starts_ok ?? 0) || 0,
+      starts_err: Number(row.starts_err ?? 0) || 0,
+      results_shown: Number(row.results_shown ?? 0) || 0,
+      errors_shown: Number(row.errors_shown ?? 0) || 0,
+      copies: Number(row.copies ?? 0) || 0,
+      unique_users_clicked: Number(row.unique_users_clicked ?? 0) || 0,
+    })),
+    extensionOutcomes: (extensionOutcomesRes.data || []).map((row) => ({
+      day: String(row.day),
+      endpoint: String(row.endpoint ?? ""),
+      client_source: String(row.client_source ?? "unknown"),
+      locale: String(row.locale ?? "unknown"),
+      style: String(row.style ?? "unknown"),
+      requests: Number(row.requests ?? 0) || 0,
+      success: Number(row.success ?? 0) || 0,
+      truncated: Number(row.truncated ?? 0) || 0,
+      rate_limited: Number(row.rate_limited ?? 0) || 0,
+      upstream_error: Number(row.upstream_error ?? 0) || 0,
+      empty_response: Number(row.empty_response ?? 0) || 0,
+      unique_actors: Number(row.unique_actors ?? 0) || 0,
+    })),
     recentEvents: (recentEventsRes.data || []).map((row) => ({
       created_at: String(row.created_at ?? ""),
       endpoint: String(row.endpoint ?? ""),
@@ -154,6 +245,11 @@ export async function fetchAnalyticsDashboard(days: number): Promise<AnalyticsDa
       request_origin: row.request_origin ?? null,
       allowed: row.allowed === true,
       user_id: row.user_id ?? null,
+      outcome: row.outcome ?? null,
+      error_code: row.error_code ?? null,
+      latency_ms: row.latency_ms != null ? Number(row.latency_ms) : null,
+      style: row.style ?? null,
+      correlation_id: row.correlation_id ?? null,
     })),
     topUsers: (topUsersRes.data || []).map((row) => ({
       email: row.email ?? null,
