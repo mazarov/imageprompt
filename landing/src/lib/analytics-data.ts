@@ -65,7 +65,7 @@ export type AnalyticsDashboardData = {
   days: number;
   summary: {
     totalUsers: number;
-    activeUsers30d: number;
+    activeUsersInPeriod: number;
     requestsInPeriod: number;
     uniqueActorsInPeriod: number;
     generationsInPeriod: number;
@@ -86,14 +86,9 @@ function daysAgoIso(days: number): string {
   return d.toISOString();
 }
 
-function thirtyDaysAgoIso(): string {
-  return daysAgoIso(30);
-}
-
 export async function fetchAnalyticsDashboard(days: number): Promise<AnalyticsDashboardData> {
   const supabase = createSupabaseServer();
   const sinceDay = daysAgoIso(days);
-  const since30d = thirtyDaysAgoIso();
 
   const [
     totalUsersRes,
@@ -105,11 +100,14 @@ export async function fetchAnalyticsDashboard(days: number): Promise<AnalyticsDa
     extensionFunnelRes,
     extensionOutcomesRes,
   ] = await Promise.all([
-    supabase.from("imageprompt_users").select("id", { count: "exact", head: true }),
+    supabase
+      .from("imageprompt_users")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", sinceDay),
     supabase
       .from("analytics_user_activity")
       .select("user_id", { count: "exact", head: true })
-      .gte("last_seen", since30d)
+      .gte("last_seen", sinceDay)
       .gt("total_requests", 0),
     supabase
       .from("analytics_clients_daily")
@@ -203,7 +201,7 @@ export async function fetchAnalyticsDashboard(days: number): Promise<AnalyticsDa
     days,
     summary: {
       totalUsers: totalUsersRes.count ?? 0,
-      activeUsers30d: activeUsersRes.count ?? 0,
+      activeUsersInPeriod: activeUsersRes.count ?? 0,
       requestsInPeriod,
       uniqueActorsInPeriod,
       generationsInPeriod,

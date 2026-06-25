@@ -281,11 +281,15 @@ export function AnalyticsDashboard() {
       ) : data ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Total users" value={data.summary.totalUsers} />
+            <StatCard
+              label="Total users"
+              value={data.summary.totalUsers}
+              hint={`New registrations · ${periodHint(data.days)}`}
+            />
             <StatCard
               label="Active users"
-              value={data.summary.activeUsers30d}
-              hint="Any request in last 30 days"
+              value={data.summary.activeUsersInPeriod}
+              hint={`Any request · ${periodHint(data.days)}`}
             />
             <StatCard
               label="Requests"
