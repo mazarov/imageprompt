@@ -18,11 +18,13 @@ function formatDayLabel(iso: string): string {
 function aggregateByDay(
   rows: ClientsDailyRow[],
   kindFilter: KindFilter,
+  clientSourceFilter: string,
 ): { day: string; label: string; bySource: Record<string, number>; total: number }[] {
   const byDay = new Map<string, Record<string, number>>();
 
   for (const row of rows) {
     if (kindFilter !== "all" && row.kind !== kindFilter) continue;
+    if (clientSourceFilter !== "all" && row.client_source !== clientSourceFilter) continue;
     const dayKey = row.day.slice(0, 10);
     const bucket = byDay.get(dayKey) ?? {};
     bucket[row.client_source] = (bucket[row.client_source] ?? 0) + row.requests;
@@ -40,11 +42,13 @@ function aggregateByDay(
 export function ClientsDailyChart({
   rows,
   kindFilter,
+  clientSourceFilter = "all",
 }: {
   rows: ClientsDailyRow[];
   kindFilter: KindFilter;
+  clientSourceFilter?: string;
 }) {
-  const series = aggregateByDay(rows, kindFilter);
+  const series = aggregateByDay(rows, kindFilter, clientSourceFilter);
   const maxTotal = Math.max(1, ...series.map((s) => s.total));
   const activeSources = CLIENT_SOURCES_ORDER.filter((src) =>
     series.some((s) => (s.bySource[src] ?? 0) > 0),

@@ -8,7 +8,7 @@ export const revalidate = 0;
 function parseDaysParam(raw: string | null): number {
   const n = Number(raw ?? 30);
   if (!Number.isFinite(n)) return 30;
-  return Math.min(90, Math.max(7, Math.floor(n)));
+  return Math.min(90, Math.max(1, Math.floor(n)));
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {

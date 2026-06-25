@@ -7,9 +7,17 @@ import type {
   ExtensionOutcomeRow,
 } from "@/lib/analytics-data";
 import { ClientsDailyChart } from "@/components/admin/ClientsDailyChart";
-import { clientSourceLabel } from "@/components/admin/analytics-constants";
+import { CLIENT_SOURCES_ORDER, clientSourceLabel } from "@/components/admin/analytics-constants";
 
 type KindFilter = "all" | "generation" | "analyze";
+type ClientSourceFilter = "all" | (typeof CLIENT_SOURCES_ORDER)[number];
+
+const PERIOD_OPTIONS: { days: number; label: string }[] = [
+  { days: 1, label: "Today" },
+  { days: 7, label: "7d" },
+  { days: 30, label: "30d" },
+  { days: 90, label: "90d" },
+];
 
 type AggregatedFunnelRow = {
   mode: string;
@@ -123,9 +131,15 @@ function aggregateOutcomes(rows: ExtensionOutcomeRow[]): AggregatedOutcomeRow[] 
   return [...map.values()].sort((a, b) => b.requests - a.requests);
 }
 
+function periodHint(days: number): string {
+  if (days === 1) return "Today (UTC)";
+  return `Last ${days} days`;
+}
+
 export function AnalyticsDashboard() {
   const [days, setDays] = useState(30);
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+  const [clientSourceFilter, setClientSourceFilter] = useState<ClientSourceFilter>("all");
   const [data, setData] = useState<AnalyticsDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
@@ -194,6 +208,12 @@ export function AnalyticsDashboard() {
     return { requests, success, truncated, rateLimited, upstreamError, emptyResponse };
   }, [data]);
 
+  const clientSourcesInData = useMemo(() => {
+    if (!data) return [];
+    const present = new Set(data.clientsDaily.map((r) => r.client_source));
+    return CLIENT_SOURCES_ORDER.filter((src) => present.has(src));
+  }, [data]);
+
   if (error?.status === 401) {
     return (
       <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-zinc-900/70 p-8 text-center">
@@ -228,7 +248,7 @@ export function AnalyticsDashboard() {
           <p className="mt-1 text-sm text-zinc-400">Users, clients, and request volume</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {[7, 30, 90].map((d) => (
+          {PERIOD_OPTIONS.map(({ days: d, label }) => (
             <button
               key={d}
               type="button"
@@ -239,7 +259,7 @@ export function AnalyticsDashboard() {
                   : "border border-white/10 bg-zinc-900 text-zinc-300 hover:border-white/20"
               }`}
             >
-              {d}d
+              {label}
             </button>
           ))}
           <button
@@ -270,42 +290,76 @@ export function AnalyticsDashboard() {
             <StatCard
               label="Requests"
               value={data.summary.requestsInPeriod}
-              hint={`${data.summary.uniqueActorsInPeriod} unique actor(s) · last ${data.days} days`}
+              hint={`${data.summary.uniqueActorsInPeriod} unique actor(s) · ${periodHint(data.days)}`}
             />
             <StatCard
               label="Generations / analyzes"
               value={`${data.summary.generationsInPeriod} / ${data.summary.analyzesInPeriod}`}
-              hint={`Last ${data.days} days`}
+              hint={periodHint(data.days)}
             />
           </div>
 
           <section className="rounded-2xl border border-white/10 bg-zinc-900/40 p-5 sm:p-6">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-sm font-semibold text-zinc-200">Requests by client</h2>
-              <div className="flex gap-2">
-                {(
-                  [
-                    ["all", "All"],
-                    ["generation", "Generations"],
-                    ["analyze", "Analyze"],
-                  ] as const
-                ).map(([value, label]) => (
+            <div className="mb-4 flex flex-col gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="text-sm font-semibold text-zinc-200">Requests by client</h2>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      ["all", "All"],
+                      ["generation", "Generations"],
+                      ["analyze", "Analyze"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setKindFilter(value)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        kindFilter === value
+                          ? "bg-zinc-100 text-zinc-900"
+                          : "text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-zinc-500">Client:</span>
+                <button
+                  type="button"
+                  onClick={() => setClientSourceFilter("all")}
+                  className={`rounded-full px-3 py-1 text-xs font-medium ${
+                    clientSourceFilter === "all"
+                      ? "bg-indigo-600/80 text-white"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  All clients
+                </button>
+                {clientSourcesInData.map((src) => (
                   <button
-                    key={value}
+                    key={src}
                     type="button"
-                    onClick={() => setKindFilter(value)}
+                    onClick={() => setClientSourceFilter(src)}
                     className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      kindFilter === value
-                        ? "bg-zinc-100 text-zinc-900"
+                      clientSourceFilter === src
+                        ? "bg-indigo-600/80 text-white"
                         : "text-zinc-400 hover:text-zinc-200"
                     }`}
                   >
-                    {label}
+                    {clientSourceLabel(src)}
                   </button>
                 ))}
               </div>
             </div>
-            <ClientsDailyChart rows={data.clientsDaily} kindFilter={kindFilter} />
+            <ClientsDailyChart
+              rows={data.clientsDaily}
+              kindFilter={kindFilter}
+              clientSourceFilter={clientSourceFilter}
+            />
           </section>
 
           {funnelTotals ? (

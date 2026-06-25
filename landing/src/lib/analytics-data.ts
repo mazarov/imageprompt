@@ -80,8 +80,9 @@ export type AnalyticsDashboardData = {
 
 function daysAgoIso(days: number): string {
   const d = new Date();
-  d.setUTCDate(d.getUTCDate() - days);
   d.setUTCHours(0, 0, 0, 0);
+  if (days <= 1) return d.toISOString();
+  d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString();
 }
 
