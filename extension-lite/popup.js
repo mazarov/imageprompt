@@ -1,6 +1,6 @@
 import { prepareUploadFile } from "./lib/image-utils.js";
 import { normalizePromptLayout } from "./lib/prompt-sections.js";
-import { getImageBlob } from "./lib/image-store.js";
+import { blobToDataUrl, getImageBlob } from "./lib/image-store.js";
 import { track } from "./lib/telemetry.js";
 import {
   openLexyGptWithPrompt,
@@ -1372,6 +1372,82 @@ function revokeHistoryObjectUrls() {
   historyObjectUrls = [];
 }
 
+/** Resolve a history entry to a data URL suitable for Analyze/remix. */
+async function getHistoryEntryDataUrl(entry) {
+  const img = entry?.image;
+  if (!img || typeof img !== "object") return "";
+
+  if (img.mode === "data_url" && typeof img.dataUrl === "string" && isImageDataUrl(img.dataUrl)) {
+    return img.dataUrl;
+  }
+
+  if (img.mode === "idb" && typeof img.refId === "string" && img.refId) {
+    const blob = await getImageBlob(img.refId);
+    if (!blob) return "";
+    try {
+      return await blobToDataUrl(blob);
+    } catch {
+      return "";
+    }
+  }
+
+  return "";
+}
+
+/** Preview URL for display when a data URL is unavailable (e.g. remote image_url). */
+function getHistoryEntryPreviewUrl(entry) {
+  const img = entry?.image;
+  if (!img || typeof img !== "object") return "";
+
+  if (img.mode === "data_url" && typeof img.dataUrl === "string" && img.dataUrl) {
+    return img.dataUrl;
+  }
+  if (img.mode === "image_url" && typeof img.imageUrl === "string" && img.imageUrl) {
+    return img.imageUrl;
+  }
+  return "";
+}
+
+async function selectHistoryEntry(entry) {
+  if (!entry || typeof entry.prompt !== "string" || !entry.prompt) return;
+
+  const style = isValidStyle(entry.style) ? entry.style : "photoreal";
+  const dataUrl = await getHistoryEntryDataUrl(entry);
+  const previewUrl = dataUrl || getHistoryEntryPreviewUrl(entry);
+
+  switchTab("analyze");
+  setRemixing(false);
+  if (remixInput) {
+    remixInput.value = "";
+    autoGrowRemix();
+    updateRemixButton();
+  }
+  if (errorBanner) errorBanner.hidden = true;
+  promptBox?.classList.remove("is-remixing", "just-remixed", "section-focused");
+
+  if (dataUrl) {
+    showResult(dataUrl, entry.prompt, style);
+    return;
+  }
+
+  currentPrompt = normalizePromptLayout(entry.prompt);
+  currentStyle = style;
+  currentDataUrl = "";
+  if (promptBox) {
+    promptBox.textContent = currentPrompt;
+    promptBox.scrollTop = 0;
+  }
+  if (previewUrl && resultPreview) {
+    resultPreview.src = previewUrl;
+    setActiveBackdrop(previewUrl);
+  } else {
+    resultPreview?.removeAttribute("src");
+    setActiveBackdrop("");
+  }
+  showPanel("result");
+  syncLexyGptPromoVisibility();
+}
+
 function renderHistoryList(entries) {
   if (!historyList || !historyEmpty) return;
   revokeHistoryObjectUrls();
@@ -1388,6 +1464,9 @@ function renderHistoryList(entries) {
   for (const entry of valid) {
     const card = document.createElement("div");
     card.className = "history-card";
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-label", `${t("tabAnalyze")}: ${entry.prompt.slice(0, 80)}`);
 
     const inlineSrc =
       entry.image?.mode === "data_url" && entry.image.dataUrl
@@ -1426,8 +1505,21 @@ function renderHistoryList(entries) {
       }
     }
 
+    card.addEventListener("click", (event) => {
+      if (event.target.closest(".history-card-actions, button, a")) return;
+      void selectHistoryEntry(entry);
+    });
+
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        void selectHistoryEntry(entry);
+      }
+    });
+
     const copyBtn = card.querySelector(".history-card-copy");
-    copyBtn?.addEventListener("click", async () => {
+    copyBtn?.addEventListener("click", async (event) => {
+      event.stopPropagation();
       track("copy_prompt", { surface: "history", style: entry.style });
       try {
         await navigator.clipboard.writeText(entry.prompt);
@@ -1437,7 +1529,8 @@ function renderHistoryList(entries) {
     });
 
     const generateBtn = card.querySelector(".history-card-generate");
-    generateBtn?.addEventListener("click", () => {
+    generateBtn?.addEventListener("click", (event) => {
+      event.stopPropagation();
       track("lexygpt_click", { surface: "history", style: entry.style });
       void openLexyGptWithPrompt(entry.prompt);
     });

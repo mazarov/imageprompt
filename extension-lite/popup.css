@@ -1132,10 +1132,19 @@ html, body {
   border: 1px solid var(--border-soft);
   box-shadow: var(--ring-inset);
   transition: background 0.12s ease;
+  cursor: pointer;
 }
 
 .history-card:hover {
   background: rgb(39 39 42 / 0.4);
+}
+
+.history-card:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--canvas),
+    0 0 0 4px rgb(129 140 248 / 0.55),
+    var(--ring-inset);
 }
 
 .history-card-thumb {
