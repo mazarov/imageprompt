@@ -167,13 +167,9 @@ function buildAutoInstruction(originalPrompt: string, changeRequest: string, loc
   const present = SECTION_SPEC_ORDER.filter((label) =>
     new RegExp(`^${label}\\s*:`, "im").test(originalPrompt),
   );
-  const specs = present
-    .map((label) => {
-      const spec = getSectionSpec(label);
-      return spec ? `- ${label}: ${spec}` : "";
-    })
+  const labels = [...present, /^CRITICAL RULES\s*:?/im.test(originalPrompt) ? "CRITICAL RULES" : ""]
     .filter(Boolean)
-    .join("\n");
+    .join(", ");
 
   return [
     "You are editing a structured AI image prompt made of labeled sections.",
@@ -182,8 +178,9 @@ function buildAutoInstruction(originalPrompt: string, changeRequest: string, loc
     "Rewrite ONLY the sections that need to change. Do NOT include unchanged sections in the output.",
     'For each changed section keep its heading EXACTLY as in the input (e.g. "Scene:") and rewrite the body richly and generator-ready.',
     "Treat the edit as user intent, not final copy: expand terse edits into concrete descriptions; keep useful compatible details, replace only what conflicts.",
+    "When the edit changes clothing, outfit, colors, accessories, pose, background, mood, or avoid-rules, update every affected section so no old conflicting details remain.",
     remixLanguageInstruction(locale),
-    specs ? `Section specifications to follow when rewriting:\n${specs}` : "",
+    labels ? `Allowed section labels for "label": ${labels}.` : "",
     'Return JSON only: {"changes":[{"label":"<exact section label>","text":"<full section incl. heading>"}]}.',
     '"label" must be one of the exact section labels present in the prompt. If nothing needs changing, return {"changes":[]}.',
     "",
@@ -273,7 +270,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? buildAutoInstruction(originalPrompt, changeRequest, locale)
       : buildInstruction(originalPrompt, changeRequest, style, locale);
   if (isSectionMode) maxOutputTokens = 2048;
-  else if (isAutoMode) maxOutputTokens = 8192;
+  else if (isAutoMode) maxOutputTokens = 4096;
 
   logExtensionRemixStart({
     remixRequestId,
@@ -509,6 +506,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const finishReason = summarizeGeminiApiResponse(geminiData).finishReason;
 
   if (!rawText) {
+    logExtensionRemixGeminiResponse({
+      remixRequestId,
+      mode: remixMode,
+      style,
+      locale,
+      model: GEMINI_MODEL,
+      httpStatus: geminiRes.status,
+      latencyMs: Date.now() - geminiStartedAt,
+      geminiData,
+      rawText: "",
+      autoChanges: isAutoMode ? [] : undefined,
+      autoChangesParseFailed: isAutoMode ? true : undefined,
+    });
     console.error("[extension.remix] gemini_empty_response", {
       data: JSON.stringify(geminiData).slice(0, 300),
     });
