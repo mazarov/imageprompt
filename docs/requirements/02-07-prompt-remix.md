@@ -2,11 +2,16 @@
 
 > Доработка существующей фичи: после получения промпта (из картинки) пользователь описывает изменение в свободной форме («убери фон, сделай улыбку») и получает обновлённый промпт — модель сама определяет какие секции менять, расширение локально вклеивает только изменённые блоки без повторной загрузки картинки.
 > Бэкенд-эндпоинт `POST /api/extension/remix` реализован в `landing/src/app/api/extension/remix/route.ts`. UI в `extension-lite/` — auto remix composer (без выбора секции).
-> Дата: 18.06.2026 (обновлено 02.07.2026 — auto mode / section_diff; section mode сохранён для совместимости).
+> Дата: 18.06.2026 (обновлено 02.07.2026 — auto mode / section_diff; 02.07.2026 — two-step classifier + scoped rewriter).
 
 ## 1. Идея
 
-Поток в `extension-lite`: картинка → структурированный промпт с секциями → пользователь вводит общий change request → «Remix». Backend получает **полный prompt** + правку в режиме `mode: "auto"`; Gemini анализирует промпт и возвращает JSON с **только изменёнными секциями**; расширение локально подставляет их через `applyPromptSectionChanges`. Картинку повторно не загружаем.
+Поток в `extension-lite`: картинка → структурированный промпт с секциями → пользователь вводит общий change request → «Remix». Backend в режиме `mode: "auto"` делает **два** Gemini-вызова:
+
+1. **Classifier** — получает только `changeRequest` и список доступных labels (из локального парсинга `originalPrompt`); возвращает `{ labels: [...] }`.
+2. **Scoped rewriter** — получает только тексты выбранных секций; возвращает `{ changes: [{ label, text }] }`.
+
+Полный prompt **не** отправляется в Gemini целиком (только server-side slicing). Расширение локально подставляет `changes` через `applyPromptSectionChanges`. Картинку повторно не загружаем.
 
 Итеративный ремикс: каждый следующий remix применяется к уже собранному полному промпту.
 
@@ -57,7 +62,17 @@ E. **Пустой ответ модели.** Если модель вернул�
 }
 ```
 
-Gemini анализирует весь промпт, переписывает только нужные секции. `maxOutputTokens: 4096`, `responseMimeType: application/json`, `responseSchema: { changes: [{ label, text }] }`. Per-section spec из `extension-prompt-sections.ts` подмешивается для секций, присутствующих в промпте.
+Gemini **не** получает весь prompt. Сервер:
+
+1. Парсит `originalPrompt` локально (`parseAvailablePromptSections`) — headings из `SECTION_SPEC_ORDER` + `CRITICAL RULES`.
+2. **Classifier call** (`temperature: 0`, `maxOutputTokens: 256`): input = `changeRequest` + available labels; output schema `{ labels: string[] }`.
+   - Пустой/невалидный classifier → fallback labels: `Visual Hook`, `Mood`, `Color`, `Composition`, `Avoid` (если есть в промпте).
+   - При любых выбранных labels всегда добавляется `Avoid`, если секция есть в промпте.
+3. **Rewriter call** (`temperature: 0.4`, `maxOutputTokens: 4096`): input = только тексты выбранных секций; output schema `{ changes: [{ label, text }] }`.
+
+Rate-limit: один `reserve` перед обоими вызовами, один `confirm` после успешного rewriter; `release` при ошибке classifier или rewriter.
+
+Логи: `remix.classifier_request` / `remix.classifier_response`, затем `remix.gemini_request` / `remix.gemini_response` (step=`rewriter`).
 
 ### 3.2 Section mode (legacy, сохранён для старых клиентов)
 
@@ -89,7 +104,7 @@ Gemini анализирует весь промпт, переписывает т
 ### 3.4 Общее
 
 - **429 / 5xx** — без изменений.
-- **Rate-limit:** общий с analyze; reserve → Gemini → confirm/release.
+- **Rate-limit:** общий с analyze; reserve → classifier + rewriter → confirm/release (один remix на пользователя).
 - **Provider:** Gemini 2.5 Flash-Lite, `temperature: 0.4`, `thinkingBudget: 0`.
 
 ## 4. Реализация в `extension-lite/`
@@ -159,5 +174,5 @@ Gemini анализирует весь промпт, переписывает т
 
 ## 8. Открытые вопросы
 
-1. Качество выбора секций моделью (например, пропуск Clothing при правке одежды) — tuning instruction, не transport.
+1. Качество выбора секций classifier-ом (например, пропуск Clothing при правке одежды) — tuning classifier instruction, не transport.
 2. Нужен ли fallback на whole-prompt rewrite при пустом `changes` — сейчас показываем ошибку.

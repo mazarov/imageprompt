@@ -9,14 +9,24 @@ import {
   recordExtensionRateLimitEvent,
   releaseExtensionRateLimitOnFailure,
   reserveExtensionRateLimit,
+  type ExtensionEventOutcome,
 } from "@/lib/extension-rate-limit-flow";
 import { extensionLog } from "@/lib/extension-pipeline-log";
 import {
+  logExtensionRemixClassifierRequest,
+  logExtensionRemixClassifierResponse,
   logExtensionRemixGeminiRequest,
   logExtensionRemixGeminiResponse,
   logExtensionRemixStart,
   type RemixMode,
 } from "@/lib/extension-remix-log";
+import {
+  availableSectionLabels,
+  normalizeClassifierLabels,
+  parseAvailablePromptSections,
+  pickSectionsByLabels,
+  type ParsedPromptSection,
+} from "@/lib/extension-remix-sections";
 import { summarizeGeminiApiResponse } from "@/lib/gemini-vibe-debug-log";
 import { createSupabaseServer } from "@/lib/supabase";
 
@@ -163,32 +173,184 @@ function buildInstruction(originalPrompt: string, changeRequest: string, style: 
     .join("\n");
 }
 
-function buildAutoInstruction(originalPrompt: string, changeRequest: string, locale: string): string {
-  const present = SECTION_SPEC_ORDER.filter((label) =>
-    new RegExp(`^${label}\\s*:`, "im").test(originalPrompt),
-  );
-  const labels = [...present, /^CRITICAL RULES\s*:?/im.test(originalPrompt) ? "CRITICAL RULES" : ""]
-    .filter(Boolean)
-    .join(", ");
-
+function buildClassifierInstruction(
+  changeRequest: string,
+  availableLabels: string[],
+  locale: string,
+): string {
   return [
-    "You are editing a structured AI image prompt made of labeled sections.",
-    `Apply this edit from the user: ${changeRequest}.`,
-    "Analyze the whole prompt and decide which sections must change to satisfy the edit.",
-    "Rewrite ONLY the sections that need to change. Do NOT include unchanged sections in the output.",
-    'For each changed section keep its heading EXACTLY as in the input (e.g. "Scene:") and rewrite the body richly and generator-ready.',
-    "Treat the edit as user intent, not final copy: expand terse edits into concrete descriptions; keep useful compatible details, replace only what conflicts.",
-    "When the edit changes clothing, outfit, colors, accessories, pose, background, mood, or avoid-rules, update every affected section so no old conflicting details remain.",
+    "You classify which sections of an AI image prompt must be updated for a user edit.",
+    `User edit: ${changeRequest}.`,
     remixLanguageInstruction(locale),
-    labels ? `Allowed section labels for "label": ${labels}.` : "",
-    'Return JSON only: {"changes":[{"label":"<exact section label>","text":"<full section incl. heading>"}]}.',
-    '"label" must be one of the exact section labels present in the prompt. If nothing needs changing, return {"changes":[]}.',
-    "",
-    "Full prompt:",
-    originalPrompt,
+    `Available section labels: ${availableLabels.join(", ")}.`,
+    'Return JSON only: {"labels":["Clothing","Color","Avoid"]}.',
+    "Choose only labels from the available list.",
+    "Include every section whose content would need to change to satisfy the edit.",
+    "For clothing or outfit changes include Clothing, Color, and Avoid when available.",
+    "For background or scene changes include Scene, Composition, and Avoid when available.",
+    "For pose, body orientation, or camera changes include Pose, Camera, Composition, and Avoid when available.",
+    "For mood or expression changes include Mood, Makeup, Visual Hook, and Avoid when available.",
+    "Prefer a slightly broader set over returning too few labels.",
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function buildScopedAutoInstruction(
+  selectedSections: ParsedPromptSection[],
+  changeRequest: string,
+  locale: string,
+): string {
+  const labels = selectedSections.map((section) => section.label).join(", ");
+  const sectionBlocks = selectedSections.map((section) => section.text).join("\n\n");
+
+  return [
+    "You are editing selected sections of an AI image prompt.",
+    `Apply this edit from the user: ${changeRequest}.`,
+    "Rewrite ONLY the provided sections below.",
+    'Keep each section heading EXACTLY as in the input (e.g. "Clothing:").',
+    "Treat the edit as user intent and expand it into rich, generator-ready section bodies.",
+    "Replace conflicting details, but keep useful compatible details when they still fit.",
+    remixLanguageInstruction(locale),
+    labels ? `Allowed labels for "label": ${labels}.` : "",
+    'Return JSON only: {"changes":[{"label":"<exact section label>","text":"<full section incl. heading>"}]}.',
+    "Return one entry per provided section that needs rewriting.",
+    "",
+    "Sections to rewrite:",
+    sectionBlocks,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+type GeminiJsonCallResult =
+  | {
+      ok: true;
+      rawText: string;
+      geminiData: unknown;
+      httpStatus: number;
+      latencyMs: number;
+    }
+  | {
+      ok: false;
+      error: "fetch_failed" | "gemini_http" | "bad_response" | "empty_prompt";
+      httpStatus?: number;
+      geminiData?: unknown;
+      latencyMs: number;
+    };
+
+async function callGeminiJson({
+  apiKey,
+  geminiUrl,
+  instruction,
+  generationConfig,
+}: {
+  apiKey: string;
+  geminiUrl: string;
+  instruction: string;
+  generationConfig: Record<string, unknown>;
+}): Promise<GeminiJsonCallResult> {
+  const startedAt = Date.now();
+  const geminiBody = {
+    contents: [{ role: "user", parts: [{ text: instruction }] }],
+    generationConfig,
+    safetySettings: GEMINI_SAFETY_SETTINGS,
+  };
+
+  let geminiRes: Response;
+  try {
+    geminiRes = await fetch(geminiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify(geminiBody),
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+    });
+  } catch {
+    return { ok: false, error: "fetch_failed", latencyMs: Date.now() - startedAt };
+  }
+
+  if (!geminiRes.ok) {
+    return {
+      ok: false,
+      error: "gemini_http",
+      httpStatus: geminiRes.status,
+      latencyMs: Date.now() - startedAt,
+    };
+  }
+
+  let geminiData: unknown;
+  try {
+    geminiData = await geminiRes.json();
+  } catch {
+    return {
+      ok: false,
+      error: "bad_response",
+      httpStatus: geminiRes.status,
+      latencyMs: Date.now() - startedAt,
+    };
+  }
+
+  const rawText = (
+    geminiData as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    }
+  ).candidates?.[0]?.content?.parts
+    ?.find((part) => typeof part.text === "string")
+    ?.text?.trim();
+
+  if (!rawText) {
+    return {
+      ok: false,
+      error: "empty_prompt",
+      httpStatus: geminiRes.status,
+      geminiData,
+      latencyMs: Date.now() - startedAt,
+    };
+  }
+
+  return {
+    ok: true,
+    rawText,
+    geminiData,
+    httpStatus: geminiRes.status,
+    latencyMs: Date.now() - startedAt,
+  };
+}
+
+function parseAutoChanges(rawText: string): {
+  changes: Array<{ label: string; text: string }>;
+  parseFailed: boolean;
+} {
+  try {
+    const parsedJson = JSON.parse(rawText) as {
+      changes?: Array<{ label?: unknown; text?: unknown }>;
+    };
+    const changes = Array.isArray(parsedJson.changes)
+      ? parsedJson.changes
+          .map((change) => ({
+            label: String(change?.label ?? "").trim(),
+            text: String(change?.text ?? "").trim(),
+          }))
+          .filter((change) => change.label && change.text && VALID_AUTO_LABELS.has(change.label))
+      : [];
+    return { changes, parseFailed: false };
+  } catch {
+    return { changes: [], parseFailed: true };
+  }
+}
+
+function buildGeminiBody(
+  instruction: string,
+  generationConfig: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    contents: [{ role: "user", parts: [{ text: instruction }] }],
+    generationConfig,
+    safetySettings: GEMINI_SAFETY_SETTINGS,
+  };
 }
 
 export async function OPTIONS() {
@@ -264,13 +426,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`);
 
-  instruction = isSectionMode
-    ? buildSectionInstruction(sectionLabel, sectionText, changeRequest, style, locale)
-    : isAutoMode
-      ? buildAutoInstruction(originalPrompt, changeRequest, locale)
+  if (!isAutoMode) {
+    instruction = isSectionMode
+      ? buildSectionInstruction(sectionLabel, sectionText, changeRequest, style, locale)
       : buildInstruction(originalPrompt, changeRequest, style, locale);
-  if (isSectionMode) maxOutputTokens = 2048;
-  else if (isAutoMode) maxOutputTokens = 4096;
+    if (isSectionMode) maxOutputTokens = 2048;
+  }
 
   logExtensionRemixStart({
     remixRequestId,
@@ -342,38 +503,323 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   })();
   const viaProxy = baseUrl !== GEMINI_DIRECT_BASE_URL;
+
+  const releaseReservedRateLimit = async () => {
+    if (session && reserved) {
+      await releaseExtensionRateLimitOnFailure(supabase, session);
+    }
+  };
+
+  const recordRemixFailure = (fields: ExtensionEventOutcome) => {
+    recordExtensionRateLimitEvent(
+      supabase,
+      req,
+      "remix",
+      extensionRateLimitCheckFromSession(session, reservedCheck),
+      false,
+      fields,
+    );
+  };
+
+  if (isAutoMode) {
+    const sections = parseAvailablePromptSections(originalPrompt);
+    const labelsAvailable = availableSectionLabels(sections);
+
+    const classifierInstruction = buildClassifierInstruction(
+      changeRequest,
+      labelsAvailable,
+      locale,
+    );
+    const classifierConfig: Record<string, unknown> = {
+      temperature: 0,
+      maxOutputTokens: 256,
+      thinkingConfig: { thinkingBudget: 0 },
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "object",
+        properties: {
+          labels: { type: "array", items: { type: "string" } },
+        },
+        required: ["labels"],
+      },
+    };
+    const classifierBody = buildGeminiBody(classifierInstruction, classifierConfig);
+
+    logExtensionRemixClassifierRequest({
+      remixRequestId,
+      mode: remixMode,
+      style,
+      locale,
+      model: GEMINI_MODEL,
+      endpointHost: geminiEndpointHost,
+      viaProxy,
+      instruction: classifierInstruction,
+      availableLabels: labelsAvailable,
+      generationConfig: classifierConfig,
+      geminiBody: classifierBody,
+    });
+
+    const classifierResult = await callGeminiJson({
+      apiKey,
+      geminiUrl,
+      instruction: classifierInstruction,
+      generationConfig: classifierConfig,
+    });
+
+    extensionLog("gemini.call", {
+      endpoint: "remix",
+      remixRequestId,
+      step: "classifier",
+      status: classifierResult.ok
+        ? classifierResult.httpStatus
+        : (classifierResult.httpStatus ?? 503),
+      latencyMs: classifierResult.latencyMs,
+    });
+
+    if (!classifierResult.ok) {
+      if (classifierResult.geminiData) {
+        logExtensionRemixClassifierResponse({
+          remixRequestId,
+          mode: remixMode,
+          style,
+          locale,
+          model: GEMINI_MODEL,
+          httpStatus: classifierResult.httpStatus ?? 502,
+          latencyMs: classifierResult.latencyMs,
+          geminiData: classifierResult.geminiData,
+          rawText: "",
+          labels: [],
+          labelsParseFailed: true,
+        });
+      }
+      await releaseReservedRateLimit();
+      const httpStatus =
+        classifierResult.error === "fetch_failed"
+          ? 503
+          : (classifierResult.httpStatus ?? 502);
+      recordRemixFailure({
+        ...outcomeBase,
+        outcome: "upstream_error",
+        errorCode: classifierResult.error,
+        httpStatus,
+        latencyMs: classifierResult.latencyMs,
+      });
+      return NextResponse.json(
+        { error: "upstream_failed", message: "Something went wrong. Please try again." },
+        { status: httpStatus >= 500 ? httpStatus : 502 },
+      );
+    }
+
+    let selectedLabels: string[] = [];
+    let labelsParseFailed = false;
+    try {
+      const parsedClassifier = JSON.parse(classifierResult.rawText) as { labels?: unknown };
+      selectedLabels = normalizeClassifierLabels(parsedClassifier.labels, labelsAvailable);
+    } catch {
+      labelsParseFailed = true;
+      selectedLabels = normalizeClassifierLabels([], labelsAvailable);
+    }
+
+    logExtensionRemixClassifierResponse({
+      remixRequestId,
+      mode: remixMode,
+      style,
+      locale,
+      model: GEMINI_MODEL,
+      httpStatus: classifierResult.httpStatus,
+      latencyMs: classifierResult.latencyMs,
+      geminiData: classifierResult.geminiData,
+      rawText: classifierResult.rawText,
+      labels: selectedLabels,
+      labelsParseFailed,
+    });
+
+    const selectedSections = pickSectionsByLabels(sections, selectedLabels);
+    if (selectedSections.length === 0) {
+      await releaseReservedRateLimit();
+      recordRemixFailure({
+        ...outcomeBase,
+        outcome: "upstream_error",
+        errorCode: "no_sections",
+        httpStatus: 502,
+        latencyMs: classifierResult.latencyMs,
+      });
+      return NextResponse.json(
+        { error: "upstream_failed", message: "Something went wrong. Please try again." },
+        { status: 502 },
+      );
+    }
+
+    const rewriterInstruction = buildScopedAutoInstruction(
+      selectedSections,
+      changeRequest,
+      locale,
+    );
+    const rewriterConfig: Record<string, unknown> = {
+      temperature: 0.4,
+      maxOutputTokens: 4096,
+      thinkingConfig: { thinkingBudget: 0 },
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "object",
+        properties: {
+          changes: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { label: { type: "string" }, text: { type: "string" } },
+              required: ["label", "text"],
+            },
+          },
+        },
+        required: ["changes"],
+      },
+    };
+    const rewriterBody = buildGeminiBody(rewriterInstruction, rewriterConfig);
+
+    logExtensionRemixGeminiRequest({
+      remixRequestId,
+      mode: remixMode,
+      style,
+      locale,
+      model: GEMINI_MODEL,
+      endpointHost: geminiEndpointHost,
+      viaProxy,
+      instruction: rewriterInstruction,
+      generationConfig: rewriterConfig,
+      geminiBody: rewriterBody,
+      step: "rewriter",
+      selectedLabels,
+    });
+
+    const rewriterResult = await callGeminiJson({
+      apiKey,
+      geminiUrl,
+      instruction: rewriterInstruction,
+      generationConfig: rewriterConfig,
+    });
+
+    extensionLog("gemini.call", {
+      endpoint: "remix",
+      remixRequestId,
+      step: "rewriter",
+      status: rewriterResult.ok ? rewriterResult.httpStatus : (rewriterResult.httpStatus ?? 503),
+      latencyMs: rewriterResult.latencyMs,
+    });
+
+    if (!rewriterResult.ok) {
+      if (rewriterResult.geminiData) {
+        logExtensionRemixGeminiResponse({
+          remixRequestId,
+          mode: remixMode,
+          style,
+          locale,
+          model: GEMINI_MODEL,
+          httpStatus: rewriterResult.httpStatus ?? 502,
+          latencyMs: rewriterResult.latencyMs,
+          geminiData: rewriterResult.geminiData,
+          rawText: "",
+          autoChanges: [],
+          autoChangesParseFailed: true,
+        });
+      }
+      await releaseReservedRateLimit();
+      const httpStatus =
+        rewriterResult.error === "fetch_failed" ? 503 : (rewriterResult.httpStatus ?? 502);
+      recordRemixFailure({
+        ...outcomeBase,
+        outcome: "upstream_error",
+        errorCode: rewriterResult.error,
+        httpStatus,
+        latencyMs: rewriterResult.latencyMs,
+      });
+      return NextResponse.json(
+        { error: "upstream_failed", message: "Something went wrong. Please try again." },
+        { status: httpStatus >= 500 ? httpStatus : 502 },
+      );
+    }
+
+    const { changes: autoChanges, parseFailed: autoChangesParseFailed } = parseAutoChanges(
+      rewriterResult.rawText,
+    );
+    const rewriterFinishReason = summarizeGeminiApiResponse(rewriterResult.geminiData).finishReason;
+    const remixTruncated = String(rewriterFinishReason ?? "") === "MAX_TOKENS";
+
+    if (autoChanges.length === 0) {
+      logExtensionRemixGeminiResponse({
+        remixRequestId,
+        mode: remixMode,
+        style,
+        locale,
+        model: GEMINI_MODEL,
+        httpStatus: rewriterResult.httpStatus,
+        latencyMs: rewriterResult.latencyMs,
+        geminiData: rewriterResult.geminiData,
+        rawText: rewriterResult.rawText,
+        autoChanges: [],
+        autoChangesParseFailed: autoChangesParseFailed || remixTruncated,
+      });
+      await releaseReservedRateLimit();
+      recordRemixFailure({
+        ...outcomeBase,
+        outcome: "empty_response",
+        errorCode: autoChangesParseFailed ? "bad_json" : "empty_changes",
+        finishReason: String(rewriterFinishReason ?? ""),
+        httpStatus: rewriterResult.httpStatus,
+        latencyMs: rewriterResult.latencyMs,
+      });
+      return NextResponse.json(
+        { error: "upstream_failed", message: "Something went wrong. Please try again." },
+        { status: 502 },
+      );
+    }
+
+    logExtensionRemixGeminiResponse({
+      remixRequestId,
+      mode: remixMode,
+      style,
+      locale,
+      model: GEMINI_MODEL,
+      httpStatus: rewriterResult.httpStatus,
+      latencyMs: rewriterResult.latencyMs,
+      geminiData: rewriterResult.geminiData,
+      rawText: rewriterResult.rawText,
+      autoChanges,
+      autoChangesParseFailed,
+    });
+
+    const rateLimitResult = session
+      ? await confirmExtensionRateLimitOnSuccess(supabase, session)
+      : null;
+    const finalCheck = extensionRateLimitCheckFromSession(session, rateLimitResult ?? reservedCheck);
+    recordExtensionRateLimitEvent(
+      supabase,
+      req,
+      "remix",
+      finalCheck,
+      rateLimitResult?.allowed ?? false,
+      {
+        ...outcomeBase,
+        outcome: remixTruncated ? "truncated" : "success",
+        truncated: remixTruncated,
+        finishReason: String(rewriterFinishReason ?? ""),
+        httpStatus: 200,
+        latencyMs: rewriterResult.latencyMs,
+      },
+    );
+
+    return NextResponse.json({
+      changes: autoChanges,
+      ...extensionRateLimitQuotaFields(finalCheck),
+    });
+  }
+
   const generationConfig: Record<string, unknown> = {
     temperature: 0.4,
     maxOutputTokens,
     thinkingConfig: { thinkingBudget: 0 },
   };
-  if (isAutoMode) {
-    generationConfig.responseMimeType = "application/json";
-    generationConfig.responseSchema = {
-      type: "object",
-      properties: {
-        changes: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: { label: { type: "string" }, text: { type: "string" } },
-            required: ["label", "text"],
-          },
-        },
-      },
-      required: ["changes"],
-    };
-  }
-  const geminiBody = {
-    contents: [
-      {
-        role: "user",
-        parts: [{ text: instruction }],
-      },
-    ],
-    generationConfig,
-    safetySettings: GEMINI_SAFETY_SETTINGS,
-  };
+  const geminiBody = buildGeminiBody(instruction, generationConfig);
 
   logExtensionRemixGeminiRequest({
     remixRequestId,
@@ -386,6 +832,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     instruction,
     generationConfig,
     geminiBody,
+    step: "single",
   });
 
   let geminiRes: Response;
@@ -516,8 +963,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       latencyMs: Date.now() - geminiStartedAt,
       geminiData,
       rawText: "",
-      autoChanges: isAutoMode ? [] : undefined,
-      autoChangesParseFailed: isAutoMode ? true : undefined,
     });
     console.error("[extension.remix] gemini_empty_response", {
       data: JSON.stringify(geminiData).slice(0, 300),
@@ -548,22 +993,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const remixTruncated = String(finishReason ?? "") === "MAX_TOKENS";
 
-  let autoChanges: Array<{ label: string; text: string }> = [];
-  let autoChangesParseFailed = false;
-  if (isAutoMode) {
-    try {
-      const parsedJson = JSON.parse(rawText) as { changes?: Array<{ label?: unknown; text?: unknown }> };
-      autoChanges = Array.isArray(parsedJson.changes)
-        ? parsedJson.changes
-            .map((c) => ({ label: String(c?.label ?? "").trim(), text: String(c?.text ?? "").trim() }))
-            .filter((c) => c.label && c.text && VALID_AUTO_LABELS.has(c.label))
-        : [];
-    } catch {
-      autoChanges = [];
-      autoChangesParseFailed = true;
-    }
-  }
-
   logExtensionRemixGeminiResponse({
     remixRequestId,
     mode: remixMode,
@@ -574,8 +1003,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     latencyMs: Date.now() - geminiStartedAt,
     geminiData,
     rawText,
-    autoChanges: isAutoMode ? autoChanges : undefined,
-    autoChangesParseFailed: isAutoMode ? autoChangesParseFailed : undefined,
   });
 
   const rateLimitResult = session
@@ -601,8 +1028,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json(
     isSectionMode
       ? { sectionText: rawText, ...extensionRateLimitQuotaFields(finalCheck) }
-      : isAutoMode
-        ? { changes: autoChanges, ...extensionRateLimitQuotaFields(finalCheck) }
-        : { prompt: rawText, ...extensionRateLimitQuotaFields(finalCheck) },
+      : { prompt: rawText, ...extensionRateLimitQuotaFields(finalCheck) },
   );
 }
