@@ -228,6 +228,7 @@ function buildScopedAutoInstruction(
     remixLanguageInstruction(locale),
     labels ? `Allowed labels for "label": ${labels}.` : "",
     'Return JSON only: {"changes":[{"label":"<exact section label>","text":"<full section incl. heading>"}]}.',
+    'The JSON "label" value must be the bare label without a colon, for example "Color" not "Color:".',
     "Return one changes entry for EVERY provided section label below.",
     sectionSpecs ? `\nSection specifications:\n${sectionSpecs}` : "",
     "",
@@ -335,6 +336,18 @@ async function callGeminiJson({
   };
 }
 
+function normalizeAutoChangeLabel(label: unknown): string {
+  const raw = String(label ?? "")
+    .trim()
+    .replace(/\s*:\s*$/, "");
+  if (!raw) return "";
+
+  const normalized = [...VALID_AUTO_LABELS].find(
+    (validLabel) => validLabel.toLowerCase() === raw.toLowerCase(),
+  );
+  return normalized ?? "";
+}
+
 function parseAutoChanges(rawText: string): {
   changes: Array<{ label: string; text: string }>;
   parseFailed: boolean;
@@ -346,10 +359,10 @@ function parseAutoChanges(rawText: string): {
     const changes = Array.isArray(parsedJson.changes)
       ? parsedJson.changes
           .map((change) => ({
-            label: String(change?.label ?? "").trim(),
+            label: normalizeAutoChangeLabel(change?.label),
             text: String(change?.text ?? "").trim(),
           }))
-          .filter((change) => change.label && change.text && VALID_AUTO_LABELS.has(change.label))
+          .filter((change) => change.label && change.text)
       : [];
     return { changes, parseFailed: false };
   } catch {
