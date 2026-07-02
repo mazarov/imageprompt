@@ -33,6 +33,8 @@ if (typeof chrome === "undefined" || !chrome.runtime?.id || window.self !== wind
 async function initLiteOverlay() {
   /** @type {typeof import("./lib/i18n.js") | null} */
   let i18nMod = null;
+  /** @type {typeof import("./lib/lexygpt-promo.js") | null} */
+  let lexygptPromoMod = null;
 
   /** @param {string} key @param {string | string[] | undefined} [substitutions] */
   function t(key, substitutions) {
@@ -43,10 +45,15 @@ async function initLiteOverlay() {
     return i18nMod?.getLoadedLocale() ?? "en";
   }
 
+  function isLexyGptPromoVisible() {
+    return lexygptPromoMod?.isLexyGptPromoVisible?.() ?? getLoadedLocale() === "ru";
+  }
+
   async function bootstrapI18n() {
     try {
       i18nMod = await import(chrome.runtime.getURL("lib/i18n.js"));
       await i18nMod.initI18n();
+      lexygptPromoMod = await import(chrome.runtime.getURL("lib/lexygpt-promo.js"));
       refreshOverlayLocale();
     } catch (err) {
       console.warn("[extension-lite overlay] i18n unavailable", err);
@@ -224,6 +231,7 @@ async function initLiteOverlay() {
     modalErrorActions = null;
     modalAnalyzeBtn = null;
     modalCopyBtn = null;
+    modalGenerateBtn = null;
     modalRetryAnalyzeBtn = null;
     modalErrorCloseBtn = null;
     modalLimitDismissBtn = null;
@@ -358,6 +366,7 @@ async function initLiteOverlay() {
   let modalLimitDismissBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalAnalyzeBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalCopyBtn = /** @type {HTMLButtonElement | null} */ (null);
+  let modalGenerateBtn = /** @type {HTMLAnchorElement | null} */ (null);
   let modalRetryAnalyzeBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalErrorCloseBtn = /** @type {HTMLButtonElement | null} */ (null);
   let modalAuthTitle = /** @type {HTMLElement | null} */ (null);
@@ -379,6 +388,10 @@ async function initLiteOverlay() {
   }
 
   function buildModal(root) {
+    const lexyGenerateHtml = isLexyGptPromoVisible()
+      ? `<a class="lite-primary-btn lite-generate-btn" href="${lexygptPromoMod?.LEXYGPT_REF_URL ?? "https://lexygpt.com/playground/image/nano-banana-pro?ref=T25A8Y_add"}" target="_blank" rel="noopener noreferrer">${lexygptPromoMod?.LEXYGPT_BTN_LABEL ?? "Сгенерировать"}</a>`
+      : "";
+
     modalBackdrop = document.createElement("div");
     modalBackdrop.className = "lite-modal-backdrop";
     modalBackdrop.hidden = true;
@@ -420,6 +433,7 @@ async function initLiteOverlay() {
             </div>
             <pre class="lite-prompt-out" spellcheck="false"></pre>
             <div class="lite-result-actions">
+              ${lexyGenerateHtml}
               <button type="button" class="lite-secondary-btn lite-copy-btn">${t("copyPrompt")}</button>
             </div>
           </div>
@@ -478,6 +492,7 @@ async function initLiteOverlay() {
     modalAnalyzeBtn = /** @type {HTMLButtonElement | null} */ (modalBackdrop.querySelector(".lite-analyze-btn"));
 
     modalCopyBtn = /** @type {HTMLButtonElement | null} */ (modalBackdrop.querySelector(".lite-copy-btn"));
+    modalGenerateBtn = /** @type {HTMLAnchorElement | null} */ (modalBackdrop.querySelector(".lite-generate-btn"));
     modalRetryAnalyzeBtn = /** @type {HTMLButtonElement | null} */ (
       modalBackdrop.querySelector(".lite-retry-analyze-btn")
     );
@@ -505,6 +520,12 @@ async function initLiteOverlay() {
       } catch {
         /* noop */
       }
+    });
+
+    modalGenerateBtn?.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (!modalCurrentPrompt) return;
+      void lexygptPromoMod?.openLexyGptWithPrompt(modalCurrentPrompt);
     });
 
     const panels /** @type {Record<ModalPanel, HTMLElement>} */ = {
@@ -1390,6 +1411,16 @@ function cssText() {
     }
     .lite-copy-btn {
       flex: 1;
+    }
+    .lite-generate-btn {
+      flex: 1;
+      margin-top: 0;
+      width: auto;
+      background: linear-gradient(180deg, #16a34a, #15803d);
+      border: 1px solid rgba(34, 197, 94, 0.66);
+    }
+    .lite-generate-btn:hover {
+      filter: brightness(1.06);
     }
     .lite-modal-err-msg {
       margin: 0;

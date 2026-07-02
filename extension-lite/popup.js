@@ -3,6 +3,11 @@ import { parsePromptSections, normalizePromptLayout } from "./lib/prompt-section
 import { getImageBlob } from "./lib/image-store.js";
 import { track } from "./lib/telemetry.js";
 import {
+  isLexyGptPromoVisible,
+  openLexyGptWithPrompt,
+  LEXYGPT_BTN_LABEL,
+} from "./lib/lexygpt-promo.js";
+import {
   t,
   applyI18n,
   initI18n,
@@ -83,6 +88,7 @@ const promptBox       = document.getElementById("prompt-box");
 const errorBanner     = document.getElementById("error-banner");
 const errorMessage    = document.getElementById("error-message");
 const btnCopy         = document.getElementById("btn-copy");
+const btnLexyGenerate = document.getElementById("btn-lexy-generate");
 const btnRetry        = document.getElementById("btn-retry");
 const btnErrorRetry   = document.getElementById("btn-error-retry");
 const errorGenericWrap = document.getElementById("error-generic-wrap");
@@ -232,6 +238,7 @@ function setupLangSelect() {
         historyLoaded = false;
         await loadHistory();
       }
+      syncLexyGptPromoVisibility();
       const quotaText = topbarQuota?.textContent;
       if (topbarQuota && !topbarQuota.hidden && quotaText) {
         const m = quotaText.match(/^(\d+)/);
@@ -320,6 +327,7 @@ function bindEvents() {
         }
         applyI18n();
         document.title = t("brandWordmark");
+        syncLexyGptPromoVisibility();
       })();
     } else if (msg?.type === "LITE_QUOTA_UPDATED") {
       renderQuota(msg);
@@ -461,6 +469,17 @@ function bindEvents() {
       sel.removeAllRanges();
       sel.addRange(range);
     }
+  });
+
+  btnLexyGenerate?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!currentPrompt) return;
+    track("lexygpt_click", {
+      surface: "result",
+      correlation_id: currentCorrelationId,
+      style: currentStyle,
+    });
+    void openLexyGptWithPrompt(currentPrompt);
   });
 
   // Try another image
@@ -1290,11 +1309,17 @@ function showResult(dataUrl, prompt, _styleUsed, opts = {}) {
   errorBanner.hidden = true;
   showPanel("result");
   syncPromptSections({ focusPrompt: false });
+  syncLexyGptPromoVisibility();
 
   if (opts.persist !== false) {
     savePopupState({ kind: "result", dataUrl, prompt, style: currentStyle });
   }
 
+}
+
+function syncLexyGptPromoVisibility() {
+  if (!btnLexyGenerate) return;
+  btnLexyGenerate.hidden = !isLexyGptPromoVisible();
 }
 
 function resetToEmpty() {
@@ -1478,6 +1503,7 @@ function renderHistoryList(entries) {
           : "";
 
     const timeStr = formatRelativeTime(entry.createdAt);
+    const showLexyGenerate = isLexyGptPromoVisible();
 
     card.innerHTML = `
       <img class="history-card-thumb" src="${inlineSrc}" alt="" loading="lazy"${inlineSrc ? "" : " hidden"} />
@@ -1487,7 +1513,8 @@ function renderHistoryList(entries) {
         </div>
         <p class="history-card-prompt">${escapeHtml(entry.prompt)}</p>
         <div class="history-card-actions">
-          <button type="button" class="history-card-copy">${t("historyCopy")}</button>
+          <button type="button" class="history-card-copy">${t("historyCopy")}</button>${showLexyGenerate ? `
+          <button type="button" class="history-card-generate">${LEXYGPT_BTN_LABEL}</button>` : ""}
         </div>
       </div>
     `;
@@ -1513,6 +1540,12 @@ function renderHistoryList(entries) {
         copyBtn.textContent = t("copiedExclaim");
         setTimeout(() => { copyBtn.textContent = t("historyCopy"); }, 1500);
       } catch { /* noop */ }
+    });
+
+    const generateBtn = card.querySelector(".history-card-generate");
+    generateBtn?.addEventListener("click", () => {
+      track("lexygpt_click", { surface: "history", style: entry.style });
+      void openLexyGptWithPrompt(entry.prompt);
     });
 
     historyList.appendChild(card);
