@@ -30,7 +30,8 @@ import {
 import { summarizeGeminiApiResponse } from "@/lib/gemini-vibe-debug-log";
 import { createSupabaseServer } from "@/lib/supabase";
 
-const GEMINI_MODEL = "gemini-2.5-flash-lite";
+const GEMINI_CLASSIFIER_MODEL = "gemini-2.5-flash-lite";
+const GEMINI_REWRITER_MODEL = "gemini-2.5-flash";
 const GEMINI_DIRECT_BASE_URL = "https://generativelanguage.googleapis.com";
 const GEMINI_TIMEOUT_MS = 45_000;
 
@@ -187,6 +188,8 @@ function buildClassifierInstruction(
     "Choose only labels from the available list.",
     "Include every section whose content would need to change to satisfy the edit.",
     "For clothing or outfit changes include Clothing, Color, and Avoid when available.",
+    "When removing clothing, accessories, or revealing more skin, include Clothing, Pose, Lighting, Visual Hook, Color, and Avoid when available.",
+    "When removing sunglasses, glasses, hats, or bags, include Clothing, Pose, Lighting, Visual Hook, and Avoid when available.",
     "For background or scene changes include Scene, Composition, and Avoid when available.",
     "For pose, body orientation, or camera changes include Pose, Camera, Composition, and Avoid when available.",
     "For mood or expression changes include Mood, Makeup, Visual Hook, and Avoid when available.",
@@ -203,18 +206,30 @@ function buildScopedAutoInstruction(
 ): string {
   const labels = selectedSections.map((section) => section.label).join(", ");
   const sectionBlocks = selectedSections.map((section) => section.text).join("\n\n");
+  const sectionSpecs = selectedSections
+    .map((section) => {
+      const spec = getSectionSpec(section.label);
+      return spec ? `[${section.label} spec]\n${spec}` : "";
+    })
+    .filter(Boolean)
+    .join("\n\n");
 
   return [
     "You are editing selected sections of an AI image prompt.",
     `Apply this edit from the user: ${changeRequest}.`,
     "Rewrite ONLY the provided sections below.",
     'Keep each section heading EXACTLY as in the input (e.g. "Clothing:").',
-    "Treat the edit as user intent and expand it into rich, generator-ready section bodies.",
-    "Replace conflicting details, but keep useful compatible details when they still fit.",
+    "Treat the edit as user intent — never paste the user's edit phrase verbatim into section text.",
+    "When the edit removes an item (clothing, glasses, accessories), delete every mention of it; do not describe it as still present.",
+    "When the edit reveals bare skin, describe natural bare skin instead of removed garments; do not keep removed garments in the same section.",
+    "For Avoid: drop constraints that require removed items; add Avoid rules that prevent removed items from reappearing.",
+    "Expand terse edits into rich, generator-ready section bodies.",
+    "Replace all conflicting details; keep only compatible details that still fit after the edit.",
     remixLanguageInstruction(locale),
     labels ? `Allowed labels for "label": ${labels}.` : "",
     'Return JSON only: {"changes":[{"label":"<exact section label>","text":"<full section incl. heading>"}]}.',
-    "Return one entry per provided section that needs rewriting.",
+    "Return one changes entry for EVERY provided section label below.",
+    sectionSpecs ? `\nSection specifications:\n${sectionSpecs}` : "",
     "",
     "Sections to rewrite:",
     sectionBlocks,
@@ -443,7 +458,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     ...(isSectionMode ? { sectionLabel, sectionTextChars: sectionText.length } : {}),
   });
 
-  const outcomeBase = { locale, style, model: GEMINI_MODEL } as const;
+  const outcomeBase = { locale, style, model: GEMINI_REWRITER_MODEL } as const;
 
   const supabase = createSupabaseServer();
   const session = await beginExtensionRateLimit(req, supabase, "remix");
@@ -494,7 +509,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const baseUrl = await getGeminiBaseUrl(supabase);
-  const geminiUrl = `${baseUrl}/v1beta/models/${GEMINI_MODEL}:generateContent`;
+  const classifierGeminiUrl = `${baseUrl}/v1beta/models/${GEMINI_CLASSIFIER_MODEL}:generateContent`;
+  const rewriterGeminiUrl = `${baseUrl}/v1beta/models/${GEMINI_REWRITER_MODEL}:generateContent`;
   const geminiEndpointHost = (() => {
     try {
       return new URL(baseUrl).hostname;
@@ -550,7 +566,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       mode: remixMode,
       style,
       locale,
-      model: GEMINI_MODEL,
+      model: GEMINI_CLASSIFIER_MODEL,
       endpointHost: geminiEndpointHost,
       viaProxy,
       instruction: classifierInstruction,
@@ -561,7 +577,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const classifierResult = await callGeminiJson({
       apiKey,
-      geminiUrl,
+      geminiUrl: classifierGeminiUrl,
       instruction: classifierInstruction,
       generationConfig: classifierConfig,
     });
@@ -583,7 +599,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           mode: remixMode,
           style,
           locale,
-          model: GEMINI_MODEL,
+          model: GEMINI_CLASSIFIER_MODEL,
           httpStatus: classifierResult.httpStatus ?? 502,
           latencyMs: classifierResult.latencyMs,
           geminiData: classifierResult.geminiData,
@@ -625,7 +641,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       mode: remixMode,
       style,
       locale,
-      model: GEMINI_MODEL,
+      model: GEMINI_CLASSIFIER_MODEL,
       httpStatus: classifierResult.httpStatus,
       latencyMs: classifierResult.latencyMs,
       geminiData: classifierResult.geminiData,
@@ -682,7 +698,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       mode: remixMode,
       style,
       locale,
-      model: GEMINI_MODEL,
+      model: GEMINI_REWRITER_MODEL,
       endpointHost: geminiEndpointHost,
       viaProxy,
       instruction: rewriterInstruction,
@@ -694,7 +710,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const rewriterResult = await callGeminiJson({
       apiKey,
-      geminiUrl,
+      geminiUrl: rewriterGeminiUrl,
       instruction: rewriterInstruction,
       generationConfig: rewriterConfig,
     });
@@ -714,7 +730,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           mode: remixMode,
           style,
           locale,
-          model: GEMINI_MODEL,
+          model: GEMINI_REWRITER_MODEL,
           httpStatus: rewriterResult.httpStatus ?? 502,
           latencyMs: rewriterResult.latencyMs,
           geminiData: rewriterResult.geminiData,
@@ -751,7 +767,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         mode: remixMode,
         style,
         locale,
-        model: GEMINI_MODEL,
+        model: GEMINI_REWRITER_MODEL,
         httpStatus: rewriterResult.httpStatus,
         latencyMs: rewriterResult.latencyMs,
         geminiData: rewriterResult.geminiData,
@@ -779,7 +795,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       mode: remixMode,
       style,
       locale,
-      model: GEMINI_MODEL,
+      model: GEMINI_REWRITER_MODEL,
       httpStatus: rewriterResult.httpStatus,
       latencyMs: rewriterResult.latencyMs,
       geminiData: rewriterResult.geminiData,
@@ -826,7 +842,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     mode: remixMode,
     style,
     locale,
-    model: GEMINI_MODEL,
+    model: GEMINI_REWRITER_MODEL,
     endpointHost: geminiEndpointHost,
     viaProxy,
     instruction,
@@ -838,7 +854,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   let geminiRes: Response;
   const geminiStartedAt = Date.now();
   try {
-    geminiRes = await fetch(geminiUrl, {
+    geminiRes = await fetch(rewriterGeminiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -958,7 +974,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       mode: remixMode,
       style,
       locale,
-      model: GEMINI_MODEL,
+      model: GEMINI_REWRITER_MODEL,
       httpStatus: geminiRes.status,
       latencyMs: Date.now() - geminiStartedAt,
       geminiData,
@@ -998,7 +1014,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     mode: remixMode,
     style,
     locale,
-    model: GEMINI_MODEL,
+    model: GEMINI_REWRITER_MODEL,
     httpStatus: geminiRes.status,
     latencyMs: Date.now() - geminiStartedAt,
     geminiData,
