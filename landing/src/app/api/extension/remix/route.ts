@@ -27,6 +27,23 @@ type Style = "photoreal" | "midjourney" | "sd" | "flux" | "nano" | "dalle";
 const VALID_STYLES: Style[] = ["photoreal", "midjourney", "sd", "flux", "nano", "dalle"];
 const VALID_AUTO_LABELS = new Set<string>([...SECTION_SPEC_ORDER, "CRITICAL RULES", "Prompt"]);
 
+/**
+ * Disable Gemini's content blocking for the remix rewrite.
+ *
+ * The analyze step can legitimately produce detailed fashion / boudoir / body
+ * descriptions. When that text is later fed back into remix as plain input, the
+ * default safety thresholds (BLOCK_MEDIUM_AND_ABOVE) frequently block the whole
+ * prompt (promptFeedback.blockReason: SAFETY), Gemini returns no candidate text,
+ * and the route falls into its "empty response → 502" path. Relaxing the
+ * thresholds here lets legitimate prompts be edited instead of silently failing.
+ */
+const GEMINI_SAFETY_SETTINGS = [
+  { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+];
+
 const STYLE_HINT: Record<Style, string> = {
   photoreal: "photorealistic style, natural lighting, realistic detail",
   midjourney: "Midjourney-style prompt, evocative, with quality and aspect cues",
@@ -244,7 +261,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? buildAutoInstruction(originalPrompt, changeRequest, locale)
       : buildInstruction(originalPrompt, changeRequest, style, locale);
   if (isSectionMode) maxOutputTokens = 2048;
-  else if (isAutoMode) maxOutputTokens = 4096;
+  else if (isAutoMode) maxOutputTokens = 8192;
 
   const outcomeBase = { locale, style, model: GEMINI_MODEL } as const;
 
@@ -328,6 +345,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       },
     ],
     generationConfig,
+    safetySettings: GEMINI_SAFETY_SETTINGS,
   };
 
   let geminiRes: Response;
