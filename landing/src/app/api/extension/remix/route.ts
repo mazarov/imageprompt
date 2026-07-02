@@ -11,6 +11,12 @@ import {
   reserveExtensionRateLimit,
 } from "@/lib/extension-rate-limit-flow";
 import { extensionLog } from "@/lib/extension-pipeline-log";
+import {
+  logExtensionRemixGeminiRequest,
+  logExtensionRemixGeminiResponse,
+  logExtensionRemixStart,
+  type RemixMode,
+} from "@/lib/extension-remix-log";
 import { summarizeGeminiApiResponse } from "@/lib/gemini-vibe-debug-log";
 import { createSupabaseServer } from "@/lib/supabase";
 
@@ -237,6 +243,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const locale = normalizeLocale(body.locale);
   const isAutoMode = !isSectionMode && String(body.mode ?? "").trim() === "auto";
+  const remixMode: RemixMode = isSectionMode ? "section" : isAutoMode ? "auto" : "legacy";
+  const remixRequestId =
+    req.headers.get("x-correlation-id")?.trim().slice(0, 64) ||
+    (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`);
 
   instruction = isSectionMode
     ? buildSectionInstruction(sectionLabel, sectionText, changeRequest, style, locale)
@@ -245,6 +257,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       : buildInstruction(originalPrompt, changeRequest, style, locale);
   if (isSectionMode) maxOutputTokens = 2048;
   else if (isAutoMode) maxOutputTokens = 4096;
+
+  logExtensionRemixStart({
+    remixRequestId,
+    mode: remixMode,
+    style,
+    locale,
+    changeRequest,
+    originalPromptChars: isSectionMode ? 0 : originalPrompt.length,
+    ...(isSectionMode ? { sectionLabel, sectionTextChars: sectionText.length } : {}),
+  });
 
   const outcomeBase = { locale, style, model: GEMINI_MODEL } as const;
 
@@ -298,6 +320,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const baseUrl = await getGeminiBaseUrl(supabase);
   const geminiUrl = `${baseUrl}/v1beta/models/${GEMINI_MODEL}:generateContent`;
+  const geminiEndpointHost = (() => {
+    try {
+      return new URL(baseUrl).hostname;
+    } catch {
+      return "invalid_base_url";
+    }
+  })();
+  const viaProxy = baseUrl !== GEMINI_DIRECT_BASE_URL;
   const generationConfig: Record<string, unknown> = {
     temperature: 0.4,
     maxOutputTokens,
@@ -330,6 +360,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     generationConfig,
   };
 
+  logExtensionRemixGeminiRequest({
+    remixRequestId,
+    mode: remixMode,
+    style,
+    locale,
+    model: GEMINI_MODEL,
+    endpointHost: geminiEndpointHost,
+    viaProxy,
+    instruction,
+    generationConfig,
+    geminiBody,
+  });
+
   let geminiRes: Response;
   const geminiStartedAt = Date.now();
   try {
@@ -348,6 +391,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
     extensionLog("gemini.call", {
       endpoint: "remix",
+      remixRequestId,
       status: 503,
       latencyMs: Date.now() - geminiStartedAt,
     });
@@ -376,6 +420,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   extensionLog("gemini.call", {
     endpoint: "remix",
+    remixRequestId,
     status: geminiRes.status,
     latencyMs: Date.now() - geminiStartedAt,
   });
@@ -476,6 +521,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const remixTruncated = String(finishReason ?? "") === "MAX_TOKENS";
 
   let autoChanges: Array<{ label: string; text: string }> = [];
+  let autoChangesParseFailed = false;
   if (isAutoMode) {
     try {
       const parsedJson = JSON.parse(rawText) as { changes?: Array<{ label?: unknown; text?: unknown }> };
@@ -486,8 +532,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         : [];
     } catch {
       autoChanges = [];
+      autoChangesParseFailed = true;
     }
   }
+
+  logExtensionRemixGeminiResponse({
+    remixRequestId,
+    mode: remixMode,
+    style,
+    locale,
+    model: GEMINI_MODEL,
+    httpStatus: geminiRes.status,
+    latencyMs: Date.now() - geminiStartedAt,
+    geminiData,
+    rawText,
+    autoChanges: isAutoMode ? autoChanges : undefined,
+    autoChangesParseFailed: isAutoMode ? autoChangesParseFailed : undefined,
+  });
 
   const rateLimitResult = session
     ? await confirmExtensionRateLimitOnSuccess(supabase, session)
