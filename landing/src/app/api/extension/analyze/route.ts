@@ -37,6 +37,18 @@ CRITICAL RULES
 - Photorealistic output, high textural detail, high quality, 8K-grade resolution and micro-detail (maximize sharpness and surface fidelity).
 `.trim();
 
+const CRITICAL_RULES_RU = `
+CRITICAL RULES
+- Сохранить: структуру лица, черты, тон кожи, цвет глаз, пропорции.
+- Объект должен выглядеть естественно сфотографированным в сцене, а не вставленным.
+- Фотореалистичный результат, высокая детализация текстур, высокое качество, разрешение и микродетали уровня 8K (максимальная резкость и точность поверхностей).
+`.trim();
+
+function criticalRulesBlock(locale: string): string {
+  const lang = locale.split("-")[0]?.toLowerCase() ?? "en";
+  return lang === "ru" ? CRITICAL_RULES_RU : CRITICAL_RULES_SINGLE;
+}
+
 async function readImageSettingsFromBase64(data: string): Promise<ExtensionImageSettings | null> {
   try {
     const meta = await sharp(Buffer.from(data, "base64")).metadata();
@@ -585,7 +597,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Every style produces the photoreal base, so the CRITICAL RULES block is always appended.
-  const promptText = `${rawText}\n\n${CRITICAL_RULES_SINGLE}`;
+  const promptText = `${rawText}\n\n${criticalRulesBlock(locale)}`;
 
   logExtensionAnalyzeGeminiResponse({
     analyzeRequestId,
