@@ -28,16 +28,16 @@ B. **На любом сайте:** правый клик по картинке �
 
 ### `POST /api/extension/analyze`
 
-- **Request:** `{ image_base64: string, style?: "photoreal" | "midjourney" | "sd" | "flux", locale?: string }` (`image_base64` — data URL вида `data:image/jpeg;base64,...`; `style` опционально, default `"photoreal"`; `locale` — BCP-47 тег UI локали пользователя, опционально).
+- **Request:** `{ image_base64: string, style?: "photoreal" | "midjourney" | "sd" | "flux" | "nano" | "dalle", locale?: string }` (`image_base64` — data URL вида `data:image/jpeg;base64,...`; `style` опционально, default `"photoreal"`; `locale` — BCP-47 тег UI локали пользователя, опционально).
 - **Response (ok):** `{ prompt: string }`.
 - **Response (err):** `{ error: "rate_limited" | "invalid_image" | "upstream_failed", message: string }`.
 - **Rate-limit:** 30 запросов с одного IP в 24 часа (authenticated — bucket `user:<id>`). Preflight без списания; reserve перед Gemini; confirm после успеха; release на 502/503. Burst: опционально `EXTENSION_BURST_LIMIT_ENABLED=true` — 10 POST/min/IP в middleware (per-pod, best-effort).
 - **CORS:** разрешить `chrome-extension://<MV3_ID>` через env `CHROME_EXTENSION_ID` (паттерн уже используется в текущем backend лендинга).
-- **Provider:** Gemini 2.5 Flash (есть `GEMINI_API_KEY` в `landing/.env.local`). Системный промпт — производный от `pingan8787/image2prompt` с пресетами под целевые модели.
+- **Provider:** Gemini 2.5 Flash (есть `GEMINI_API_KEY` в `landing/.env.local`). Системный промпт собирается в `landing/src/lib/extension-prompt-sections.ts` → `buildExtractPrompt(style)`: `photoreal` — полный 12-section structured output; остальные стили — единый **analysis core** (глубокое понимание сцены) + per-model **output contract** (формат вывода под Midjourney / Stable Diffusion / Flux / Nano Banana / DALL·E).
 
 ### `POST /api/extension/remix`
 
-- **Request:** `{ sectionLabel?: string, sectionText?: string, originalPrompt?: string, changeRequest: string, style?: "photoreal" | "midjourney" | "sd" | "flux", locale?: string }` (section mode: `sectionLabel` + `sectionText`; fallback mode: `originalPrompt`; `locale` — BCP-47 тег UI локали пользователя, опционально).
+- **Request:** `{ sectionLabel?: string, sectionText?: string, originalPrompt?: string, changeRequest: string, style?: "photoreal" | "midjourney" | "sd" | "flux" | "nano" | "dalle", locale?: string }` (section mode: `sectionLabel` + `sectionText`; fallback mode: `originalPrompt`; `locale` — BCP-47 тег UI локали пользователя, опционально).
 - **Response (ok):** `{ sectionText: string }` (section mode) или `{ prompt: string }` (fallback mode); optional `remaining`, `max`.
 - **Response (err):** `{ error: "invalid_request" | "rate_limited" | "upstream_failed", message: string }`.
 
@@ -63,7 +63,7 @@ When `locale` is provided, generated descriptive prompt text follows that locale
 | Error rate-limited | `Daily limit reached. Try again in 24 hours.` |
 | Error generic | `Something went wrong. Please try another image.` |
 | Style selector label | `Style preset` |
-| Style options | `Photo-real`, `Midjourney`, `Stable Diffusion`, `Flux` |
+| Style options | `Photo-real`, `Midjourney`, `Stable Diffusion`, `Flux`, `Nano Banana`, `DALL·E` |
 
 > Перед релизом: каждую строку прогнать через ChatGPT с промптом `correct this text used in the app UI: [текст]`. Платящие пользователи — нейтив-спикеры, артикли и предлоги важны.
 

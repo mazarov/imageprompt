@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Extensie bijgewerkt. Vernieuw deze pagina (F5) en probeer het opnieuw."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

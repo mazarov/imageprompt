@@ -190,6 +190,8 @@ export function tStyleLabel(style) {
     midjourney: "styleMidjourney",
     sd: "styleSd",
     flux: "styleFlux",
+    nano: "styleNano",
+    dalle: "styleDalle",
   };
   return t(map[style] || "stylePhotoreal");
 }

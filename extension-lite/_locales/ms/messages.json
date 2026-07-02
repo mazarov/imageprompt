@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Sambungan dikemas kini. Muat semula halaman ini (F5) dan cuba lagi."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

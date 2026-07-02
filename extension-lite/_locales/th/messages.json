@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "ส่วนขยายอัปเดตแล้ว รีเฟรชหน้านี้ (F5) แล้วลองอีกครั้ง"
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

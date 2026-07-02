@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Laiendus uuendati. Värskenda lehte (F5) ja proovi uuesti."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

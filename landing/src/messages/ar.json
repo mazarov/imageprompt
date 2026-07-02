@@ -247,6 +247,8 @@
     "authSignedIn": "Signed in with Google",
     "authHint": "Sign in to keep one daily free limit across this site and the extension.",
     "authSignIn": "Continue with Google",
-    "authSignOut": "Sign out"
+    "authSignOut": "Sign out",
+    "styleNano": "Nano Banana",
+    "styleDalle": "DALL·E"
   }
 }

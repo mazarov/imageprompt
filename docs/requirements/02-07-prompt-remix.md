@@ -57,7 +57,7 @@ Gemini переписывает только переданную секцию. 
 {
   "originalPrompt": "string, ≤ 8000",
   "changeRequest": "string, ≤ 1000",
-  "style": "photoreal | midjourney | sd | flux"
+  "style": "photoreal | midjourney | sd | flux | nano | dalle"
 }
 ```
 

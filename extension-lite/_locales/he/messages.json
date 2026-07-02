@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "התוסף עודכן. רענן דף זה (F5) ונסה שוב."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

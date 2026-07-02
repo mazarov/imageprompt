@@ -21,6 +21,64 @@ export const SECTION_SPEC_ORDER = [
 
 export type SectionLabel = (typeof SECTION_SPEC_ORDER)[number];
 
+export type ExtractStyle = "photoreal" | "midjourney" | "sd" | "flux" | "nano" | "dalle";
+
+/** Shared deep-analysis instructions for non-photoreal model output contracts. */
+const ANALYSIS_CORE = `You are an expert AI image analyst and photographic art director.
+Analyze the image and build a complete, faithful mental model of the scene before writing the final prompt.
+
+Fidelity priority:
+Describe exactly what is in this specific image, not an idealized or improved version of it. Be concrete and specific about the actual pose, head turn, body orientation, shoulder and hip alignment, crop, subject scale, camera angle, garment silhouette and construction (including open/closed areas and distinctive textures), lighting direction, background, color palette, and composition. State concrete geometry and spatial relationships before any mood or style language. Do not generalize a distinctive image into a generic fashion-editorial description. If a detail is unclear, give the most visually faithful estimate grounded in the image rather than inventing flattering details.
+
+Magnitude fidelity (do not soften):
+Report the actual degree and extremity of every bend, lean, and angle. If the torso is folded sharply at the hips (e.g. ~90 degrees), the hips/buttocks are raised high, the back is deeply arched, or a limb is fully extended, say so explicitly — never downgrade an extreme or provocative pose into a mild one (e.g. do not write "slightly leaning forward" for a deep hip-hinge). Preserve the real intensity of the pose.
+
+Do not invent occluded or contact details:
+For limb arrangement, hand/foot placement, and points of support/contact, describe ONLY what is actually visible. If a limb is hidden or occluded, write "not visible" instead of guessing a position. Do not invent crossings, contacts, or supports (e.g. do not claim ankles are crossed or a hand rests somewhere unless it is clearly visible).
+
+Cross-aspect consistency (mandatory):
+Pose, camera angle, and composition in your description must describe the SAME body orientation, head/gaze direction, and framing — they cannot contradict each other.
+- Orientation: if the torso is rotated away from the lens (any three-quarter or back angle) or the head turns toward the lens, the horizontal viewing angle MUST reflect that same rotation. Never write "strict profile", "shot directly from the side", "no body rotation", or similar when the torso is turned or the subject gazes into the camera. Reserve "profile"/"near-profile" for a torso that is genuinely side-on to the lens.
+- Gaze: the head-turn and gaze direction must match the camera angle (e.g. a subject looking into the lens cannot be photographed in pure profile).
+- Framing: the crop MUST include every body region named in the pose. If hands rest on the floor and knees are down, the framing cannot crop at the waist — extend it to include those parts.
+
+Capture all of these aspects in your understanding (you will format them per the output contract below):
+- Visual hook: the single most distinctive creative feature of THIS image
+- Scene: setting and action
+- Genre: photographic genre
+- Pose: full body geometry, orientation, gaze, spine curvature, limbs (only visible parts)
+- Lighting: key/fill/rim, color temperature, shadows
+- Camera: focal length class, framing scale, height, viewing angle, depth of field
+- Mood: emotional tone
+- Color: palette, grading, contrast
+- Clothing: garments, jewelry, accessories, materials, fit, distinctive structural details
+- Makeup: visible cosmetic application (or "no visible makeup" / "not visible")
+- Composition: subject placement, crop, negative space, background
+- Avoid: anti-drift constraints (different pose, wrong orientation, simplified outfit, changed crop, extra objects)`;
+
+const OUTPUT_CONTRACTS: Record<Exclude<ExtractStyle, "photoreal">, string> = {
+  midjourney: `Using the full understanding above, output ONLY a single Midjourney prompt line (no labels, no markdown, no explanations).
+Format: comma-separated descriptors covering subject and appearance, clothing, the faithful pose and body orientation, scene, lighting, mood, color/grade, composition and camera, photographic style, highly detailed, sharp focus, 8k.
+End with --ar matching the image aspect ratio (2:3 for portrait, 3:2 for landscape, 1:1 for square) and --style raw.
+Keep it faithful to the captured pose, orientation, and crop. Do not soften an extreme pose.`,
+
+  sd: `Using the full understanding above, output ONLY a Stable Diffusion prompt (no labels, no markdown, no explanations).
+First line: comma-separated positive tags covering subject, appearance, clothing, faithful pose and orientation, scene, lighting, color, composition, camera, plus quality boosters (masterpiece, best quality, ultra-detailed, sharp focus, 8k).
+Then a line starting with "Negative prompt:" listing artifacts and anti-drift constraints to avoid (different pose, frontal portrait when source is turned away, distorted hands, plastic skin, extra objects, simplified outfit, changed crop).`,
+
+  flux: `Using the full understanding above, output ONLY one natural-language paragraph (FLUX prefers prose, not tags). No labels, no markdown, no explanations.
+Describe subject and appearance, clothing, the faithful pose and orientation, scene, lighting, color palette, mood, composition and camera in photorealistic style.
+Preserve exact orientation, crop, and distinctive details. Do not soften an extreme pose.`,
+
+  nano: `Using the full understanding above, output ONLY a natural-language image prompt for Google Nano Banana (Gemini image). No labels, no markdown, no explanations.
+Write a clear conversational instruction describing subject and appearance, clothing, faithful pose and orientation, setting, lighting, color, mood, and composition.
+Photorealistic, highly detailed. Keep identity and the exact pose faithful to the source. Do not soften an extreme pose.`,
+
+  dalle: `Using the full understanding above, output ONLY one vivid descriptive natural-language paragraph prompt for DALL·E. No labels, no markdown, no explanations.
+Describe subject and appearance, clothing, faithful pose and orientation, setting, lighting, color, mood, and composition.
+Photorealistic, high detail. Preserve exact orientation, crop, and distinctive details. Do not soften an extreme pose.`,
+};
+
 const HEADER = `You are an expert AI image analyst and photographic art director.
 Analyze the image and produce a structured scene description for an AI image generator.
 
@@ -167,4 +225,13 @@ export function getSectionSpec(label: string): string | null {
 export function buildPhotorealExtractPrompt(): string {
   const sections = SECTION_SPEC_ORDER.map((label) => `${label}:\n${SECTION_SPECS[label]}`);
   return [HEADER, ...sections].join("\n\n");
+}
+
+/**
+ * Assembles the extract prompt for any style.
+ * photoreal → full 12-section structured output; other styles → shared analysis core + model output contract.
+ */
+export function buildExtractPrompt(style: ExtractStyle): string {
+  if (style === "photoreal") return buildPhotorealExtractPrompt();
+  return [ANALYSIS_CORE, OUTPUT_CONTRACTS[style]].join("\n\n");
 }

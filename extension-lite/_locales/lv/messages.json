@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Paplašinājums atjaunināts. Atjaunojiet šo lapu (F5) un mēģiniet vēlreiz."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

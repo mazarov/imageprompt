@@ -18,7 +18,7 @@ import {
 } from "@/lib/extension-analyze-log";
 import { summarizeGeminiApiResponse } from "@/lib/gemini-vibe-debug-log";
 import { createSupabaseServer } from "@/lib/supabase";
-import { buildPhotorealExtractPrompt } from "@/lib/extension-prompt-sections";
+import { buildExtractPrompt } from "@/lib/extension-prompt-sections";
 import {
   inferAspectRatioFromDimensions,
   type ExtensionImageSettings,
@@ -29,12 +29,6 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES * (4 / 3)) + 100; // small header overhead
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_DIRECT_BASE_URL = "https://generativelanguage.googleapis.com";
-
-/**
- * Detailed vision extraction prompt — assembled from shared extension-prompt-sections module.
- * Previously defined inline; moved to single source of truth for reuse in remix.
- */
-const PHOTOREAL_EXTRACT_PROMPT = buildPhotorealExtractPrompt();
 
 const CRITICAL_RULES_SINGLE = `
 CRITICAL RULES
@@ -80,8 +74,8 @@ async function getGeminiBaseUrl(supabase: ReturnType<typeof createSupabaseServer
 }
 const GEMINI_TIMEOUT_MS = 30_000;
 
-type Style = "photoreal" | "midjourney" | "sd" | "flux";
-const VALID_STYLES: Style[] = ["photoreal", "midjourney", "sd", "flux"];
+type Style = "photoreal" | "midjourney" | "sd" | "flux" | "nano" | "dalle";
+const VALID_STYLES: Style[] = ["photoreal", "midjourney", "sd", "flux", "nano", "dalle"];
 
 function normalizeLocale(value: unknown): string {
   if (typeof value !== "string") return "en";
@@ -116,35 +110,8 @@ function outputLanguageInstruction(style: Style, locale: string): string {
 }
 
 function systemPrompt(style: Style, locale: string): string {
-  const base = `You are an expert AI image analyst. Analyze the provided image and write a detailed generation prompt that would recreate a similar image.`;
-
-  const styleInstructions: Record<Style, string> = {
-    photoreal: PHOTOREAL_EXTRACT_PROMPT,
-
-    midjourney: `${base}
-
-Output a Midjourney-style prompt. Follow this structure:
-[Subject description], [environment/setting], [lighting], [mood/atmosphere], [art style], [camera details if relevant] --ar [aspect ratio] --style [style tag if applicable]
-
-Use concise, comma-separated descriptors. Include quality tags like "highly detailed, sharp focus, 8k". 
-Output ONLY the prompt text, no explanations.`,
-
-    sd: `${base}
-
-Output a Stable Diffusion prompt in the standard format:
-Positive prompt: [detailed description with quality tags]
-
-Use comma-separated tags and descriptors. Include lighting, style, quality boosters (masterpiece, best quality, ultra-detailed, sharp focus).
-Output ONLY the prompt text starting with the description, no headings or explanations.`,
-
-    flux: `${base}
-
-Output a FLUX-compatible prompt. FLUX uses natural language descriptions rather than tag-based prompts.
-Write a clear, detailed paragraph describing: the subject, setting, lighting conditions, color palette, mood, composition, and photographic style.
-Be descriptive and use complete sentences. Output ONLY the prompt paragraph, no headings or explanations.`,
-  };
-
-  return `${styleInstructions[style]}${outputLanguageInstruction(style, locale)}`;
+  const styleInstructions = buildExtractPrompt(style);
+  return `${styleInstructions}${outputLanguageInstruction(style, locale)}`;
 }
 
 function normalizeImageMimeSubtype(mime: string): string {
@@ -448,7 +415,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // geometry-consistency aid while preserving enough room for full 12-section output.
   const generationConfig = {
     temperature: style === "photoreal" ? 0.3 : 0.4,
-    maxOutputTokens: style === "photoreal" ? 4096 : 1536,
+    maxOutputTokens: style === "photoreal" ? 4096 : 2048,
     thinkingConfig: { thinkingBudget: style === "photoreal" ? 256 : 0 },
   };
   const geminiBody = {

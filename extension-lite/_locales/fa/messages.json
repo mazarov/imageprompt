@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "افزونه به‌روزرسانی شد. صفحه را refresh (F5) کنید و دوباره تلاش کنید."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

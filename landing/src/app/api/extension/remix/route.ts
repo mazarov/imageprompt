@@ -23,14 +23,16 @@ const MAX_CHANGE_LEN = 1000;
 const MAX_SECTION_LEN = 3000;
 const MAX_SECTION_LABEL_LEN = 64;
 
-type Style = "photoreal" | "midjourney" | "sd" | "flux";
-const VALID_STYLES: Style[] = ["photoreal", "midjourney", "sd", "flux"];
+type Style = "photoreal" | "midjourney" | "sd" | "flux" | "nano" | "dalle";
+const VALID_STYLES: Style[] = ["photoreal", "midjourney", "sd", "flux", "nano", "dalle"];
 
 const STYLE_HINT: Record<Style, string> = {
   photoreal: "photorealistic style, natural lighting, realistic detail",
   midjourney: "Midjourney-style prompt, evocative, with quality and aspect cues",
   sd: "Stable Diffusion-style prompt with descriptive tags",
   flux: "Flux-style prompt, clean and descriptive",
+  nano: "Nano Banana (Gemini) natural-language image prompt",
+  dalle: "DALL·E natural-language descriptive prompt",
 };
 
 /** Mirror getGeminiBaseUrl from analyze: prefer DO proxy when photo_app_config.gemini_use_proxy is on. */

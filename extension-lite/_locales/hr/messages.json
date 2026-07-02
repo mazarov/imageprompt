@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Proširenje je ažurirano. Osvježite stranicu (F5) i pokušajte ponovno."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "એક્સ્ટેન્શન અપડેટ થયું. આ પેજ રિફ્રેશ કરો (F5) અને ફરી પ્રયાસ કરો."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

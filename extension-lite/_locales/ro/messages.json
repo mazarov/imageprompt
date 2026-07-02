@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Extensia a fost actualizată. Reîmprospătează pagina (F5) și încearcă din nou."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

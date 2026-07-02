@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "ఎక్స్‌టెన్షన్ అప్‌డేట్ అయింది. ఈ పేజీని రిఫ్రెష్ చేయండి (F5) మళ్లీ ప్రయత్నించండి."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

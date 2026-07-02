@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Estensione aggiornata. Aggiorna questa pagina (F5) e riprova."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

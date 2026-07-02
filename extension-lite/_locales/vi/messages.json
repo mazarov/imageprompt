@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Tiện ích đã cập nhật. Làm mới trang này (F5) và thử lại."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Na-update ang extension. I-refresh ang page (F5) at subukan muli."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

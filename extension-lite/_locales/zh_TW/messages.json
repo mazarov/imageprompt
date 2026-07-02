@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "擴充功能已更新。請重新整理此頁面 (F5) 後再試。"
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

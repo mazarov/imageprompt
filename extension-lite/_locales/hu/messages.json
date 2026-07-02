@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "A bővítmény frissült. Frissítse az oldalt (F5), és próbálja újra."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Η επέκταση ενημερώθηκε. Ανανεώστε τη σελίδα (F5) και δοκιμάστε ξανά."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

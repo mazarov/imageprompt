@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Extension ተዘምኗል። ገጹን አድስ (F5) እና እንደገና ይሞክሩ።"
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

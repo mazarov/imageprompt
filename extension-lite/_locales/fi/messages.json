@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Laajennus päivitettiin. Päivitä sivu (F5) ja yritä uudelleen."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

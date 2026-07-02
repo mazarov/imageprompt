@@ -314,11 +314,31 @@
   "uiLangAuto": {
     "message": "Auto (browser)"
   },
-  "remixPlaceholder": { "message": "Change this section…" },
-  "remixButtonAria": { "message": "Remix prompt" },
-  "remixChipsAria": { "message": "Prompt sections" },
-  "remixSectionLabel": { "message": "Edit section" },
-  "remixSelectSectionError": { "message": "Choose a section to edit." },
-  "remixLoading": { "message": "Remixing…" },
-  "remixError": { "message": "Couldn't remix the prompt. Please try again." }
+  "remixPlaceholder": {
+    "message": "Change this section…"
+  },
+  "remixButtonAria": {
+    "message": "Remix prompt"
+  },
+  "remixChipsAria": {
+    "message": "Prompt sections"
+  },
+  "remixSectionLabel": {
+    "message": "Edit section"
+  },
+  "remixSelectSectionError": {
+    "message": "Choose a section to edit."
+  },
+  "remixLoading": {
+    "message": "Remixing…"
+  },
+  "remixError": {
+    "message": "Couldn't remix the prompt. Please try again."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
+  }
 }

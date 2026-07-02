@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Eklenti güncellendi. Bu sayfayı yenileyin (F5) ve tekrar deneyin."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

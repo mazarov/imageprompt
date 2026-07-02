@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Tillägget har uppdaterats. Uppdatera sidan (F5) och försök igen."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "एक्सटेंशन अपडेट हुआ। इस पेज को रीफ़्रेश करें (F5) और फिर कोशिश करें।"
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Rozszerzenie zaktualizowane. Odśwież tę stronę (F5) i spróbuj ponownie."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

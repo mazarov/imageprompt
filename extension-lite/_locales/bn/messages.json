@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "এক্সটেনশন আপডেট হয়েছে। পৃষ্ঠা রিফ্রেশ (F5) করে আবার চেষ্টা করুন।"
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

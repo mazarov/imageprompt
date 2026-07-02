@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Rozšíření bylo aktualizováno. Obnovte stránku (F5) a zkuste to znovu."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

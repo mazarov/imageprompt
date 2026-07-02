@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "扩展已更新。请刷新此页面 (F5) 后重试。"
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

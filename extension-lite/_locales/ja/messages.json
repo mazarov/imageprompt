@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "拡張機能が更新されました。このページを更新 (F5) してもう一度お試しください。"
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

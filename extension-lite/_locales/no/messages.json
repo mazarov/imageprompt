@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Utvidelsen er oppdatert. Oppdater denne siden (F5) og prøv igjen."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

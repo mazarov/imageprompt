@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Разширението е обновено. Обновете страницата (F5) и опитайте отново."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

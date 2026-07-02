@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "நீட்டிப்பு புதுப்பிக்கப்பட்டது. இந்தப் பக்கத்தைப் புதுப்பி (F5) மீண்டும் முயற்சிக்கவும்."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

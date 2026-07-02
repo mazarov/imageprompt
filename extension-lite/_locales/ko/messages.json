@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "확장 프로그램이 업데이트되었습니다. 이 페이지를 새로고침(F5)하고 다시 시도하세요."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

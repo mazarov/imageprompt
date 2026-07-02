@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "എക്സ്റ്റൻഷൻ അപ്‌ഡേറ്റ് ചെയ്തു. ഈ പേജ് റിഫ്രഷ് ചെയ്യുക (F5) വീണ്ടും ശ്രമിക്കുക."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

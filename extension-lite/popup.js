@@ -1145,7 +1145,7 @@ function handleRemixJob(job) {
 }
 
 function isValidStyle(style) {
-  return ["photoreal", "midjourney", "sd", "flux"].includes(style);
+  return ["photoreal", "midjourney", "sd", "flux", "nano", "dalle"].includes(style);
 }
 
 function isImageDataUrl(value) {

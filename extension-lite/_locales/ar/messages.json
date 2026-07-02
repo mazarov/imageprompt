@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "تم تحديث الإضافة. حدّث الصفحة (F5) وحاول مرة أخرى."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

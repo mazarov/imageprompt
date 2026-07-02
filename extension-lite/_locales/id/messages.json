@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Ekstensi diperbarui. Muat ulang halaman ini (F5) dan coba lagi."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

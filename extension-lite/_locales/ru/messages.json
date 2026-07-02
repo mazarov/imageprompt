@@ -334,5 +334,11 @@
   },
   "remixError": {
     "message": "Не удалось обновить промпт. Попробуйте снова."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

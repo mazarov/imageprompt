@@ -28,6 +28,8 @@
   "styleMidjourney": { "message": "Midjourney" },
   "styleSd": { "message": "Stable Diffusion" },
   "styleFlux": { "message": "Flux" },
+  "styleNano": { "message": "Nano Banana" },
+  "styleDalle": { "message": "DALL·E" },
   "pasteHint": { "message": "Paste a picture with ⌘V / Ctrl+V, or drop a file." },
   "draftHint": { "message": "Last added image is ready." },
   "draftHintStale": { "message": "Analysis took too long. Try again." },

@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Kiendelezi kimesasishwa. Onyesha upya ukurasa huu (F5) na jaribu tena."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

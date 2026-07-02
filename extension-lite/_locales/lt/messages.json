@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Plėtinys atnaujintas. Atnaujinkite šį puslapį (F5) ir bandykite dar kartą."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

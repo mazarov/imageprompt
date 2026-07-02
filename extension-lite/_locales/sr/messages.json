@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Екстензија је ажурирана. Освежите ову страницу (F5) и покушајте поново."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }

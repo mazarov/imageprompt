@@ -445,7 +445,9 @@
     "authSignedIn": "Вход через Google выполнен",
     "authHint": "Войдите, чтобы дневной бесплатный лимит был единым на сайте и в расширении.",
     "authSignIn": "Продолжить с Google",
-    "authSignOut": "Выйти"
+    "authSignOut": "Выйти",
+    "styleNano": "Nano Banana",
+    "styleDalle": "DALL·E"
   },
   "BlogAiPromptExamples": {
     "kicker": "Гайд",

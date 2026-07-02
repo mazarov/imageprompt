@@ -286,5 +286,11 @@
   },
   "errorContextInvalidated": {
     "message": "Розширення оновлено. Оновіть цю сторінку (F5) і спробуйте ще раз."
+  },
+  "styleNano": {
+    "message": "Nano Banana"
+  },
+  "styleDalle": {
+    "message": "DALL·E"
   }
 }
