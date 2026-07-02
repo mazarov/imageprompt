@@ -3,7 +3,6 @@ import { normalizePromptLayout } from "./lib/prompt-sections.js";
 import { getImageBlob } from "./lib/image-store.js";
 import { track } from "./lib/telemetry.js";
 import {
-  isLexyGptPromoVisible,
   openLexyGptWithPrompt,
   LEXYGPT_BTN_LABEL,
 } from "./lib/lexygpt-promo.js";
@@ -13,6 +12,7 @@ import {
   initI18n,
   reloadI18n,
   setUiLang,
+  getLoadedLocale,
   LITE_LOCALE_FOLDERS,
   localeOptionLabel,
   UI_LANG_STORAGE_KEY,
@@ -231,11 +231,7 @@ function setupLangSelect() {
       if (autoOpt) autoOpt.textContent = t("uiLangAuto");
       const signedIn = btnAuthSignOut && !btnAuthSignOut.hidden;
       applyAuthStatus({ signedIn });
-      if (historyLoaded) {
-        historyLoaded = false;
-        await loadHistory();
-      }
-      syncLexyGptPromoVisibility();
+      onUiLocaleApplied();
       const quotaText = topbarQuota?.textContent;
       if (topbarQuota && !topbarQuota.hidden && quotaText) {
         const m = quotaText.match(/^(\d+)/);
@@ -324,7 +320,7 @@ function bindEvents() {
         }
         applyI18n();
         document.title = t("brandWordmark");
-        syncLexyGptPromoVisibility();
+        onUiLocaleApplied();
       })();
     } else if (msg?.type === "LITE_QUOTA_UPDATED") {
       renderQuota(msg);
@@ -339,6 +335,13 @@ function bindEvents() {
       return;
     }
     if (areaName === "local") {
+      if (changes[UI_LANG_STORAGE_KEY]) {
+        void (async () => {
+          await reloadI18n();
+          applyI18n();
+          onUiLocaleApplied();
+        })();
+      }
       const job = changes[ANALYSIS_JOB_KEY]?.newValue;
       if (job) handleAnalysisJob(job);
       const remixJob = changes[REMIX_JOB_KEY]?.newValue;
@@ -1201,7 +1204,16 @@ function showResult(dataUrl, prompt, _styleUsed, opts = {}) {
 
 function syncLexyGptPromoVisibility() {
   if (!btnLexyGenerate) return;
-  btnLexyGenerate.hidden = !isLexyGptPromoVisible();
+  const visible = getLoadedLocale() === "ru";
+  btnLexyGenerate.hidden = !visible;
+}
+
+async function onUiLocaleApplied() {
+  syncLexyGptPromoVisibility();
+  historyLoaded = false;
+  if (bodyHistory && !bodyHistory.hidden) {
+    await loadHistory();
+  }
 }
 
 function resetToEmpty() {
@@ -1385,7 +1397,7 @@ function renderHistoryList(entries) {
           : "";
 
     const timeStr = formatRelativeTime(entry.createdAt);
-    const showLexyGenerate = isLexyGptPromoVisible();
+    const showLexyGenerate = getLoadedLocale() === "ru";
 
     card.innerHTML = `
       <img class="history-card-thumb" src="${inlineSrc}" alt="" loading="lazy"${inlineSrc ? "" : " hidden"} />

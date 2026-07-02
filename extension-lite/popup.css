@@ -935,6 +935,10 @@ html, body {
   background: linear-gradient(180deg, rgb(34 197 94 / 0.95), rgb(22 163 74 / 0.93));
 }
 
+#btn-lexy-generate[hidden] {
+  display: none !important;
+}
+
 .prompt-box-wrap {
   display: flex;
   flex-direction: column;
