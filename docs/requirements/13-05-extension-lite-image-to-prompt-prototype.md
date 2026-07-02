@@ -33,7 +33,7 @@ B. **На любом сайте:** правый клик по картинке �
 - **Response (err):** `{ error: "rate_limited" | "invalid_image" | "upstream_failed", message: string }`.
 - **Rate-limit:** 30 запросов с одного IP в 24 часа (authenticated — bucket `user:<id>`). Preflight без списания; reserve перед Gemini; confirm после успеха; release на 502/503. Burst: опционально `EXTENSION_BURST_LIMIT_ENABLED=true` — 10 POST/min/IP в middleware (per-pod, best-effort).
 - **CORS:** разрешить `chrome-extension://<MV3_ID>` через env `CHROME_EXTENSION_ID` (паттерн уже используется в текущем backend лендинга).
-- **Provider:** Gemini 2.5 Flash (есть `GEMINI_API_KEY` в `landing/.env.local`). Системный промпт собирается в `landing/src/lib/extension-prompt-sections.ts` → `buildExtractPrompt(style)`: `photoreal` — полный 12-section structured output; остальные стили — единый **analysis core** (глубокое понимание сцены) + per-model **output contract** (формат вывода под Midjourney / Stable Diffusion / Flux / Nano Banana / DALL·E).
+- **Provider:** Gemini 2.5 Flash (есть `GEMINI_API_KEY` в `landing/.env.local`). Системный промпт собирается в `landing/src/lib/extension-prompt-sections.ts` → `buildExtractPrompt(style)`: **всегда** полный 12-section photoreal extract prompt; для non-photoreal styles (`midjourney`, `sd`, `flux`, `nano`, `dalle`) к базе добавляется только internal **model-tuning** instruction — Gemini слегка подстраивает формулировки внутри тех же секций под целевую модель, структура вывода не меняется.
 
 ### `POST /api/extension/remix`
 

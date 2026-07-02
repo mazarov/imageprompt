@@ -50,18 +50,15 @@ export function analyzePromptDiagnostics(
   const trimmed = rawText.trim();
   const foundSections: string[] = [];
 
-  if (style === "photoreal") {
-    for (const label of SECTION_SPEC_ORDER) {
-      const re = new RegExp(`^${escapeRegex(label)}\\s*:`, "im");
-      if (re.test(trimmed)) foundSections.push(label);
-    }
+  // Every style now produces the full 12-section photoreal base (model tuning only
+  // nudges wording), so section-completeness diagnostics apply to all styles.
+  for (const label of SECTION_SPEC_ORDER) {
+    const re = new RegExp(`^${escapeRegex(label)}\\s*:`, "im");
+    if (re.test(trimmed)) foundSections.push(label);
   }
 
-  const expectedSectionCount = style === "photoreal" ? SECTION_SPEC_ORDER.length : 0;
-  const missingSections =
-    style === "photoreal"
-      ? SECTION_SPEC_ORDER.filter((label) => !foundSections.includes(label))
-      : [];
+  const expectedSectionCount = SECTION_SPEC_ORDER.length;
+  const missingSections = SECTION_SPEC_ORDER.filter((label) => !foundSections.includes(label));
 
   const lines = trimmed.split(/\r?\n/).filter((line) => line.length > 0);
   const lastLinePreview = (lines.at(-1) ?? "").slice(0, 160);
@@ -71,7 +68,7 @@ export function analyzePromptDiagnostics(
   const finishReasonStr = typeof finishReason === "string" ? finishReason : String(finishReason ?? "");
   const truncationReasons: string[] = [];
   if (finishReasonStr === "MAX_TOKENS") truncationReasons.push("finishReason_MAX_TOKENS");
-  if (style === "photoreal" && missingSections.length > 0) {
+  if (missingSections.length > 0) {
     truncationReasons.push(`missing_sections:${missingSections.join(",")}`);
   }
   if (endsMidSentence) truncationReasons.push("ends_mid_sentence");

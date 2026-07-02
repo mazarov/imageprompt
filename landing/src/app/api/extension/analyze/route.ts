@@ -90,22 +90,16 @@ function normalizeLocale(value: unknown): string {
   }
 }
 
-function outputLanguageInstruction(style: Style, locale: string): string {
+function outputLanguageInstruction(_style: Style, locale: string): string {
   if (locale === "en") return "";
 
-  if (style === "photoreal") {
-    return [
-      "",
-      `Write all descriptive section body text in the user's locale: ${locale}.`,
-      "Keep every section heading exactly in English as specified: Visual Hook:, Scene:, Genre:, Pose:, Lighting:, Camera:, Mood:, Color:, Clothing:, Makeup:, Composition:, Avoid:, and CRITICAL RULES.",
-      "Do not translate, rename, remove, or reorder section headings.",
-    ].join("\n");
-  }
-
+  // All styles now share the same 12-section photoreal base — only the descriptive
+  // body text is localized, headings stay in English regardless of model tuning.
   return [
     "",
-    `Write the entire prompt in the user's locale: ${locale}.`,
-    "Keep generator-specific syntax, flags, and technical tokens unchanged when applicable.",
+    `Write all descriptive section body text in the user's locale: ${locale}.`,
+    "Keep every section heading exactly in English as specified: Visual Hook:, Scene:, Genre:, Pose:, Lighting:, Camera:, Mood:, Color:, Clothing:, Makeup:, Composition:, Avoid:, and CRITICAL RULES.",
+    "Do not translate, rename, remove, or reorder section headings.",
   ].join("\n");
 }
 
@@ -413,10 +407,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // thinking previously consumed ~1900 tokens and truncated visible output
   // (finishReason MAX_TOKENS, missing sections). Keep a small fixed budget as a
   // geometry-consistency aid while preserving enough room for full 12-section output.
+  // All styles now share the same full 12-section photoreal base (model tuning only
+  // nudges wording), so every request needs the same generous budget as photoreal.
   const generationConfig = {
-    temperature: style === "photoreal" ? 0.3 : 0.4,
-    maxOutputTokens: style === "photoreal" ? 4096 : 2048,
-    thinkingConfig: { thinkingBudget: style === "photoreal" ? 256 : 0 },
+    temperature: 0.3,
+    maxOutputTokens: 4096,
+    thinkingConfig: { thinkingBudget: 256 },
   };
   const geminiBody = {
     contents: [
@@ -588,8 +584,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const promptText =
-    style === "photoreal" ? `${rawText}\n\n${CRITICAL_RULES_SINGLE}` : rawText;
+  // Every style produces the photoreal base, so the CRITICAL RULES block is always appended.
+  const promptText = `${rawText}\n\n${CRITICAL_RULES_SINGLE}`;
 
   logExtensionAnalyzeGeminiResponse({
     analyzeRequestId,
@@ -601,7 +597,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     geminiData,
     rawText,
     promptText,
-    criticalRulesAppended: style === "photoreal",
+    criticalRulesAppended: true,
   });
 
   const imageSettings = await imageSettingsPromise;
