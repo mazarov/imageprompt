@@ -7,7 +7,7 @@ import {
   dataUrlToBlob,
 } from "./lib/image-store.js";
 import { initI18n, reloadI18n, t, UI_LANG_STORAGE_KEY, getUiLanguage } from "./lib/i18n.js";
-import { replacePromptSection, normalizeSectionText } from "./lib/prompt-sections.js";
+import { applyPromptSectionChanges } from "./lib/prompt-sections.js";
 
 const PENDING_IMAGE_KEY = "pending_image";
 const CONTEXT_MENU_ID = "analyze-image";
@@ -307,20 +307,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (
     msg?.type === "START_LITE_REMIX" &&
     typeof msg.originalPrompt === "string" &&
-    typeof msg.changeRequest === "string" &&
-    typeof msg.sectionKey === "string" &&
-    typeof msg.sectionLabel === "string" &&
-    typeof msg.sectionText === "string"
+    typeof msg.changeRequest === "string"
   ) {
     startLiteRemixJob({
       originalPrompt: msg.originalPrompt,
       changeRequest: msg.changeRequest,
       style: msg.style,
       dataUrl: msg.dataUrl,
-      sectionKey: msg.sectionKey,
-      sectionLabel: msg.sectionLabel,
-      sectionText: msg.sectionText,
-      sectionHeading: typeof msg.sectionHeading === "string" ? msg.sectionHeading : "",
       correlationId: typeof msg.correlationId === "string" ? msg.correlationId : "",
     })
       .then((job) => sendResponse({ ok: true, job }))
@@ -785,11 +778,11 @@ async function liteOverlayAnalyze(dataUrl, _style, correlationId) {
 }
 
 /**
- * Remix a prompt section via service worker fetch.
- * @returns {Promise<{ ok:true; sectionText:string; remaining:number|null; max:number|null }
+ * Remix a prompt via service worker fetch (auto mode: model picks sections).
+ * @returns {Promise<{ ok:true; changes:Array; remaining:number|null; max:number|null }
  *   | { ok:false; status?:number; error?:string }>}
  */
-async function liteRemix(sectionLabel, sectionText, changeRequest, _style, correlationId) {
+async function liteRemix(originalPrompt, changeRequest, _style, correlationId) {
   const style = "photoreal";
   let res;
   try {
@@ -801,7 +794,7 @@ async function liteRemix(sectionLabel, sectionText, changeRequest, _style, corre
     res = await fetch(LITE_REMIX_API_URL, {
       method: "POST",
       headers,
-      body: JSON.stringify({ sectionLabel, sectionText, changeRequest, style, locale }),
+      body: JSON.stringify({ originalPrompt, changeRequest, style, locale, mode: "auto" }),
       signal: AbortSignal.timeout(LITE_REMIX_FETCH_TIMEOUT_MS),
     });
   } catch (err) {
@@ -825,20 +818,14 @@ async function liteRemix(sectionLabel, sectionText, changeRequest, _style, corre
     return { ok: false, status: res.status, error: d.error ?? "request_failed" };
   }
 
-  const sectionResult =
-    data && typeof data === "object" && typeof data.sectionText === "string"
-      ? data.sectionText
-      : data && typeof data === "object" && typeof data.prompt === "string"
-        ? data.prompt
-        : "";
-
-  if (!sectionResult) {
+  const changes = data && typeof data === "object" && Array.isArray(data.changes) ? data.changes : null;
+  if (!changes || changes.length === 0) {
     return { ok: false, error: "empty_prompt" };
   }
 
   return {
     ok: true,
-    sectionText: sectionResult,
+    changes,
     remaining: typeof data.remaining === "number" ? data.remaining : null,
     max: typeof data.max === "number" ? data.max : null,
   };
@@ -852,10 +839,6 @@ async function startLiteRemixJob({
   changeRequest,
   style: styleValue,
   dataUrl,
-  sectionKey,
-  sectionLabel,
-  sectionText,
-  sectionHeading = "",
   correlationId = "",
 }) {
   const style = "photoreal";
@@ -864,10 +847,6 @@ async function startLiteRemixJob({
     status: "remixing",
     originalPrompt,
     changeRequest,
-    sectionKey,
-    sectionLabel,
-    sectionText,
-    sectionHeading,
     style,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -890,8 +869,7 @@ async function startLiteRemixJob({
 
 async function completeLiteRemixJob(startedJob) {
   const result = await liteRemix(
-    startedJob.sectionLabel,
-    startedJob.sectionText,
+    startedJob.originalPrompt,
     startedJob.changeRequest,
     startedJob.style,
     startedJob.id,
@@ -899,17 +877,18 @@ async function completeLiteRemixJob(startedJob) {
   const current = await getRemixJob();
   if (!current || current.id !== startedJob.id) return;
 
-  if (result.ok && typeof result.sectionText === "string" && result.sectionText) {
-    const normalizedSectionText = normalizeSectionText(
-      startedJob.sectionLabel,
-      result.sectionText,
-      startedJob.sectionHeading || "",
-    );
-    const fullPrompt = replacePromptSection(
-      startedJob.originalPrompt,
-      startedJob.sectionKey,
-      normalizedSectionText,
-    );
+  if (result.ok && Array.isArray(result.changes) && result.changes.length) {
+    const fullPrompt = applyPromptSectionChanges(startedJob.originalPrompt, result.changes);
+
+    if (!fullPrompt || fullPrompt === startedJob.originalPrompt) {
+      await setRemixJob({
+        ...startedJob,
+        status: "error",
+        error: "empty_prompt",
+        updatedAt: Date.now(),
+      });
+      return;
+    }
 
     if (typeof result.remaining === "number") {
       const quota = { remaining: result.remaining, max: result.max ?? null, ts: Date.now() };
@@ -919,7 +898,7 @@ async function completeLiteRemixJob(startedJob) {
 
     let historyEntryId = null;
     if (typeof startedJob.dataUrl === "string" && startedJob.dataUrl) {
-    const entry = await buildLiteHistoryEntry(startedJob.dataUrl, startedJob.style, fullPrompt);
+      const entry = await buildLiteHistoryEntry(startedJob.dataUrl, startedJob.style, fullPrompt);
       historyEntryId = entry.id;
       await relayOrQueueLiteHistoryEntry(entry);
       await appendLiteHistoryStore(entry);

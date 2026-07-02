@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSectionSpec } from "@/lib/extension-prompt-sections";
+import { getSectionSpec, SECTION_SPEC_ORDER } from "@/lib/extension-prompt-sections";
 import {
   beginExtensionRateLimit,
   confirmExtensionRateLimitOnSuccess,
@@ -25,6 +25,7 @@ const MAX_SECTION_LABEL_LEN = 64;
 
 type Style = "photoreal" | "midjourney" | "sd" | "flux" | "nano" | "dalle";
 const VALID_STYLES: Style[] = ["photoreal", "midjourney", "sd", "flux", "nano", "dalle"];
+const VALID_AUTO_LABELS = new Set<string>([...SECTION_SPEC_ORDER, "CRITICAL RULES", "Prompt"]);
 
 const STYLE_HINT: Record<Style, string> = {
   photoreal: "photorealistic style, natural lighting, realistic detail",
@@ -139,6 +140,37 @@ function buildInstruction(originalPrompt: string, changeRequest: string, style: 
     .join("\n");
 }
 
+function buildAutoInstruction(originalPrompt: string, changeRequest: string, locale: string): string {
+  const present = SECTION_SPEC_ORDER.filter((label) =>
+    new RegExp(`^${label}\\s*:`, "im").test(originalPrompt),
+  );
+  const specs = present
+    .map((label) => {
+      const spec = getSectionSpec(label);
+      return spec ? `- ${label}: ${spec}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+
+  return [
+    "You are editing a structured AI image prompt made of labeled sections.",
+    `Apply this edit from the user: ${changeRequest}.`,
+    "Analyze the whole prompt and decide which sections must change to satisfy the edit.",
+    "Rewrite ONLY the sections that need to change. Do NOT include unchanged sections in the output.",
+    'For each changed section keep its heading EXACTLY as in the input (e.g. "Scene:") and rewrite the body richly and generator-ready.',
+    "Treat the edit as user intent, not final copy: expand terse edits into concrete descriptions; keep useful compatible details, replace only what conflicts.",
+    remixLanguageInstruction(locale),
+    specs ? `Section specifications to follow when rewriting:\n${specs}` : "",
+    'Return JSON only: {"changes":[{"label":"<exact section label>","text":"<full section incl. heading>"}]}.',
+    '"label" must be one of the exact section labels present in the prompt. If nothing needs changing, return {"changes":[]}.',
+    "",
+    "Full prompt:",
+    originalPrompt,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204 });
 }
@@ -151,6 +183,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     sectionLabel?: unknown;
     sectionText?: unknown;
     locale?: unknown;
+    mode?: unknown;
   };
   try {
     body = await req.json();
@@ -203,11 +236,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const style: Style = "photoreal";
 
   const locale = normalizeLocale(body.locale);
+  const isAutoMode = !isSectionMode && String(body.mode ?? "").trim() === "auto";
 
   instruction = isSectionMode
     ? buildSectionInstruction(sectionLabel, sectionText, changeRequest, style, locale)
-    : buildInstruction(originalPrompt, changeRequest, style, locale);
+    : isAutoMode
+      ? buildAutoInstruction(originalPrompt, changeRequest, locale)
+      : buildInstruction(originalPrompt, changeRequest, style, locale);
   if (isSectionMode) maxOutputTokens = 2048;
+  else if (isAutoMode) maxOutputTokens = 4096;
 
   const outcomeBase = { locale, style, model: GEMINI_MODEL } as const;
 
@@ -261,6 +298,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const baseUrl = await getGeminiBaseUrl(supabase);
   const geminiUrl = `${baseUrl}/v1beta/models/${GEMINI_MODEL}:generateContent`;
+  const generationConfig: Record<string, unknown> = {
+    temperature: 0.4,
+    maxOutputTokens,
+    thinkingConfig: { thinkingBudget: 0 },
+  };
+  if (isAutoMode) {
+    generationConfig.responseMimeType = "application/json";
+    generationConfig.responseSchema = {
+      type: "object",
+      properties: {
+        changes: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: { label: { type: "string" }, text: { type: "string" } },
+            required: ["label", "text"],
+          },
+        },
+      },
+      required: ["changes"],
+    };
+  }
   const geminiBody = {
     contents: [
       {
@@ -268,13 +327,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         parts: [{ text: instruction }],
       },
     ],
-    generationConfig: {
-      temperature: 0.4,
-      maxOutputTokens,
-      thinkingConfig: {
-        thinkingBudget: 0,
-      },
-    },
+    generationConfig,
   };
 
   let geminiRes: Response;
@@ -422,6 +475,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const remixTruncated = String(finishReason ?? "") === "MAX_TOKENS";
 
+  let autoChanges: Array<{ label: string; text: string }> = [];
+  if (isAutoMode) {
+    try {
+      const parsedJson = JSON.parse(rawText) as { changes?: Array<{ label?: unknown; text?: unknown }> };
+      autoChanges = Array.isArray(parsedJson.changes)
+        ? parsedJson.changes
+            .map((c) => ({ label: String(c?.label ?? "").trim(), text: String(c?.text ?? "").trim() }))
+            .filter((c) => c.label && c.text && VALID_AUTO_LABELS.has(c.label))
+        : [];
+    } catch {
+      autoChanges = [];
+    }
+  }
+
   const rateLimitResult = session
     ? await confirmExtensionRateLimitOnSuccess(supabase, session)
     : null;
@@ -445,6 +512,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json(
     isSectionMode
       ? { sectionText: rawText, ...extensionRateLimitQuotaFields(finalCheck) }
-      : { prompt: rawText, ...extensionRateLimitQuotaFields(finalCheck) },
+      : isAutoMode
+        ? { changes: autoChanges, ...extensionRateLimitQuotaFields(finalCheck) }
+        : { prompt: rawText, ...extensionRateLimitQuotaFields(finalCheck) },
   );
 }

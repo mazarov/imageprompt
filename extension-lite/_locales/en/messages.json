@@ -315,19 +315,13 @@
     "message": "Auto (browser)"
   },
   "remixPlaceholder": {
-    "message": "Change this section…"
+    "message": "Describe your change…"
   },
   "remixButtonAria": {
     "message": "Remix prompt"
   },
-  "remixChipsAria": {
-    "message": "Prompt sections"
-  },
   "remixSectionLabel": {
-    "message": "Edit section"
-  },
-  "remixSelectSectionError": {
-    "message": "Choose a section to edit."
+    "message": "Edit prompt"
   },
   "remixLoading": {
     "message": "Remixing…"

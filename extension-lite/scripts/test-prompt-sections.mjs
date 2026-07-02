@@ -6,6 +6,7 @@ import {
   parsePromptSections,
   replacePromptSection,
   normalizePromptLayout,
+  applyPromptSectionChanges,
 } from "../lib/prompt-sections.js";
 
 function assert(condition, message) {
@@ -119,6 +120,29 @@ assert(avoidReplaced.includes("CRITICAL RULES"), "CRITICAL RULES preserved after
 
 const fallback = parsePromptSections("Just a plain paragraph without headings.");
 assert(fallback.length === 1 && fallback[0].key === "prompt", "fallback Prompt section");
+
+const multiChanged = applyPromptSectionChanges(fullPrompt, [
+  { label: "Scene", text: "Scene:\nThe subject stands in a plain white void." },
+  { label: "Mood", text: "Mood:\nBright and cheerful." },
+]);
+assert(multiChanged.includes("plain white void"), "Scene change applied in multi-change remix");
+assert(multiChanged.includes("Bright and cheerful"), "Mood change applied in multi-change remix");
+assert(multiChanged.includes("Fashion editorial"), "Genre unchanged after multi-change remix");
+
+const unknownLabel = applyPromptSectionChanges(fullPrompt, [
+  { label: "UnknownSection", text: "UnknownSection:\nShould be ignored." },
+  { label: "Color", text: "Color:\nCool blue tones only." },
+]);
+assert(!unknownLabel.includes("Should be ignored"), "unknown label skipped");
+assert(unknownLabel.includes("Cool blue tones only"), "valid label still applied with unknown present");
+
+const fallbackChanged = applyPromptSectionChanges("Just a plain paragraph without headings.", [
+  { label: "Prompt", text: "Rewritten plain prompt text." },
+]);
+assert(
+  fallbackChanged.trim() === "Rewritten plain prompt text.",
+  "fallback prompt replaced entirely",
+);
 
 if (process.exitCode !== 1) {
   console.log("\nAll prompt-section checks passed.");

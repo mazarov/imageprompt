@@ -200,3 +200,45 @@ export function normalizeSectionText(label, sectionText, originalHeading = "") {
   const heading = originalHeading || `${label}:`;
   return `${heading}\n${trimmed}`;
 }
+
+export function sectionKeyForLabel(label) {
+  const norm = String(label ?? "").trim().toLowerCase();
+  const def = SECTION_DEFS.find((d) => d.label.toLowerCase() === norm);
+  if (def) return def.key;
+  if (norm === "prompt") return "prompt";
+  return null;
+}
+
+/**
+ * Apply model-produced section changes to a full prompt.
+ * @param {string} prompt
+ * @param {Array<{label?: unknown; text?: unknown}>} changes
+ * @returns {string} full reconstructed prompt
+ */
+export function applyPromptSectionChanges(prompt, changes) {
+  if (typeof prompt !== "string" || !Array.isArray(changes)) return prompt;
+
+  let result = normalizePromptLayout(prompt);
+  const parsed = parsePromptSections(result);
+  const isFallback = parsed.length === 1 && parsed[0].key === "prompt";
+
+  for (const change of changes) {
+    const label = String(change?.label ?? "").trim();
+    const text = String(change?.text ?? "").trim();
+    if (!text) continue;
+
+    if (isFallback) {
+      result = normalizePromptLayout(text);
+      break;
+    }
+
+    const key = sectionKeyForLabel(label);
+    if (!key) continue;
+    const current = parsePromptSections(result).find((s) => s.key === key);
+    if (!current) continue;
+    const normalized = normalizeSectionText(current.label, text, current.heading || "");
+    result = replacePromptSection(result, key, normalized);
+  }
+
+  return result;
+}

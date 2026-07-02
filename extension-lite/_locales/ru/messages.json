@@ -315,19 +315,13 @@
     "message": "Авто (браузер)"
   },
   "remixPlaceholder": {
-    "message": "Измените этот раздел…"
+    "message": "Опишите, что изменить…"
   },
   "remixButtonAria": {
     "message": "Ремикс промпта"
   },
-  "remixChipsAria": {
-    "message": "Разделы промпта"
-  },
   "remixSectionLabel": {
-    "message": "Редактировать раздел"
-  },
-  "remixSelectSectionError": {
-    "message": "Выберите раздел для редактирования."
+    "message": "Редактировать промпт"
   },
   "remixLoading": {
     "message": "Ремиксуем…"

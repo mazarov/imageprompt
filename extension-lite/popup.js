@@ -1,5 +1,5 @@
 import { prepareUploadFile } from "./lib/image-utils.js";
-import { parsePromptSections, normalizePromptLayout } from "./lib/prompt-sections.js";
+import { normalizePromptLayout } from "./lib/prompt-sections.js";
 import { getImageBlob } from "./lib/image-store.js";
 import { track } from "./lib/telemetry.js";
 import {
@@ -104,7 +104,6 @@ const fileInput       = document.getElementById("file-input");
 const dropzone        = document.getElementById("dropzone");
 const remixInput      = document.getElementById("remix-input");
 const btnRemix        = document.getElementById("btn-remix");
-const remixSectionRow = document.getElementById("remix-section-row");
 const shellBody       = document.getElementById("body-analyze");
 const bodyHistory     = document.getElementById("body-history");
 const bodySettings    = document.getElementById("body-settings");
@@ -134,8 +133,6 @@ function getSelectedStyle() {
 
 // ── State ──
 let currentPrompt = "";
-let currentPromptSections = [];
-let selectedRemixSectionKey = "";
 let currentDataUrl = "";
 let currentStyle = "photoreal";
 let isRemixing = false;
@@ -510,12 +507,6 @@ function bindEvents() {
     }
   });
   btnRemix?.addEventListener("click", () => void submitRemix());
-  remixSectionRow?.addEventListener("click", (e) => {
-    const chip = /** @type {HTMLElement} */ (e.target).closest(".remix-chip");
-    if (!chip || isRemixing) return;
-    const key = chip.dataset.sectionKey;
-    if (key) selectRemixSection(key);
-  });
 
   setupBrandTapDevUnlock();
   void refreshAuthStatus();
@@ -854,95 +845,7 @@ function autoGrowRemix() {
 
 function updateRemixButton() {
   if (!btnRemix) return;
-  const hasText = Boolean(remixInput?.value.trim());
-  btnRemix.disabled = !hasText || isRemixing || !selectedRemixSectionKey;
-}
-
-function getSelectedPromptSection() {
-  return currentPromptSections.find((s) => s.key === selectedRemixSectionKey) ?? null;
-}
-
-function renderRemixSectionChips() {
-  if (!remixSectionRow) return;
-  remixSectionRow.replaceChildren();
-  for (const section of currentPromptSections) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "remix-chip";
-    btn.role = "radio";
-    btn.dataset.sectionKey = section.key;
-    btn.textContent = section.chipLabel;
-    btn.setAttribute("aria-checked", section.key === selectedRemixSectionKey ? "true" : "false");
-    if (section.key === selectedRemixSectionKey) btn.classList.add("is-selected");
-    btn.disabled = isRemixing;
-    remixSectionRow.appendChild(btn);
-  }
-}
-
-function focusPromptSection(section) {
-  if (!promptBox || !section || !currentPrompt) return;
-
-  const applyScroll = () => {
-    promptBox.classList.remove("section-focused");
-    void promptBox.offsetWidth;
-    promptBox.classList.add("section-focused");
-
-    const offset = Math.min(Math.max(section.start, 0), currentPrompt.length);
-    let targetScroll = 0;
-
-    const textNode = promptBox.firstChild;
-    if (textNode?.nodeType === Node.TEXT_NODE && textNode.length > 0) {
-      const range = document.createRange();
-      const end = Math.min(offset + 1, textNode.length);
-      range.setStart(textNode, offset);
-      range.setEnd(textNode, end);
-      const marker = range.getBoundingClientRect();
-      if (marker.height > 0 || marker.width > 0) {
-        const boxTop = promptBox.getBoundingClientRect().top;
-        targetScroll = marker.top - boxTop + promptBox.scrollTop - 10;
-      }
-    }
-
-    if (targetScroll <= 0 && offset > 0) {
-      const lineHeight = parseFloat(getComputedStyle(promptBox).lineHeight) || 19;
-      const lineIndex =
-        typeof section.lineIndex === "number"
-          ? section.lineIndex
-          : currentPrompt.slice(0, offset).split("\n").length - 1;
-      targetScroll = lineIndex * lineHeight;
-    }
-
-    const maxScroll = Math.max(0, promptBox.scrollHeight - promptBox.clientHeight);
-    promptBox.scrollTop = Math.min(Math.max(0, targetScroll), maxScroll);
-  };
-
-  requestAnimationFrame(applyScroll);
-  window.setTimeout(() => promptBox?.classList.remove("section-focused"), 900);
-}
-
-function selectRemixSection(key, { focusPrompt = true } = {}) {
-  if (!currentPromptSections.some((s) => s.key === key)) return;
-  selectedRemixSectionKey = key;
-  renderRemixSectionChips();
-  if (focusPrompt) focusPromptSection(getSelectedPromptSection());
-  updateRemixButton();
-}
-
-function syncPromptSections({ focusPrompt = false } = {}) {
-  const prevKey = selectedRemixSectionKey;
-  currentPromptSections = parsePromptSections(currentPrompt);
-  if (prevKey && currentPromptSections.some((s) => s.key === prevKey)) {
-    selectedRemixSectionKey = prevKey;
-  } else if (currentPromptSections.length > 0) {
-    selectedRemixSectionKey = currentPromptSections[0].key;
-  } else {
-    selectedRemixSectionKey = "";
-  }
-  renderRemixSectionChips();
-  if (focusPrompt && selectedRemixSectionKey) {
-    focusPromptSection(getSelectedPromptSection());
-  }
-  updateRemixButton();
+  btnRemix.disabled = !remixInput?.value.trim() || isRemixing;
 }
 
 function setRemixing(on) {
@@ -951,12 +854,7 @@ function setRemixing(on) {
   if (remixInput) remixInput.disabled = on;
   if (btnRemix) {
     btnRemix.classList.toggle("is-busy", on);
-    btnRemix.disabled = on || !remixInput?.value.trim() || !selectedRemixSectionKey;
-  }
-  if (remixSectionRow) {
-    for (const chip of remixSectionRow.querySelectorAll(".remix-chip")) {
-      /** @type {HTMLButtonElement} */ (chip).disabled = on;
-    }
+    btnRemix.disabled = on || !remixInput?.value.trim();
   }
 }
 
@@ -971,16 +869,6 @@ async function submitRemix() {
   const changeRequest = remixInput?.value.trim() ?? "";
   if (!currentPrompt || !changeRequest || changeRequest.length > 1000) return;
 
-  let selectedSection = getSelectedPromptSection();
-  if (!selectedSection) {
-    syncPromptSections();
-    selectedSection = getSelectedPromptSection();
-  }
-  if (!selectedSection) {
-    showInlineError(t("remixSelectSectionError"));
-    return;
-  }
-
   clearRemixJob();
   setRemixing(true);
   if (errorBanner) errorBanner.hidden = true;
@@ -991,17 +879,12 @@ async function submitRemix() {
     trigger: "remix_submit",
     correlation_id: correlationId,
     style: currentStyle,
-    detail: { section: selectedSection.key },
   });
 
   try {
     const res = await sendRuntimeMessage({
       type: "START_LITE_REMIX",
       originalPrompt: currentPrompt,
-      sectionKey: selectedSection.key,
-      sectionLabel: selectedSection.label,
-      sectionText: selectedSection.text,
-      sectionHeading: selectedSection.heading,
       changeRequest,
       style: currentStyle,
       dataUrl: currentDataUrl,
@@ -1308,7 +1191,6 @@ function showResult(dataUrl, prompt, _styleUsed, opts = {}) {
   promptBox.scrollTop = 0;
   errorBanner.hidden = true;
   showPanel("result");
-  syncPromptSections({ focusPrompt: false });
   syncLexyGptPromoVisibility();
 
   if (opts.persist !== false) {
