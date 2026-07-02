@@ -15,7 +15,6 @@ import {
   tMinutesAgo,
   tHoursAgo,
   tDaysAgo,
-  tStyleLabel,
 } from "./lib/i18n.js";
 
 const PENDING_IMAGE_KEY = "pending_image";
@@ -97,7 +96,6 @@ const btnAnalyzeDraft = document.getElementById("btn-analyze-draft");
 const btnDraftAnother = document.getElementById("btn-draft-another");
 const fileInput       = document.getElementById("file-input");
 const dropzone        = document.getElementById("dropzone");
-const stylePresetRow  = document.getElementById("style-preset-row");
 const remixInput      = document.getElementById("remix-input");
 const btnRemix        = document.getElementById("btn-remix");
 const remixSectionRow = document.getElementById("remix-section-row");
@@ -123,22 +121,9 @@ const uiLangSelect    = document.getElementById("ui-lang-select");
 const btnSettings     = document.getElementById("btn-settings");
 const activeBackdropPreview = document.getElementById("active-backdrop-preview");
 
-// ── Style pill helpers ──
+// ── Style (fixed photoreal) ──
 function getSelectedStyle() {
-  return stylePresetRow?.querySelector(".style-pill.active")?.dataset.style || "photoreal";
-}
-
-function setSelectedStyle(value) {
-  if (!stylePresetRow) return;
-  for (const pill of stylePresetRow.querySelectorAll(".style-pill")) {
-    const match = pill.dataset.style === value;
-    pill.classList.toggle("active", match);
-    pill.setAttribute("aria-checked", String(match));
-  }
-}
-
-function styleLabel(style) {
-  return tStyleLabel(style);
+  return "photoreal";
 }
 
 // ── State ──
@@ -300,8 +285,7 @@ async function handlePendingImage(pending) {
   }
 
   if (pending.dataUrl) {
-    const style = isValidStyle(pending.style) ? pending.style : currentStyle;
-    setSelectedStyle(style);
+    const style = "photoreal";
     saveDraftState(pending.dataUrl, style);
     showLoading(pending.dataUrl);
     await analyze(pending.dataUrl, style, pending.source === "overlay" ? "overlay" : "context_menu");
@@ -486,14 +470,6 @@ function bindEvents() {
   btnLoadingCancel?.addEventListener("click", () => resetToEmpty());
   btnAuthGoogle?.addEventListener("click", () => startGoogleAuth());
   btnAuthSignOut?.addEventListener("click", () => signOutGoogle());
-
-  // Style preset pills
-  stylePresetRow?.addEventListener("click", (e) => {
-    const pill = /** @type {HTMLElement} */ (e.target).closest(".style-pill");
-    if (!pill?.dataset.style) return;
-    setSelectedStyle(pill.dataset.style);
-    currentStyle = pill.dataset.style;
-  });
 
   // Tab switching (Analyze / History)
   tabBar?.addEventListener("click", (e) => {
@@ -810,8 +786,8 @@ function applyPreparedUploadError(error) {
   showInlineError(UNSUPPORTED_IMAGE_MESSAGE());
 }
 
-async function analyze(dataUrl, styleOverride, trigger = "upload") {
-  const style = styleOverride || getSelectedStyle();
+async function analyze(dataUrl, _styleOverride, trigger = "upload") {
+  const style = "photoreal";
   currentDataUrl = dataUrl;
   currentStyle = style;
 
@@ -1162,10 +1138,10 @@ function savePopupState(state) {
   }
 }
 
-function saveDraftState(dataUrl, style) {
+function saveDraftState(dataUrl, _style) {
   if (!isImageDataUrl(dataUrl)) return;
   currentDataUrl = dataUrl;
-  currentStyle = isValidStyle(style) ? style : "photoreal";
+  currentStyle = "photoreal";
   savePopupState({ kind: "draft", dataUrl, style: currentStyle });
 }
 
@@ -1188,7 +1164,7 @@ async function restorePopupState() {
 
   if (!saved || typeof saved !== "object" || !isImageDataUrl(saved.dataUrl)) return;
 
-  const style = isValidStyle(saved.style) ? saved.style : "photoreal";
+  const style = "photoreal";
   if (saved.kind === "result" && typeof saved.prompt === "string" && saved.prompt) {
     showResult(saved.dataUrl, saved.prompt, style, { persist: false });
     return;
@@ -1213,11 +1189,10 @@ async function restoreAnalysisJob() {
 function handleAnalysisJob(job) {
   if (!job || typeof job !== "object" || !isImageDataUrl(job.dataUrl)) return false;
 
-  const style = isValidStyle(job.style) ? job.style : "photoreal";
+  const style = "photoreal";
   if (job.status === "analyzing") {
     currentDataUrl = job.dataUrl;
     currentStyle = style;
-    setSelectedStyle(currentStyle);
     const lastTouched = Number(job.updatedAt || job.createdAt || 0);
     if (lastTouched > 0 && Date.now() - lastTouched > ANALYSIS_STALE_AFTER_MS) {
       clearAnalysisJob();
@@ -1237,7 +1212,6 @@ function handleAnalysisJob(job) {
   if (job.status === "error") {
     currentDataUrl = job.dataUrl;
     currentStyle = style;
-    setSelectedStyle(currentStyle);
     const rateLimited = job.error === "rate_limited" || String(job.statusCode) === "429";
     if (rateLimited) {
       showRateLimitError();
@@ -1275,11 +1249,10 @@ function showPanel(name) {
   if (shellBody) shellBody.scrollTop = 0;
 }
 
-function showDraft(dataUrl, styleUsed, opts = {}) {
+function showDraft(dataUrl, _styleUsed, opts = {}) {
   currentPrompt = "";
   currentDataUrl = dataUrl;
-  currentStyle = isValidStyle(styleUsed) ? styleUsed : "photoreal";
-  setSelectedStyle(currentStyle);
+  currentStyle = "photoreal";
   if (draftHint) draftHint.textContent = opts.hint || DRAFT_HINT_DEFAULT();
   draftPreview.src = dataUrl;
   setActiveBackdrop(dataUrl);
@@ -1304,13 +1277,12 @@ function showLoading(dataUrl) {
   showPanel("loading");
 }
 
-function showResult(dataUrl, prompt, styleUsed, opts = {}) {
+function showResult(dataUrl, prompt, _styleUsed, opts = {}) {
   promptBox.classList.remove("is-remixing", "just-remixed", "section-focused");
   prompt = normalizePromptLayout(prompt);
   currentPrompt = prompt;
   currentDataUrl = dataUrl;
-  currentStyle = isValidStyle(styleUsed) ? styleUsed : "photoreal";
-  setSelectedStyle(currentStyle);
+  currentStyle = "photoreal";
   resultPreview.src = dataUrl;
   setActiveBackdrop(dataUrl);
   promptBox.textContent = prompt;
@@ -1329,7 +1301,7 @@ function resetToEmpty() {
   revokeActiveObjectPreview();
   currentPrompt = "";
   currentDataUrl = "";
-  currentStyle = getSelectedStyle();
+  currentStyle = "photoreal";
   clearPopupState();
   clearAnalysisJob();
   setActiveBackdrop("");
@@ -1505,14 +1477,12 @@ function renderHistoryList(entries) {
           ? entry.image.imageUrl
           : "";
 
-    const styleLabelText = styleLabel(entry.style) || entry.style || "";
     const timeStr = formatRelativeTime(entry.createdAt);
 
     card.innerHTML = `
       <img class="history-card-thumb" src="${inlineSrc}" alt="" loading="lazy"${inlineSrc ? "" : " hidden"} />
       <div class="history-card-body">
         <div class="history-card-meta">
-          ${styleLabelText ? `<span class="history-card-style">${styleLabelText}</span>` : ""}
           ${timeStr ? `<span class="history-card-time">${timeStr}</span>` : ""}
         </div>
         <p class="history-card-prompt">${escapeHtml(entry.prompt)}</p>

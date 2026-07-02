@@ -248,7 +248,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { image_base64: rawBase64, image_url: rawUrl, style: rawStyle } = body;
+  const { image_base64: rawBase64, image_url: rawUrl } = body;
 
   const hasBase64 = typeof rawBase64 === "string" && rawBase64.trim().length > 0;
   const hasUrl = typeof rawUrl === "string" && rawUrl.trim().length > 0;
@@ -334,10 +334,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const style: Style =
-    typeof rawStyle === "string" && VALID_STYLES.includes(rawStyle as Style)
-      ? (rawStyle as Style)
-      : "photoreal";
+  const style: Style = "photoreal";
 
   const locale = normalizeLocale(body.locale);
   const analyzeRequestId = crypto.randomUUID();

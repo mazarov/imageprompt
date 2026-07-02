@@ -52,17 +52,7 @@ function uploadLog(step: string, data?: Record<string, unknown>) {
 
 type AnalyzeStyle = "photoreal" | "midjourney" | "sd" | "flux" | "nano" | "dalle";
 
-const STYLE_OPTIONS: {
-  value: AnalyzeStyle;
-  labelKey: "stylePhotoreal" | "styleMidjourney" | "styleSd" | "styleFlux" | "styleNano" | "styleDalle";
-}[] = [
-  { value: "photoreal", labelKey: "stylePhotoreal" },
-  { value: "midjourney", labelKey: "styleMidjourney" },
-  { value: "sd", labelKey: "styleSd" },
-  { value: "flux", labelKey: "styleFlux" },
-  { value: "nano", labelKey: "styleNano" },
-  { value: "dalle", labelKey: "styleDalle" },
-];
+const STYLE: AnalyzeStyle = "photoreal";
 
 type Panel = "empty" | "loading" | "result" | "error";
 
@@ -110,7 +100,6 @@ export function PromptSceneLiteWidget() {
   const [errorMessage, setErrorMessage] = useState("");
   const [errorKind, setErrorKind] = useState<LiteErrorKind>("none");
   const [notice, setNotice] = useState("");
-  const [style, setStyle] = useState<AnalyzeStyle>("photoreal");
   const [historyTick, setHistoryTick] = useState(0);
   const ranPendingRef = useRef(false);
   const fileInputId = useId();
@@ -319,8 +308,8 @@ export function PromptSceneLiteWidget() {
   );
 
   const analyzeFromCurrentStyleDataUrl = useCallback(
-    (dataUrl: string) => analyzeDataUrlWithStyle(dataUrl, style),
-    [analyzeDataUrlWithStyle, style],
+    (dataUrl: string) => analyzeDataUrlWithStyle(dataUrl, STYLE),
+    [analyzeDataUrlWithStyle],
   );
 
   const tryConsumePendingFromStorage = useCallback(async () => {
@@ -504,9 +493,9 @@ export function PromptSceneLiteWidget() {
     (entry: LiteRecognitionEntry) => {
       setMainTab("analyze");
       if (entry.image.mode === "image_url") {
-        void analyzeImageUrlWithStyle(entry.image.imageUrl, entry.style);
+        void analyzeImageUrlWithStyle(entry.image.imageUrl, STYLE);
       } else {
-        void analyzeDataUrlWithStyle(entry.image.dataUrl, entry.style);
+        void analyzeDataUrlWithStyle(entry.image.dataUrl, STYLE);
       }
     },
     [analyzeDataUrlWithStyle, analyzeImageUrlWithStyle],
@@ -567,7 +556,6 @@ export function PromptSceneLiteWidget() {
                         dateStyle: "short",
                         timeStyle: "short",
                       })}
-                      <span className="ml-2 normal-case text-zinc-600">{entry.style}</span>
                     </p>
                     <p className="mt-1 line-clamp-3 text-xs leading-snug text-zinc-300">{entry.prompt}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -672,35 +660,6 @@ export function PromptSceneLiteWidget() {
               {t("chooseFile")}
             </span>
           </label>
-
-          <div>
-            <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500">{t("styleLabel")}</span>
-            <div
-              role="radiogroup"
-              aria-label={t("styleLabel")}
-              className="flex flex-wrap gap-1"
-            >
-              {STYLE_OPTIONS.map(({ value, labelKey }) => {
-                const selected = style === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => setStyle(value)}
-                    className={`min-h-9 flex-1 basis-[calc(50%-0.125rem)] whitespace-nowrap rounded-full px-3 text-center text-xs font-semibold transition sm:basis-0 sm:text-sm ${STV_FOCUS_RING} ${
-                      selected
-                        ? "bg-indigo-600 text-white shadow"
-                        : "border border-white/10 bg-zinc-950/60 text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"
-                    }`}
-                  >
-                    {t(labelKey)}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           <p className="text-xs text-zinc-600">{t("pasteHint")}</p>
         </div>

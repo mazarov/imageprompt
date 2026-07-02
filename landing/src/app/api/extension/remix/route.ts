@@ -200,10 +200,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const style: Style =
-    typeof body.style === "string" && VALID_STYLES.includes(body.style as Style)
-      ? (body.style as Style)
-      : "photoreal";
+  const style: Style = "photoreal";
 
   const locale = normalizeLocale(body.locale);
 

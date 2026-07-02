@@ -579,8 +579,8 @@ async function exchangeLiteAuthCode(code) {
   return status;
 }
 
-async function startLiteAnalysisJob(dataUrl, styleValue, correlationId) {
-  const style = isValidStyle(styleValue) ? styleValue : "photoreal";
+async function startLiteAnalysisJob(dataUrl, _styleValue, correlationId) {
+  const style = "photoreal";
   const job = {
     id: typeof correlationId === "string" && correlationId ? correlationId : createJobId(),
     status: "analyzing",
@@ -722,7 +722,8 @@ async function toSiteEntry(leanEntry) {
  * Analyze image from lite overlay/modal via service worker fetch (aligned with popup).
  * @returns {Promise<{ ok: true; prompt: string } | { ok: false; status?: number; error?: string }>}
  */
-async function liteOverlayAnalyze(dataUrl, style, correlationId) {
+async function liteOverlayAnalyze(dataUrl, _style, correlationId) {
+  const style = "photoreal";
   let res;
   try {
     const token = await getLiteAuthToken();
@@ -788,7 +789,8 @@ async function liteOverlayAnalyze(dataUrl, style, correlationId) {
  * @returns {Promise<{ ok:true; sectionText:string; remaining:number|null; max:number|null }
  *   | { ok:false; status?:number; error?:string }>}
  */
-async function liteRemix(sectionLabel, sectionText, changeRequest, style, correlationId) {
+async function liteRemix(sectionLabel, sectionText, changeRequest, _style, correlationId) {
+  const style = "photoreal";
   let res;
   try {
     const token = await getLiteAuthToken();
@@ -856,7 +858,7 @@ async function startLiteRemixJob({
   sectionHeading = "",
   correlationId = "",
 }) {
-  const style = isValidStyle(styleValue) ? styleValue : "photoreal";
+  const style = "photoreal";
   const job = {
     id: typeof correlationId === "string" && correlationId ? correlationId : createJobId(),
     status: "remixing",

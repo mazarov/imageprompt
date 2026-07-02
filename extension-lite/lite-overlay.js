@@ -39,11 +39,6 @@ async function initLiteOverlay() {
     return i18nMod?.t(key, substitutions) ?? key;
   }
 
-  /** @param {string} style */
-  function tStyleLabel(style) {
-    return i18nMod?.tStyleLabel(style) ?? style;
-  }
-
   function getLoadedLocale() {
     return i18nMod?.getLoadedLocale() ?? "en";
   }
@@ -411,15 +406,6 @@ async function initLiteOverlay() {
             <div class="lite-modal-preview-frame">
               <img class="lite-modal-preview-img" alt="" draggable="false" />
             </div>
-            <label class="lite-field">
-              ${t("styleLabel")}
-              <select class="lite-style-select lite-select">
-                <option value="photoreal">${tStyleLabel("photoreal")}</option>
-                <option value="midjourney">${tStyleLabel("midjourney")}</option>
-                <option value="sd">${tStyleLabel("sd")}</option>
-                <option value="flux">${tStyleLabel("flux")}</option>
-              </select>
-            </label>
             <button type="button" class="lite-primary-btn lite-analyze-btn">${t("analyzeBtn")}</button>
           </div>
           <div class="lite-panel lite-hidden" data-lite-panel="analyzing">
@@ -661,8 +647,7 @@ async function initLiteOverlay() {
   }
 
   function getModalStyle() {
-    const sel = modalBackdrop?.querySelector(".lite-style-select");
-    return sel instanceof HTMLSelectElement ? sel.value : "photoreal";
+    return "photoreal";
   }
 
   /** @param {string} dataUrl @param {string} prompt */
