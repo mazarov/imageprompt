@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { recordAnalyzeHistory } from "@/lib/analyze-history";
 import {
   beginExtensionRateLimit,
   confirmExtensionRateLimitOnSuccess,
@@ -634,6 +635,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       latencyMs: Date.now() - geminiStartedAt,
     },
   );
+
+  if (promptText.trim()) {
+    recordAnalyzeHistory(supabase, req, {
+      imageBase64: parsed.data,
+      imageMime: parsed.mimeType,
+      prompt: promptText,
+      style,
+      locale,
+      model: GEMINI_MODEL,
+      userId: finalCheck?.userId ?? null,
+      ipHash: finalCheck?.ipHash ?? null,
+      correlationId: req.headers.get("x-correlation-id"),
+      authenticated: finalCheck?.authenticated ?? false,
+    });
+  }
 
   return NextResponse.json({
     prompt: promptText,

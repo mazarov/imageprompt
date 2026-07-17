@@ -14,12 +14,15 @@
 6. `docs/sql/14-06-extension-rate-limit-increment-if-allowed.sql` — атомарный increment без PK race (legacy; reserve flow в 14-07).
 7. `docs/sql/14-07-extension-rate-limit-reservations.sql` — колонка `pending`, RPC reserve/confirm/release (**обязательно перед деплоем landing с reserve flow**).
 8. `docs/sql/14-08-extension-events-outcome-and-client.sql` — таблица `extension_client_events`, колонки outcome в `extension_analyze_events`, вьюхи `analytics_extension_funnel` и `analytics_extension_outcomes_daily` (**обязательно перед деплоем блока Extension funnel / Backend outcomes в `/admin/analytics`**).
+9. `docs/sql/14-09-analyze-history.sql` — таблица `analyze_history`, private bucket `analyze-history` (**обязательно перед деплоем `/admin/analyze-history` и записи истории в analyze route**). См. [`analyze-history.md`](analyze-history.md).
 
 После применения 14-01 и 14-02 — деплоить код лендинга (иначе insert с `client_source` упадёт на отсутствующую колонку).
 
 После применения 14-07 — деплоить landing с reserve/confirm/release (analyze + remix). Env для burst limit (опционально): `EXTENSION_BURST_LIMIT_ENABLED=true`, `EXTENSION_BURST_LIMIT_PER_MIN=10`.
 
 После применения 14-08 — деплоить landing с обновлённым `/admin/analytics` (extension funnel + backend outcomes).
+
+После применения 14-09 — деплоить landing с `/admin/analyze-history` и `recordAnalyzeHistory` в analyze route.
 
 ## Структура данных
 

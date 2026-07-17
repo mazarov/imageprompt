@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AnalyticsDashboardData,
@@ -247,7 +248,14 @@ export function AnalyticsDashboard() {
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">Analytics</h1>
           <p className="mt-1 text-sm text-zinc-400">Users, clients, and request volume</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/admin/analyze-history"
+            className="text-sm font-medium text-indigo-400 transition hover:text-indigo-300"
+          >
+            Analyze history →
+          </Link>
+          <div className="flex flex-wrap items-center gap-2">
           {PERIOD_OPTIONS.map(({ days: d, label }) => (
             <button
               key={d}
@@ -269,6 +277,7 @@ export function AnalyticsDashboard() {
           >
             Refresh
           </button>
+          </div>
         </div>
       </div>
 
