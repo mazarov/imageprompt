@@ -252,25 +252,86 @@ async function geminiChatJson(
       .join("")
       .trim() ?? "";
 
+  const blockReason = json.promptFeedback?.blockReason ?? null;
+
   console.log("[seo-tags-classify] gemini_response", {
     viaProxy,
     baseUrlHost,
     finishReason,
-    blockReason: json.promptFeedback?.blockReason ?? null,
+    blockReason,
     textChars: text.length,
     latencyMs: Date.now() - startedAt,
   });
 
+  const prohibited =
+    finishReason === "PROHIBITED_CONTENT" ||
+    blockReason === "PROHIBITED_CONTENT" ||
+    String(blockReason || "").toUpperCase().includes("PROHIBITED");
+
   if (!text) {
+    if (prohibited) {
+      throw new SeoTagsClassifyError(
+        "prohibited_content",
+        "Gemini blocked the prompt as PROHIBITED_CONTENT",
+        { finishReason, blockReason, viaProxy, baseUrlHost },
+      );
+    }
     throw new SeoTagsClassifyError("empty_response", "Gemini returned empty text", {
       finishReason,
-      blockReason: json.promptFeedback?.blockReason ?? null,
+      blockReason,
       viaProxy,
       baseUrlHost,
     });
   }
 
   return { text, viaProxy, finishReason, baseUrlHost };
+}
+
+/** Strip sections that often trip Gemini safety while keeping catalog-relevant context. */
+export function sanitizePromptTextForSeoTags(raw: string): string {
+  let t = String(raw || "").replace(/\r\n/g, "\n");
+  // Drop Avoid / CRITICAL RULES — not needed for catalog tags and can trigger safety.
+  t = t.replace(/\nAvoid:\s*[\s\S]*?(?=\n[A-Za-z][A-Za-z ]{0,40}:|\nCRITICAL RULES|$)/gi, "\n");
+  t = t.replace(/\nCRITICAL RULES[\s\S]*$/gi, "\n");
+  // Soften Pose: anatomy-heavy geometry is a common PROHIBITED_CONTENT trigger.
+  t = t.replace(
+    /\nPose:\s*[\s\S]*?(?=\n[A-Za-z][A-Za-z ]{0,40}:|\nCRITICAL RULES|$)/gi,
+    "\nPose:\n[pose details omitted for safety]\n",
+  );
+  t = t.replace(/\n{3,}/g, "\n\n").trim();
+  const maxChars = 2800;
+  if (t.length > maxChars) {
+    t = `${t.slice(0, maxChars)}\n…`;
+  }
+  return t;
+}
+
+function buildClassifyUserText(
+  title: string | null,
+  promptTexts: string[],
+  opts: { sanitized: boolean },
+): string {
+  const joined = promptTexts
+    .map((p) => (opts.sanitized ? sanitizePromptTextForSeoTags(p) : String(p || "").trim()))
+    .filter(Boolean)
+    .join("\n---\n");
+
+  const titleLine = title ? `Title: ${title}` : "";
+  const promptBlock = `Prompt:\n${joined}`;
+
+  if (!opts.sanitized) {
+    return [titleLine, promptBlock].filter(Boolean).join("\n\n");
+  }
+
+  return [
+    "Task: SEO catalog tagging for a fictional AI photo-generation prompt.",
+    "Ignore sensual, anatomical, or explicit pose details. Focus on audience, style, objects, occasion, and doc_task only.",
+    "Assign tags from the known list; put inventions only in new_tags.",
+    titleLine,
+    promptBlock,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 function parseClassifyJson(rawText: string): ClassifyResult {
@@ -354,14 +415,9 @@ async function classifyWithLlm(
   supabase: SupabaseClient,
   title: string | null,
   promptTexts: string[],
+  opts: { sanitized: boolean },
 ): Promise<{ result: ClassifyResult; viaProxy: boolean }> {
-  const userText = [
-    title ? `Title: ${title}` : "",
-    `Prompt:\n${promptTexts.join("\n---\n")}`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-
+  const userText = buildClassifyUserText(title, promptTexts, opts);
   const out = await geminiChatJson(supabase, userText);
   const result = parseClassifyJson(out.text);
   return { result, viaProxy: out.viaProxy };
@@ -371,23 +427,49 @@ async function classifyWithRetry(
   supabase: SupabaseClient,
   title: string | null,
   promptTexts: string[],
-  maxRetries = 2,
 ): Promise<{ result: ClassifyResult; viaProxy: boolean }> {
+  // 1) Normal classify
+  // 2) On PROHIBITED_CONTENT → sanitized retry (strip Avoid/CRITICAL RULES/Pose)
+  // 3) One generic retry for transient empty/http errors
+  const attempts: Array<{ sanitized: boolean; label: string }> = [
+    { sanitized: false, label: "full" },
+    { sanitized: true, label: "sanitized" },
+    { sanitized: true, label: "sanitized_retry" },
+  ];
+
   let lastErr: unknown;
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+  for (let i = 0; i < attempts.length; i++) {
+    const attempt = attempts[i]!;
     try {
-      return await classifyWithLlm(supabase, title, promptTexts);
+      const out = await classifyWithLlm(supabase, title, promptTexts, {
+        sanitized: attempt.sanitized,
+      });
+      if (attempt.sanitized) {
+        console.log("[seo-tags-classify] recovered_after_sanitize", {
+          attempt: i + 1,
+          label: attempt.label,
+        });
+      }
+      return out;
     } catch (err) {
       lastErr = err;
+      const code = err instanceof SeoTagsClassifyError ? err.code : "unknown";
       console.warn("[seo-tags-classify] attempt_failed", {
-        attempt: attempt + 1,
-        maxRetries,
-        code: err instanceof SeoTagsClassifyError ? err.code : "unknown",
+        attempt: i + 1,
+        label: attempt.label,
+        sanitized: attempt.sanitized,
+        code,
         message: err instanceof Error ? err.message : String(err),
         details: err instanceof SeoTagsClassifyError ? err.details : undefined,
       });
-      if (attempt < maxRetries - 1) {
-        await sleep(2000 * (attempt + 1));
+
+      const isProhibited = code === "prohibited_content";
+      const next = attempts[i + 1];
+      if (!next) break;
+
+      // Skip straight to sanitized path on safety blocks; otherwise brief backoff.
+      if (!isProhibited || attempt.sanitized) {
+        await sleep(isProhibited ? 400 : 1500 * (i + 1));
       }
     }
   }
