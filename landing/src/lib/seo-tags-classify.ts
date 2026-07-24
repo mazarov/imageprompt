@@ -404,6 +404,8 @@ export type ClassifySeoTagsResult = {
   seo_readiness_score: number;
   source: SeoTagSource;
   viaProxy: boolean;
+  /** Suggested tags not in TAG_REGISTRY — for logs/review; not persisted to seo_tags. */
+  new_tags: NewTagMeta[];
 };
 
 /** Returns JSON-serializable seo_tags + readiness score. Throws if Gemini classify fails. */
@@ -421,10 +423,17 @@ export async function classifySeoTagsForPublish(
   }
 
   const out = await classifyWithRetry(supabase, title, promptTexts);
+  if (out.result.newTags.length > 0) {
+    console.log("[seo-tags-classify] new_tags_dropped", {
+      count: out.result.newTags.length,
+      tags: out.result.newTags.slice(0, 20),
+    });
+  }
   return {
     seo_tags: out.result.seoTags as unknown as Record<string, unknown>,
     seo_readiness_score: computeSeoReadinessScore(out.result.seoTags),
     source: "llm",
     viaProxy: out.viaProxy,
+    new_tags: out.result.newTags,
   };
 }
