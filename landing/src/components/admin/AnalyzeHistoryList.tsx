@@ -24,14 +24,14 @@ type HistoryItem = {
 function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+  return d.toLocaleDateString(undefined, { dateStyle: "short" });
 }
 
 function SourceBadge({ source }: { source: string }) {
   const color = clientSourceColor(source);
   return (
     <span
-      className="inline-flex rounded-full px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-zinc-950"
+      className="inline-flex rounded-full px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-zinc-950"
       style={{ backgroundColor: color }}
     >
       {clientSourceLabel(source)}
@@ -47,6 +47,7 @@ export function AnalyzeHistoryList() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [promptModal, setPromptModal] = useState<{ id: string; prompt: string } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const fetchPage = useCallback(
@@ -200,16 +201,16 @@ export function AnalyzeHistoryList() {
           No analyze history yet. Run an analyze request from the site or extension.
         </div>
       ) : (
-        <ul className="list-none space-y-4">
+        <ul className="list-none space-y-2">
           {items.map((item) => (
             <li
               key={item.id}
-              className="flex gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 shadow-sm shadow-black/20"
+              className="flex gap-2.5 rounded-xl border border-white/10 bg-zinc-900/60 p-2.5"
             >
               <button
                 type="button"
                 onClick={() => item.image_url && setLightboxUrl(item.image_url)}
-                className="relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-lg border border-white/10 bg-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-white/10 bg-zinc-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                 aria-label="View full image"
               >
                 {item.image_url ? (
@@ -217,7 +218,7 @@ export function AnalyzeHistoryList() {
                   <img
                     src={item.image_url}
                     alt=""
-                    className="h-full w-full object-contain"
+                    className="h-full w-full object-cover"
                   />
                 ) : (
                   <span className="flex h-full items-center justify-center text-[0.6rem] text-zinc-600">
@@ -225,24 +226,23 @@ export function AnalyzeHistoryList() {
                   </span>
                 )}
               </button>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <SourceBadge source={item.client_source} />
-                  <span className="text-[0.65rem] font-medium uppercase tracking-wide text-zinc-500">
-                    {formatDate(item.created_at)}
-                  </span>
-                  {item.locale ? (
-                    <span className="text-[0.65rem] text-zinc-600">{item.locale}</span>
-                  ) : null}
+                  <span className="text-[10px] text-zinc-500">{formatDate(item.created_at)}</span>
                 </div>
-                <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-zinc-300">
+                <button
+                  type="button"
+                  onClick={() => setPromptModal({ id: item.id, prompt: item.prompt })}
+                  className="line-clamp-2 text-left text-xs leading-snug text-zinc-300 hover:text-zinc-100"
+                >
                   {item.prompt}
-                </p>
-                <div className="mt-3">
+                </button>
+                <div className="mt-0.5">
                   <button
                     type="button"
                     onClick={() => void copyPrompt(item.id, item.prompt)}
-                    className="inline-flex min-h-9 items-center justify-center rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-200 transition hover:bg-zinc-800"
+                    className="text-[11px] font-semibold text-indigo-400 transition hover:opacity-75"
                   >
                     {copiedId === item.id ? "Copied" : "Copy prompt"}
                   </button>
@@ -290,6 +290,45 @@ export function AnalyzeHistoryList() {
             className="max-h-[90vh] max-w-full object-contain"
             onClick={(e) => e.stopPropagation()}
           />
+        </div>
+      ) : null}
+
+      {promptModal ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="prompt-modal-title"
+          onClick={() => setPromptModal(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setPromptModal(null);
+          }}
+        >
+          <div
+            className="relative max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="absolute right-4 top-4 rounded-full border border-white/20 px-3 py-1 text-sm text-zinc-200"
+              onClick={() => setPromptModal(null)}
+            >
+              Close
+            </button>
+            <h2 id="prompt-modal-title" className="pr-16 text-sm font-semibold text-zinc-400">
+              Full prompt
+            </h2>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
+              {promptModal.prompt}
+            </p>
+            <button
+              type="button"
+              onClick={() => void copyPrompt(promptModal.id, promptModal.prompt)}
+              className="mt-4 text-[11px] font-semibold text-indigo-400 transition hover:opacity-75"
+            >
+              {copiedId === promptModal.id ? "Copied" : "Copy prompt"}
+            </button>
+          </div>
         </div>
       ) : null}
     </div>
