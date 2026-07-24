@@ -4,9 +4,11 @@ import {
   encodeAdminGenerationCursor,
   parseAdminGenerationCursor,
   parseAdminGenerationLimit,
+  parseAdminGenerationQueueStatus,
   resolveAdminPublicationStatus,
   type AdminGenerationQueueRow,
 } from "@/lib/admin-generation-queue";
+import { toPromptshotCardUrl } from "@/lib/promptshot-public-url";
 import { createSupabaseServer, getStoragePublicUrl } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +24,8 @@ type QueueItem = {
   imageSize: string | null;
   resultUrl: string | null;
   ugcCardId: string | null;
+  cardSlug: string | null;
+  cardUrl: string | null;
   publicationStatus: ReturnType<typeof resolveAdminPublicationStatus>;
 };
 
@@ -32,8 +36,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const params = req.nextUrl.searchParams;
-  const status = (params.get("status") || "").trim();
-  if (status && status !== "unpublished") {
+  const status = parseAdminGenerationQueueStatus(params.get("status"));
+  if (!status) {
     return NextResponse.json({ error: "invalid_status" }, { status: 400 });
   }
 
@@ -42,7 +46,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const supabase = createSupabaseServer();
   const startedAt = Date.now();
 
-  const { data, error } = await supabase.rpc("admin_unpublished_generations", {
+  const { data, error } = await supabase.rpc("admin_generations_queue", {
+    p_status: status,
     p_cursor_created_at: cursor?.createdAt ?? null,
     p_cursor_id: cursor?.id ?? null,
     p_limit: limit,
@@ -51,6 +56,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (error) {
     console.error("[admin.generation-queue] rpc_failed", {
       adminEmail: gate.email,
+      status,
       message: error.message,
       latencyMs: Date.now() - startedAt,
     });
@@ -58,7 +64,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       {
         error: "generation_queue_fetch_failed",
         message:
-          "Could not load generation queue. Apply SQL migration docs/sql/14-10-admin-generation-queue.sql in Supabase first.",
+          "Could not load generation queue. Apply SQL migration docs/sql/14-11-admin-generations-queue-status.sql in Supabase first.",
       },
       { status: 500 },
     );
@@ -78,6 +84,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       });
     }
 
+    const cardSlug = row.card_slug ?? null;
+    const publicationStatus = resolveAdminPublicationStatus({
+      ugc_card_id: row.ugc_card_id,
+      card_exists: row.card_exists,
+      is_published: row.is_published,
+    });
+
     return {
       id: row.id,
       createdAt: row.created_at,
@@ -88,11 +101,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       imageSize: row.image_size,
       resultUrl,
       ugcCardId: row.ugc_card_id,
-      publicationStatus: resolveAdminPublicationStatus({
-        ugc_card_id: row.ugc_card_id,
-        card_exists: row.card_exists,
-        is_published: row.is_published,
-      }),
+      cardSlug,
+      cardUrl: cardSlug && publicationStatus === "published" ? toPromptshotCardUrl(cardSlug) : null,
+      publicationStatus,
     };
   });
 
@@ -102,6 +113,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   console.log("[admin.generation-queue] fetch", {
     adminEmail: gate.email,
+    status,
     limit,
     cursorPresent: Boolean(cursor),
     rowsReturned: items.length,

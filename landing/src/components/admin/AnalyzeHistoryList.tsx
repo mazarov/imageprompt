@@ -11,7 +11,7 @@ import {
 } from "@/components/admin/analytics-constants";
 
 type ClientSourceFilter = "all" | (typeof CLIENT_SOURCES_ORDER)[number];
-type AdminView = "analyses" | "unpublished";
+type AdminView = "analyses" | "unpublished" | "published";
 
 type HistoryItem = {
   id: string;
@@ -191,10 +191,16 @@ export function AnalyzeHistoryList() {
           onClick={() => setView("unpublished")}
           label="Сгенерировано, не опубликовано"
         />
+        <FilterTab
+          active={view === "published"}
+          onClick={() => setView("published")}
+          label="Опубликовано"
+        />
       </div>
 
-      {view === "unpublished" ? (
+      {view === "unpublished" || view === "published" ? (
         <AdminGenerationQueue
+          status={view}
           refreshKey={queueRefreshKey}
           onRegenerate={(prompt) => setGenerateModal({ id: "queue", prompt })}
         />

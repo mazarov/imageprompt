@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   adminPublicationStatusLabel,
+  type AdminGenerationQueueStatus,
   type AdminPublicationStatus,
 } from "@/lib/admin-generation-queue";
 
@@ -16,10 +17,13 @@ type QueueItem = {
   imageSize: string | null;
   resultUrl: string | null;
   ugcCardId: string | null;
+  cardSlug: string | null;
+  cardUrl: string | null;
   publicationStatus: AdminPublicationStatus;
 };
 
 type AdminGenerationQueueProps = {
+  status: AdminGenerationQueueStatus;
   onRegenerate: (prompt: string) => void;
   refreshKey?: number;
 };
@@ -33,6 +37,7 @@ function formatDate(iso: string): string {
 function StatusBadge({ status }: { status: AdminPublicationStatus }) {
   const styles: Record<AdminPublicationStatus, string> = {
     unpublished: "bg-amber-500/20 text-amber-200",
+    published: "bg-emerald-500/20 text-emerald-200",
     card_pending: "bg-indigo-500/20 text-indigo-200",
     card_missing: "bg-red-500/20 text-red-200",
   };
@@ -45,7 +50,11 @@ function StatusBadge({ status }: { status: AdminPublicationStatus }) {
   );
 }
 
-export function AdminGenerationQueue({ onRegenerate, refreshKey = 0 }: AdminGenerationQueueProps) {
+export function AdminGenerationQueue({
+  status,
+  onRegenerate,
+  refreshKey = 0,
+}: AdminGenerationQueueProps) {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,51 +63,56 @@ export function AdminGenerationQueue({ onRegenerate, refreshKey = 0 }: AdminGene
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [promptModal, setPromptModal] = useState<{ id: string; prompt: string } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [publishErrorById, setPublishErrorById] = useState<Record<string, string>>({});
 
-  const fetchPage = useCallback(async (opts: { cursor?: string | null; append?: boolean }) => {
-    const append = opts.append ?? false;
-    if (append) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-      setError(null);
-    }
+  const fetchPage = useCallback(
+    async (opts: { cursor?: string | null; append?: boolean }) => {
+      const append = opts.append ?? false;
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+        setError(null);
+      }
 
-    try {
-      const params = new URLSearchParams();
-      params.set("status", "unpublished");
-      if (opts.cursor) params.set("cursor", opts.cursor);
-      params.set("limit", "30");
+      try {
+        const params = new URLSearchParams();
+        params.set("status", status);
+        if (opts.cursor) params.set("cursor", opts.cursor);
+        params.set("limit", "30");
 
-      const res = await fetch(`/api/admin/generations?${params.toString()}`, {
-        credentials: "include",
-      });
-      const body = await res.json().catch(() => ({}));
+        const res = await fetch(`/api/admin/generations?${params.toString()}`, {
+          credentials: "include",
+        });
+        const body = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
+        if (!res.ok) {
+          if (!append) {
+            setItems([]);
+            setNextCursor(null);
+            setError(body?.message || body?.error || "Failed to load generation queue");
+          }
+          return;
+        }
+
+        const pageItems = (body.items ?? []) as QueueItem[];
+        setItems((prev) => (append ? [...prev, ...pageItems] : pageItems));
+        setNextCursor(body.nextCursor ?? null);
+        if (!append) setError(null);
+      } catch {
         if (!append) {
           setItems([]);
           setNextCursor(null);
-          setError(body?.message || body?.error || "Failed to load generation queue");
+          setError("Network error");
         }
-        return;
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
       }
-
-      const pageItems = (body.items ?? []) as QueueItem[];
-      setItems((prev) => (append ? [...prev, ...pageItems] : pageItems));
-      setNextCursor(body.nextCursor ?? null);
-      if (!append) setError(null);
-    } catch {
-      if (!append) {
-        setItems([]);
-        setNextCursor(null);
-        setError("Network error");
-      }
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, []);
+    },
+    [status],
+  );
 
   useEffect(() => {
     void fetchPage({ append: false });
@@ -112,6 +126,57 @@ export function AdminGenerationQueue({ onRegenerate, refreshKey = 0 }: AdminGene
       window.setTimeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 2000);
     } catch {
       // ignore
+    }
+  };
+
+  const publishItem = async (id: string) => {
+    if (publishingId) return;
+    setPublishingId(id);
+    setPublishErrorById((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+    try {
+      const res = await fetch(`/api/admin/generations/${encodeURIComponent(id)}/publish`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const body = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setPublishErrorById((prev) => ({
+          ...prev,
+          [id]: body?.error || "Не удалось опубликовать",
+        }));
+        return;
+      }
+
+      if (status === "unpublished") {
+        setItems((prev) => prev.filter((item) => item.id !== id));
+      } else {
+        setItems((prev) =>
+          prev.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  publicationStatus: "published",
+                  ugcCardId: (body.cardId as string | null) ?? item.ugcCardId,
+                  cardSlug: (body.slug as string | null) ?? item.cardSlug,
+                  cardUrl: (body.cardUrl as string | null) ?? item.cardUrl,
+                }
+              : item,
+          ),
+        );
+      }
+    } catch {
+      setPublishErrorById((prev) => ({
+        ...prev,
+        [id]: "Network error",
+      }));
+    } finally {
+      setPublishingId(null);
     }
   };
 
@@ -130,7 +195,9 @@ export function AdminGenerationQueue({ onRegenerate, refreshKey = 0 }: AdminGene
   if (items.length === 0) {
     return (
       <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-8 text-center text-sm text-zinc-500">
-        Нет неопубликованных генераций. Сгенерируйте изображение из вкладки «Анализы».
+        {status === "published"
+          ? "Пока нет опубликованных генераций."
+          : "Нет неопубликованных генераций. Сгенерируйте изображение из вкладки «Анализы»."}
       </div>
     );
   }
@@ -178,6 +245,9 @@ export function AdminGenerationQueue({ onRegenerate, refreshKey = 0 }: AdminGene
               >
                 {item.prompt}
               </button>
+              {publishErrorById[item.id] ? (
+                <p className="text-[11px] text-red-300">{publishErrorById[item.id]}</p>
+              ) : null}
               <div className="mt-0.5 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -193,6 +263,26 @@ export function AdminGenerationQueue({ onRegenerate, refreshKey = 0 }: AdminGene
                 >
                   Сгенерировать ещё
                 </button>
+                {item.publicationStatus !== "published" ? (
+                  <button
+                    type="button"
+                    disabled={publishingId !== null}
+                    onClick={() => void publishItem(item.id)}
+                    className="text-[11px] font-semibold text-amber-300 transition hover:opacity-75 disabled:opacity-50"
+                  >
+                    {publishingId === item.id ? "Публикация…" : "Опубликовать"}
+                  </button>
+                ) : null}
+                {item.cardUrl ? (
+                  <a
+                    href={item.cardUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-semibold text-sky-300 transition hover:opacity-75"
+                  >
+                    Открыть на сайте
+                  </a>
+                ) : null}
               </div>
             </div>
           </li>

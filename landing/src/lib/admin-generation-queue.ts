@@ -1,4 +1,10 @@
-export type AdminPublicationStatus = "unpublished" | "card_pending" | "card_missing";
+export type AdminPublicationStatus =
+  | "unpublished"
+  | "published"
+  | "card_pending"
+  | "card_missing";
+
+export type AdminGenerationQueueStatus = "unpublished" | "published" | "all";
 
 export type AdminGenerationQueueRow = {
   id: string;
@@ -14,6 +20,7 @@ export type AdminGenerationQueueRow = {
   card_exists: boolean;
   is_published: boolean;
   source_channel: string | null;
+  card_slug?: string | null;
 };
 
 export function encodeAdminGenerationCursor(createdAt: string, id: string): string {
@@ -38,6 +45,16 @@ export function parseAdminGenerationLimit(raw: string | null): number {
   return Math.min(100, Math.max(1, Math.floor(n)));
 }
 
+export function parseAdminGenerationQueueStatus(
+  raw: string | null,
+): AdminGenerationQueueStatus | null {
+  const status = (raw || "unpublished").trim().toLowerCase();
+  if (status === "unpublished" || status === "published" || status === "all") {
+    return status;
+  }
+  return null;
+}
+
 export function resolveAdminPublicationStatus(row: {
   ugc_card_id: string | null;
   card_exists: boolean;
@@ -45,6 +62,7 @@ export function resolveAdminPublicationStatus(row: {
 }): AdminPublicationStatus {
   if (!row.ugc_card_id) return "card_pending";
   if (!row.card_exists) return "card_missing";
+  if (row.is_published) return "published";
   return "unpublished";
 }
 
@@ -54,6 +72,8 @@ export function adminPublicationStatusLabel(status: AdminPublicationStatus): str
       return "Черновик создаётся";
     case "card_missing":
       return "Черновик не создан";
+    case "published":
+      return "Опубликовано";
     default:
       return "Не опубликовано";
   }
