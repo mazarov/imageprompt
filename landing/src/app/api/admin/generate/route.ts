@@ -5,6 +5,10 @@ import {
   ensureAdminPinnedPhoto,
   resolveInternalSiteOrigin,
 } from "@/lib/admin-generation-photo";
+import {
+  ensureLandingUserStubRow,
+  resolveImagepromptUserIdForApiWrite,
+} from "@/lib/app-auth-user";
 import { createSupabaseServer } from "@/lib/supabase";
 
 function toErrorMeta(err: unknown) {
@@ -64,6 +68,44 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const supabase = createSupabaseServer();
     await ensureAdminPinnedPhoto(supabase, req);
 
+    // landing_generations.user_id → landing_users; admin OAuth may lack a billing stub.
+    const resolved = await resolveImagepromptUserIdForApiWrite({
+      jwtSub: gate.userId,
+      jwtEmail: gate.email,
+    });
+    if (!resolved?.userId) {
+      console.error("[admin.generate] admin user not found in imageprompt_users", {
+        adminEmail: gate.email,
+        jwtSub: gate.userId,
+      });
+      return NextResponse.json(
+        { error: "admin_user_missing", message: "Admin user is not linked in imageprompt_users" },
+        { status: 500 },
+      );
+    }
+    const writerUserId = resolved.userId;
+    await ensureLandingUserStubRow(writerUserId);
+
+    const { data: landingUser, error: landingUserErr } = await supabase
+      .from("landing_users")
+      .select("id")
+      .eq("id", writerUserId)
+      .maybeSingle();
+    if (landingUserErr || !landingUser?.id) {
+      console.error("[admin.generate] landing_users stub missing after ensure", {
+        adminEmail: gate.email,
+        writerUserId,
+        landingUserErr: landingUserErr?.message ?? null,
+      });
+      return NextResponse.json(
+        {
+          error: "landing_user_missing",
+          message: "Could not ensure landing_users row for admin",
+        },
+        { status: 500 },
+      );
+    }
+
     const { data: configRows } = await supabase
       .from("landing_generation_config")
       .select("key, value")
@@ -98,7 +140,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const promptText = prompt.trim();
     const rows = Array.from({ length: count }, () => ({
-      user_id: gate.userId,
+      user_id: writerUserId,
       status: "pending",
       card_id: null,
       prompt_text: promptText,
@@ -119,6 +161,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (insertError || !gens?.length) {
       console.error("[admin.generate] insert error", {
         adminEmail: gate.email,
+        writerUserId,
         insertError: insertError?.message ?? null,
       });
       return NextResponse.json({ error: "Failed to create generation" }, { status: 500 });
