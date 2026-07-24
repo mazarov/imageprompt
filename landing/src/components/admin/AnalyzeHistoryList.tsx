@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminGenerateModal } from "@/components/admin/AdminGenerateModal";
+import { AdminGenerationQueue } from "@/components/admin/AdminGenerationQueue";
 import {
   CLIENT_SOURCES_ORDER,
   clientSourceColor,
@@ -10,6 +11,7 @@ import {
 } from "@/components/admin/analytics-constants";
 
 type ClientSourceFilter = "all" | (typeof CLIENT_SOURCES_ORDER)[number];
+type AdminView = "analyses" | "unpublished";
 
 type HistoryItem = {
   id: string;
@@ -41,6 +43,8 @@ function SourceBadge({ source }: { source: string }) {
 }
 
 export function AnalyzeHistoryList() {
+  const [view, setView] = useState<AdminView>("analyses");
+  const [queueRefreshKey, setQueueRefreshKey] = useState(0);
   const [clientSourceFilter, setClientSourceFilter] = useState<ClientSourceFilter>("all");
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -178,6 +182,28 @@ export function AnalyzeHistoryList() {
 
       <div className="flex flex-wrap gap-2">
         <FilterTab
+          active={view === "analyses"}
+          onClick={() => setView("analyses")}
+          label="Анализы"
+        />
+        <FilterTab
+          active={view === "unpublished"}
+          onClick={() => setView("unpublished")}
+          label="Сгенерировано, не опубликовано"
+        />
+      </div>
+
+      {view === "unpublished" ? (
+        <AdminGenerationQueue
+          refreshKey={queueRefreshKey}
+          onRegenerate={(prompt) => setGenerateModal({ id: "queue", prompt })}
+        />
+      ) : null}
+
+      {view === "analyses" ? (
+        <>
+      <div className="flex flex-wrap gap-2">
+        <FilterTab
           active={clientSourceFilter === "all"}
           onClick={() => onFilterChange("all")}
           label="All"
@@ -274,6 +300,8 @@ export function AnalyzeHistoryList() {
           </button>
         </div>
       ) : null}
+        </>
+      ) : null}
 
       {lightboxUrl ? (
         <div
@@ -306,6 +334,7 @@ export function AnalyzeHistoryList() {
         <AdminGenerateModal
           prompt={generateModal.prompt}
           onClose={() => setGenerateModal(null)}
+          onCompleted={() => setQueueRefreshKey((k) => k + 1)}
         />
       ) : null}
 

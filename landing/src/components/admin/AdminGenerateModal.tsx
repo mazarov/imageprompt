@@ -22,12 +22,17 @@ type PollResult = {
 type AdminGenerateModalProps = {
   prompt: string;
   onClose: () => void;
+  onCompleted?: () => void;
 };
 
 const POLL_INTERVAL_MS = 2500;
 const POLL_TIMEOUT_MS = 120_000;
 
-export function AdminGenerateModal({ prompt: initialPrompt, onClose }: AdminGenerateModalProps) {
+export function AdminGenerateModal({
+  prompt: initialPrompt,
+  onClose,
+  onCompleted,
+}: AdminGenerateModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState(initialPrompt);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -187,6 +192,7 @@ export function AdminGenerateModal({ prompt: initialPrompt, onClose }: AdminGene
 
       setResults(completed);
       setProgressLabel(null);
+      onCompleted?.();
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : "Generation failed");
       setProgressLabel(null);
