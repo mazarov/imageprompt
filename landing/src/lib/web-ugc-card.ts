@@ -169,6 +169,11 @@ export async function createUgcCardForCompletedGeneration(
 
   const titleRu = buildUgcCardTitle(promptText);
 
+  // prompt_cards.author_user_id still FKs auth.users (sql/156); admin sessions use
+  // imageprompt_users ids and fail that constraint. Admin catalog cards are not
+  // owner-bound — leave null (ON DELETE SET NULL allows it).
+  const authorUserId = sourceChannel === "admin_generation" ? null : userId;
+
   const { data: createdCard, error: createCardError } = await supabase
     .from("prompt_cards")
     .insert({
@@ -186,7 +191,7 @@ export async function createUgcCardForCompletedGeneration(
       parse_status: "parsed",
       parse_warnings: [],
       is_published: false,
-      author_user_id: userId,
+      author_user_id: authorUserId,
     })
     .select("id,slug")
     .single();
@@ -194,6 +199,8 @@ export async function createUgcCardForCompletedGeneration(
   if (createCardError || !createdCard?.id) {
     console.error("[web-ugc-card] prompt_cards insert failed", {
       generationId,
+      sourceChannel,
+      authorUserId,
       error: createCardError?.message ?? null,
     });
     return null;

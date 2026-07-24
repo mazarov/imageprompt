@@ -131,6 +131,11 @@ export async function POST(
         matchStrategy: "admin_generation",
       });
       if (!ugc?.cardId) {
+        console.error("[admin.publish] card_create_failed", {
+          adminEmail: gate.email,
+          generationId,
+          userId: gen.user_id,
+        });
         return NextResponse.json({ error: "card_create_failed" }, { status: 500 });
       }
       cardId = ugc.cardId;
