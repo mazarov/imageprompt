@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAnalyticsAdmin } from "@/lib/analytics-admin";
-import { classifySeoTagsForPublish } from "@/lib/seo-tags-classify";
+import {
+  classifySeoTagsForPublish,
+  SeoTagsClassifyError,
+} from "@/lib/seo-tags-classify";
 import { createSupabaseServer } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -52,9 +55,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch (err) {
     console.error("[admin.seo-tags] error", {
       adminEmail: gate.email,
+      code: err instanceof SeoTagsClassifyError ? err.code : "unknown",
       message: err instanceof Error ? err.message : String(err),
+      details: err instanceof SeoTagsClassifyError ? err.details : undefined,
       latencyMs: Date.now() - startedAt,
     });
-    return NextResponse.json({ error: "classify_failed" }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "classify_failed",
+        code: err instanceof SeoTagsClassifyError ? err.code : "classify_failed",
+        message: err instanceof Error ? err.message : "SEO tagging failed",
+      },
+      { status: err instanceof SeoTagsClassifyError && err.code === "prompt_required" ? 400 : 502 },
+    );
   }
 }

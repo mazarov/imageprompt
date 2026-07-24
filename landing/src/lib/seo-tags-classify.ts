@@ -1,6 +1,6 @@
 /**
  * Runtime SEO tag classification for admin/UGC publish (aligned with aiphoto fill-seo-tags).
- * Uses Gemini via gemini-proxy when GEMINI_API_KEY is set; otherwise regex over TAG_REGISTRY.
+ * Uses Gemini via gemini-proxy. No regex fallback — failures throw.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getGeminiBaseUrl } from "@/lib/gemini-base-url";
@@ -15,7 +15,7 @@ const DIMENSIONS: Dimension[] = [
 ];
 
 const GEMINI_SEO_MODEL = "gemini-2.5-flash";
-const GEMINI_TIMEOUT_MS = 30_000;
+const GEMINI_TIMEOUT_MS = 60_000;
 
 export type SeoTags = {
   audience_tag: string[];
@@ -26,7 +26,7 @@ export type SeoTags = {
   labels: { ru: string[]; en: string[] };
 };
 
-export type SeoTagSource = "llm" | "regex";
+export type SeoTagSource = "llm";
 
 type NewTagMeta = {
   slug: string;
@@ -74,22 +74,6 @@ function emptySeoTags(): SeoTags {
     doc_task_tag: [],
     labels: { ru: [], en: [] },
   };
-}
-
-function extractSeoTagsRegex(promptTexts: string[], title: string | null): SeoTags {
-  const haystack = `${title || ""}\n${promptTexts.join("\n")}`.toLowerCase();
-  const result = emptySeoTags();
-
-  const seen = new Set<string>();
-  for (const tag of TAG_REGISTRY) {
-    if (tag.patterns.some((p) => p.test(haystack)) && !seen.has(tag.slug)) {
-      seen.add(tag.slug);
-      result[tag.dimension].push(tag.slug);
-    }
-  }
-
-  fillLabels(result);
-  return result;
 }
 
 function fillLabels(tags: SeoTags): void {
@@ -150,7 +134,8 @@ STEP 2 — If the prompt describes a scene, location, style, or subject NOT cove
 
 Rules for KNOWN tags:
 - A tag is relevant if the prompt EXPLICITLY describes the corresponding scene/object/style/audience/event
-- For audience_tag: determine by character descriptions and relationships. Woman = devushka. Man = muzhchina. Two together = para. Family relationships = corresponding tag (s_mamoy, s_dochkoy, etc.)
+- Ignore boilerplate like CRITICAL RULES, camera EXIF, and generic photorealism instructions when choosing tags
+- For audience_tag: determine by character descriptions and relationships. Woman / female subject / she = devushka. Man = muzhchina. Two together = para. Family relationships = corresponding tag (s_mamoy, s_dochkoy, etc.)
 - For style_tag: determine by shooting technique, visual style, references (portrait, studio, GTA, anime, etc.)
 - For object_tag: determine by objects, locations, clothing category, accessories in the scene
 - For occasion_tag: determine by mentions of holidays or events
@@ -172,23 +157,37 @@ Known tags:
 ${buildTagListForPrompt()}
 ${buildJsonFormatInstruction()}`;
 
-class RateLimitError extends Error {
-  constructor(msg: string) {
-    super(msg);
-    this.name = "RateLimitError";
+export class SeoTagsClassifyError extends Error {
+  readonly code: string;
+  readonly details?: Record<string, unknown>;
+
+  constructor(code: string, message: string, details?: Record<string, unknown>) {
+    super(message);
+    this.name = "SeoTagsClassifyError";
+    this.code = code;
+    this.details = details;
   }
 }
 
 async function geminiChatJson(
   supabase: SupabaseClient,
   userText: string,
-): Promise<{ text: string; viaProxy: boolean }> {
+): Promise<{ text: string; viaProxy: boolean; finishReason: string | null; baseUrlHost: string }> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
+  if (!apiKey) {
+    throw new SeoTagsClassifyError("missing_api_key", "Missing GEMINI_API_KEY");
+  }
 
   const { baseUrl, viaProxy } = await getGeminiBaseUrl(supabase);
   const geminiUrl = `${baseUrl}/v1beta/models/${GEMINI_SEO_MODEL}:generateContent`;
+  let baseUrlHost = "invalid_base_url";
+  try {
+    baseUrlHost = new URL(baseUrl).hostname;
+  } catch {
+    // keep default
+  }
 
+  const startedAt = Date.now();
   const res = await fetch(geminiUrl, {
     method: "POST",
     headers: {
@@ -207,34 +206,74 @@ async function geminiChatJson(
       ],
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 1024,
+        // gemini-2.5-flash counts thinking toward maxOutputTokens; keep room for JSON.
+        maxOutputTokens: 4096,
+        thinkingConfig: { thinkingBudget: 256 },
         responseMimeType: "application/json",
       },
     }),
     signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
   });
 
-  if (res.status === 429) throw new RateLimitError("429");
+  if (res.status === 429) {
+    throw new SeoTagsClassifyError("rate_limited", "Gemini rate limited (429)", {
+      viaProxy,
+      baseUrlHost,
+      latencyMs: Date.now() - startedAt,
+    });
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Gemini ${res.status}: ${text.slice(0, 300)}`);
+    throw new SeoTagsClassifyError(
+      "gemini_http_error",
+      `Gemini ${res.status}: ${text.slice(0, 300)}`,
+      {
+        status: res.status,
+        viaProxy,
+        baseUrlHost,
+        latencyMs: Date.now() - startedAt,
+      },
+    );
   }
 
   const json = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    candidates?: Array<{
+      finishReason?: string;
+      content?: { parts?: Array<{ text?: string }> };
+    }>;
+    promptFeedback?: { blockReason?: string };
   };
+
+  const candidate = json.candidates?.[0];
+  const finishReason = candidate?.finishReason ?? null;
   const text =
-    json.candidates?.[0]?.content?.parts
+    candidate?.content?.parts
       ?.map((p) => p.text ?? "")
       .join("")
       .trim() ?? "";
 
-  return { text, viaProxy };
+  console.log("[seo-tags-classify] gemini_response", {
+    viaProxy,
+    baseUrlHost,
+    finishReason,
+    blockReason: json.promptFeedback?.blockReason ?? null,
+    textChars: text.length,
+    latencyMs: Date.now() - startedAt,
+  });
+
+  if (!text) {
+    throw new SeoTagsClassifyError("empty_response", "Gemini returned empty text", {
+      finishReason,
+      blockReason: json.promptFeedback?.blockReason ?? null,
+      viaProxy,
+      baseUrlHost,
+    });
+  }
+
+  return { text, viaProxy, finishReason, baseUrlHost };
 }
 
-function parseClassifyJson(rawText: string): ClassifyResult | null {
-  if (!rawText) return null;
-
+function parseClassifyJson(rawText: string): ClassifyResult {
   let jsonStr = rawText;
   const jsonStart = rawText.indexOf("{");
   const jsonEnd = rawText.lastIndexOf("}");
@@ -245,8 +284,12 @@ function parseClassifyJson(rawText: string): ClassifyResult | null {
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(jsonStr) as Record<string, unknown>;
-  } catch {
-    return null;
+  } catch (err) {
+    throw new SeoTagsClassifyError("invalid_json", "Failed to parse Gemini JSON", {
+      message: err instanceof Error ? err.message : String(err),
+      textHead: rawText.slice(0, 200),
+      textChars: rawText.length,
+    });
   }
 
   const seoResult = emptySeoTags();
@@ -311,7 +354,7 @@ async function classifyWithLlm(
   supabase: SupabaseClient,
   title: string | null,
   promptTexts: string[],
-): Promise<{ result: ClassifyResult; viaProxy: boolean } | null> {
+): Promise<{ result: ClassifyResult; viaProxy: boolean }> {
   const userText = [
     title ? `Title: ${title}` : "",
     `Prompt:\n${promptTexts.join("\n---\n")}`,
@@ -319,20 +362,9 @@ async function classifyWithLlm(
     .filter(Boolean)
     .join("\n\n");
 
-  let rawText: string;
-  let viaProxy = false;
-  try {
-    const out = await geminiChatJson(supabase, userText);
-    rawText = out.text;
-    viaProxy = out.viaProxy;
-  } catch (e) {
-    if (e instanceof RateLimitError) return null;
-    throw e;
-  }
-
-  const result = parseClassifyJson(rawText);
-  if (!result) return null;
-  return { result, viaProxy };
+  const out = await geminiChatJson(supabase, userText);
+  const result = parseClassifyJson(out.text);
+  return { result, viaProxy: out.viaProxy };
 }
 
 async function classifyWithRetry(
@@ -340,18 +372,31 @@ async function classifyWithRetry(
   title: string | null,
   promptTexts: string[],
   maxRetries = 2,
-): Promise<{ result: ClassifyResult; viaProxy: boolean } | null> {
+): Promise<{ result: ClassifyResult; viaProxy: boolean }> {
+  let lastErr: unknown;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const out = await classifyWithLlm(supabase, title, promptTexts);
-      if (out !== null) return out;
-      await sleep(2000 * (attempt + 1));
-    } catch {
-      if (attempt === maxRetries - 1) return null;
-      await sleep(2000 * (attempt + 1));
+      return await classifyWithLlm(supabase, title, promptTexts);
+    } catch (err) {
+      lastErr = err;
+      console.warn("[seo-tags-classify] attempt_failed", {
+        attempt: attempt + 1,
+        maxRetries,
+        code: err instanceof SeoTagsClassifyError ? err.code : "unknown",
+        message: err instanceof Error ? err.message : String(err),
+        details: err instanceof SeoTagsClassifyError ? err.details : undefined,
+      });
+      if (attempt < maxRetries - 1) {
+        await sleep(2000 * (attempt + 1));
+      }
     }
   }
-  return null;
+
+  if (lastErr instanceof SeoTagsClassifyError) throw lastErr;
+  throw new SeoTagsClassifyError(
+    "classify_failed",
+    lastErr instanceof Error ? lastErr.message : String(lastErr),
+  );
 }
 
 export type ClassifySeoTagsResult = {
@@ -361,53 +406,25 @@ export type ClassifySeoTagsResult = {
   viaProxy: boolean;
 };
 
-/** Returns JSON-serializable seo_tags + readiness score (same shape as fill-seo-tags DB updates). */
+/** Returns JSON-serializable seo_tags + readiness score. Throws if Gemini classify fails. */
 export async function classifySeoTagsForPublish(
   supabase: SupabaseClient,
   title: string | null,
   promptTexts: string[],
 ): Promise<ClassifySeoTagsResult> {
   if (promptTexts.length === 0) {
-    const empty = emptySeoTags();
-    return {
-      seo_tags: empty as unknown as Record<string, unknown>,
-      seo_readiness_score: 0,
-      source: "regex",
-      viaProxy: false,
-    };
+    throw new SeoTagsClassifyError("prompt_required", "promptTexts is empty");
   }
 
   if (!process.env.GEMINI_API_KEY) {
-    const regexTags = extractSeoTagsRegex(promptTexts, title);
-    return {
-      seo_tags: regexTags as unknown as Record<string, unknown>,
-      seo_readiness_score: computeSeoReadinessScore(regexTags),
-      source: "regex",
-      viaProxy: false,
-    };
+    throw new SeoTagsClassifyError("missing_api_key", "Missing GEMINI_API_KEY");
   }
 
-  try {
-    const out = await classifyWithRetry(supabase, title, promptTexts);
-    if (out) {
-      return {
-        seo_tags: out.result.seoTags as unknown as Record<string, unknown>,
-        seo_readiness_score: computeSeoReadinessScore(out.result.seoTags),
-        source: "llm",
-        viaProxy: out.viaProxy,
-      };
-    }
-  } catch (err) {
-    console.warn("[seo-tags-classify] LLM failed, regex fallback", {
-      message: err instanceof Error ? err.message : String(err),
-    });
-  }
-
-  const regexTags = extractSeoTagsRegex(promptTexts, title);
+  const out = await classifyWithRetry(supabase, title, promptTexts);
   return {
-    seo_tags: regexTags as unknown as Record<string, unknown>,
-    seo_readiness_score: computeSeoReadinessScore(regexTags),
-    source: "regex",
-    viaProxy: false,
+    seo_tags: out.result.seoTags as unknown as Record<string, unknown>,
+    seo_readiness_score: computeSeoReadinessScore(out.result.seoTags),
+    source: "llm",
+    viaProxy: out.viaProxy,
   };
 }

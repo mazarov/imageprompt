@@ -146,9 +146,17 @@ export function AdminGenerationQueue({
       const body = await res.json().catch(() => ({}));
 
       if (!res.ok) {
+        const detail =
+          typeof body?.message === "string" && body.message
+            ? body.message
+            : typeof body?.code === "string" && body.code
+              ? body.code
+              : null;
         setPublishErrorById((prev) => ({
           ...prev,
-          [id]: body?.error || "Не удалось опубликовать",
+          [id]: detail
+            ? `${body?.error || "Не удалось опубликовать"}: ${detail}`
+            : body?.error || "Не удалось опубликовать",
         }));
         return;
       }

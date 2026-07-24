@@ -5,7 +5,10 @@ import {
   ADMIN_UGC_DATASET_SLUG,
   createUgcCardForCompletedGeneration,
 } from "@/lib/web-ugc-card";
-import { classifySeoTagsForPublish } from "@/lib/seo-tags-classify";
+import {
+  classifySeoTagsForPublish,
+  SeoTagsClassifyError,
+} from "@/lib/seo-tags-classify";
 import { toPromptshotCardUrl } from "@/lib/promptshot-public-url";
 import { createSupabaseServer } from "@/lib/supabase";
 
@@ -173,7 +176,28 @@ export async function POST(
     }
 
     const titleRu = (card.title_ru as string | null) ?? null;
-    const classified = await classifySeoTagsForPublish(supabase, titleRu, promptTexts);
+    let classified;
+    try {
+      classified = await classifySeoTagsForPublish(supabase, titleRu, promptTexts);
+    } catch (tagErr) {
+      console.error("[admin.publish] tagging_failed", {
+        adminEmail: gate.email,
+        generationId,
+        cardId,
+        code: tagErr instanceof SeoTagsClassifyError ? tagErr.code : "unknown",
+        message: tagErr instanceof Error ? tagErr.message : String(tagErr),
+        details: tagErr instanceof SeoTagsClassifyError ? tagErr.details : undefined,
+        latencyMs: Date.now() - startedAt,
+      });
+      return NextResponse.json(
+        {
+          error: "tagging_failed",
+          code: tagErr instanceof SeoTagsClassifyError ? tagErr.code : "classify_failed",
+          message: tagErr instanceof Error ? tagErr.message : "SEO tagging failed",
+        },
+        { status: 502 },
+      );
+    }
 
     const { error: pubErr } = await supabase
       .from("prompt_cards")
