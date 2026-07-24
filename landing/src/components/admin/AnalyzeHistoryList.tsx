@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { AdminGenerateModal } from "@/components/admin/AdminGenerateModal";
 import {
   CLIENT_SOURCES_ORDER,
   clientSourceColor,
@@ -48,6 +49,7 @@ export function AnalyzeHistoryList() {
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [promptModal, setPromptModal] = useState<{ id: string; prompt: string } | null>(null);
+  const [generateModal, setGenerateModal] = useState<{ id: string; prompt: string } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const fetchPage = useCallback(
@@ -238,13 +240,20 @@ export function AnalyzeHistoryList() {
                 >
                   {item.prompt}
                 </button>
-                <div className="mt-0.5">
+                <div className="mt-0.5 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     onClick={() => void copyPrompt(item.id, item.prompt)}
                     className="text-[11px] font-semibold text-indigo-400 transition hover:opacity-75"
                   >
                     {copiedId === item.id ? "Copied" : "Copy prompt"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGenerateModal({ id: item.id, prompt: item.prompt })}
+                    className="text-[11px] font-semibold text-emerald-400 transition hover:opacity-75"
+                  >
+                    Сгенерировать
                   </button>
                 </div>
               </div>
@@ -291,6 +300,13 @@ export function AnalyzeHistoryList() {
             onClick={(e) => e.stopPropagation()}
           />
         </div>
+      ) : null}
+
+      {generateModal ? (
+        <AdminGenerateModal
+          prompt={generateModal.prompt}
+          onClose={() => setGenerateModal(null)}
+        />
       ) : null}
 
       {promptModal ? (

@@ -18,7 +18,7 @@ export function isAnalyticsAdminEmail(email: string | null | undefined): boolean
 }
 
 export async function requireAnalyticsAdmin(request: NextRequest): Promise<
-  | { ok: true; email: string }
+  | { ok: true; email: string; userId: string }
   | { ok: false; status: 401 | 403; error: string }
 > {
   const { user } = await getSupabaseUserForApiRoute(request);
@@ -35,5 +35,5 @@ export async function requireAnalyticsAdmin(request: NextRequest): Promise<
     return { ok: false, status: 403, error: "forbidden" };
   }
 
-  return { ok: true, email: user.email!.trim().toLowerCase() };
+  return { ok: true, email: user.email!.trim().toLowerCase(), userId: user.id };
 }

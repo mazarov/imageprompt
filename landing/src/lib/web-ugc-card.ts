@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const WEB_UGC_DATASET_SLUG = "web_generation_ugc";
+export const ADMIN_UGC_DATASET_SLUG = "admin_generation_ugc";
 const WEB_UGC_CHANNEL = "Web generation UGC";
+const ADMIN_UGC_CHANNEL = "Admin generation UGC";
 
 function makeSourceMessageId(): number {
   const base = Date.now() * 1000;
@@ -15,27 +17,32 @@ export function buildUgcCardTitle(prompt: string): string {
   return normalized.length > 90 ? `${normalized.slice(0, 87).trim()}...` : normalized;
 }
 
-async function ensureWebUgcDataset(supabase: SupabaseClient): Promise<string> {
+async function ensureUgcDataset(
+  supabase: SupabaseClient,
+  datasetSlug: string,
+  channelTitle: string,
+  sourceType: string,
+): Promise<string> {
   const { data: existing } = await supabase
     .from("import_datasets")
     .select("id")
-    .eq("dataset_slug", WEB_UGC_DATASET_SLUG)
+    .eq("dataset_slug", datasetSlug)
     .maybeSingle();
   if (existing?.id) return existing.id as string;
 
   const { data: created, error } = await supabase
     .from("import_datasets")
     .insert({
-      dataset_slug: WEB_UGC_DATASET_SLUG,
-      channel_title: WEB_UGC_CHANNEL,
-      source_type: "web_generation",
+      dataset_slug: datasetSlug,
+      channel_title: channelTitle,
+      source_type: sourceType,
       is_active: true,
       updated_at: new Date().toISOString(),
     })
     .select("id")
     .single();
   if (error || !created?.id) {
-    throw new Error(`web_ugc_dataset_create_failed:${error?.message || "unknown"}`);
+    throw new Error(`ugc_dataset_create_failed:${error?.message || "unknown"}`);
   }
   return created.id as string;
 }
@@ -45,6 +52,7 @@ async function createSyntheticUgcSourceGroup(
   datasetId: string,
   prompt: string,
   generationId: string,
+  sourceKey: string,
 ): Promise<{ sourceGroupId: string; sourceMessageId: number }> {
   const now = new Date().toISOString();
   const { data: runRow, error: runError } = await supabase
@@ -71,13 +79,13 @@ async function createSyntheticUgcSourceGroup(
       .insert({
         dataset_id: datasetId,
         run_id: runRow.id,
-        source_group_key: `web_gen:${generationId}:${sourceMessageId}`,
+        source_group_key: `${sourceKey}:${generationId}:${sourceMessageId}`,
         source_message_id: sourceMessageId,
         source_message_ids: [sourceMessageId],
         source_published_at: now,
         raw_text_plain: prompt,
         raw_payload: {
-          source: "web_generation",
+          source: sourceKey,
           generationId,
         },
       })
@@ -106,9 +114,28 @@ export async function createUgcCardForCompletedGeneration(
     promptText: string;
     resultBucket: string;
     resultPath: string;
+    sourceChannel?: string;
+    datasetSlug?: string;
+    variantLabel?: string;
+    matchStrategy?: string;
   },
 ): Promise<{ cardId: string; slug: string | null } | null> {
-  const { generationId, userId, promptText, resultBucket, resultPath } = params;
+  const {
+    generationId,
+    userId,
+    promptText,
+    resultBucket,
+    resultPath,
+    sourceChannel = "web_generation",
+    datasetSlug = WEB_UGC_DATASET_SLUG,
+    variantLabel = "web",
+    matchStrategy = "web_generation",
+  } = params;
+
+  const channelTitle =
+    datasetSlug === ADMIN_UGC_DATASET_SLUG ? ADMIN_UGC_CHANNEL : WEB_UGC_CHANNEL;
+  const sourceType = sourceChannel;
+  const sourceKey = sourceChannel === "admin_generation" ? "admin_gen" : "web_gen";
 
   const { data: genRow, error: genErr } = await supabase
     .from("landing_generations")
@@ -131,12 +158,13 @@ export async function createUgcCardForCompletedGeneration(
     }
   }
 
-  const datasetId = await ensureWebUgcDataset(supabase);
+  const datasetId = await ensureUgcDataset(supabase, datasetSlug, channelTitle, sourceType);
   const { sourceGroupId, sourceMessageId } = await createSyntheticUgcSourceGroup(
     supabase,
     datasetId,
     promptText,
     generationId,
+    sourceKey,
   );
 
   const titleRu = buildUgcCardTitle(promptText);
@@ -151,8 +179,8 @@ export async function createUgcCardForCompletedGeneration(
       tags: [],
       seo_tags: {},
       seo_readiness_score: 0,
-      source_channel: "web_generation",
-      source_dataset_slug: WEB_UGC_DATASET_SLUG,
+      source_channel: sourceChannel,
+      source_dataset_slug: datasetSlug,
       source_message_id: sourceMessageId,
       source_date: new Date().toISOString(),
       parse_status: "parsed",
@@ -195,10 +223,10 @@ export async function createUgcCardForCompletedGeneration(
   const { error: variantInsertError } = await supabase.from("prompt_variants").insert({
     card_id: cardId,
     variant_index: 0,
-    label_raw: "web",
+    label_raw: variantLabel,
     prompt_text_ru: promptText,
     prompt_text_en: null,
-    match_strategy: "web_generation",
+    match_strategy: matchStrategy,
   });
   if (variantInsertError) {
     console.error("[web-ugc-card] variant insert failed", {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer, getStoragePublicUrl } from "@/lib/supabase";
-import { createUgcCardForCompletedGeneration } from "@/lib/web-ugc-card";
+import { createUgcCardForCompletedGeneration, ADMIN_UGC_DATASET_SLUG } from "@/lib/web-ugc-card";
 import {
   assembleLandingCardFinalPrompt,
   assembleVibeFinalPrompt,
@@ -611,12 +611,21 @@ async function processGeneration(
     .eq("id", id);
 
   try {
+    const isAdminGeneration = gen.client_source === "admin";
     const ugc = await createUgcCardForCompletedGeneration(supabase, {
       generationId: id,
       userId,
       promptText: rawPrompt,
       resultBucket: BUCKET_RESULTS,
       resultPath,
+      ...(isAdminGeneration
+        ? {
+            sourceChannel: "admin_generation",
+            datasetSlug: ADMIN_UGC_DATASET_SLUG,
+            variantLabel: "admin",
+            matchStrategy: "admin_generation",
+          }
+        : {}),
     });
     if (ugc?.slug) {
       console.log("[generation.process] ugc prompt_card created", {
