@@ -18,8 +18,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   try {
     const supabase = createSupabaseServer();
-    await ensureAdminPinnedPhoto(supabase, req);
-    const photo = await getAdminPinnedPhotoSignedUrl(supabase);
+    const storagePath = await ensureAdminPinnedPhoto(supabase, req);
+    const photo = await getAdminPinnedPhotoSignedUrl(supabase, storagePath);
     return NextResponse.json(photo);
   } catch (err) {
     console.error("[admin.generation-photo] GET failed", err);
@@ -61,8 +61,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const supabase = createSupabaseServer();
-    await uploadPinnedPhoto(supabase, buffer);
-    const photo = await getAdminPinnedPhotoSignedUrl(supabase);
+    const storagePath = await uploadPinnedPhoto(supabase, buffer);
+    const photo = await getAdminPinnedPhotoSignedUrl(supabase, storagePath);
     return NextResponse.json(photo);
   } catch (err) {
     console.error("[admin.generation-photo] POST failed", err);

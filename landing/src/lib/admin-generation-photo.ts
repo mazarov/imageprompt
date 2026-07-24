@@ -1,11 +1,14 @@
 import { readFile } from "fs/promises";
 import path from "path";
+import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import sharp from "sharp";
 
 export const ADMIN_GENERATION_UPLOAD_BUCKET = "web-generation-uploads";
-export const ADMIN_PINNED_PHOTO_PATH = "admin/pinned-reference.jpg";
+export const ADMIN_PINNED_PHOTO_PATH = "admin/pinned-reference/default-v2.jpg";
 export const ADMIN_PINNED_PHOTO_SIGNED_URL_TTL_SEC = 3600;
+const ADMIN_PINNED_PHOTO_CONFIG_KEY = "admin_generation_photo_path";
+const ADMIN_PINNED_PHOTO_PREFIX = "admin/pinned-reference/";
 
 const MAX_SIZE_MB = 10;
 const MAX_PX = 2048;
@@ -46,10 +49,48 @@ export async function validateAndResizeUploadFile(file: File): Promise<Buffer> {
   return resizeGenerationPhotoBuffer(Buffer.from(bytes));
 }
 
-async function pinnedPhotoExists(supabase: SupabaseClient): Promise<boolean> {
+function isAllowedPinnedPhotoPath(storagePath: string): boolean {
+  return storagePath.startsWith(ADMIN_PINNED_PHOTO_PREFIX) && !storagePath.includes("..");
+}
+
+async function getConfiguredPinnedPhotoPath(supabase: SupabaseClient): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("photo_app_config")
+    .select("value")
+    .eq("key", ADMIN_PINNED_PHOTO_CONFIG_KEY)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`pinned_photo_config_read_failed:${error.message}`);
+  }
+  const storagePath = String(data?.value || "").trim();
+  return storagePath && isAllowedPinnedPhotoPath(storagePath) ? storagePath : null;
+}
+
+async function setConfiguredPinnedPhotoPath(
+  supabase: SupabaseClient,
+  storagePath: string,
+): Promise<void> {
+  if (!isAllowedPinnedPhotoPath(storagePath)) {
+    throw new Error("invalid_pinned_photo_path");
+  }
+  const { error } = await supabase
+    .from("photo_app_config")
+    .upsert(
+      { key: ADMIN_PINNED_PHOTO_CONFIG_KEY, value: storagePath },
+      { onConflict: "key" },
+    );
+  if (error) {
+    throw new Error(`pinned_photo_config_write_failed:${error.message}`);
+  }
+}
+
+async function pinnedPhotoExists(
+  supabase: SupabaseClient,
+  storagePath: string,
+): Promise<boolean> {
   const { data, error } = await supabase.storage
     .from(ADMIN_GENERATION_UPLOAD_BUCKET)
-    .download(ADMIN_PINNED_PHOTO_PATH);
+    .download(storagePath);
   if (error || !data) return false;
   return true;
 }
@@ -57,23 +98,40 @@ async function pinnedPhotoExists(supabase: SupabaseClient): Promise<boolean> {
 export async function uploadPinnedPhoto(
   supabase: SupabaseClient,
   buffer: Buffer,
-): Promise<void> {
+): Promise<string> {
+  const storagePath = `${ADMIN_PINNED_PHOTO_PREFIX}${Date.now()}-${randomUUID()}.jpg`;
   const { error } = await supabase.storage
     .from(ADMIN_GENERATION_UPLOAD_BUCKET)
-    .upload(ADMIN_PINNED_PHOTO_PATH, buffer, {
+    .upload(storagePath, buffer, {
       contentType: "image/jpeg",
-      upsert: true,
+      cacheControl: "31536000",
+      upsert: false,
     });
   if (error) {
     throw new Error(`pinned_photo_upload_failed:${error.message}`);
   }
+  try {
+    await setConfiguredPinnedPhotoPath(supabase, storagePath);
+  } catch (err) {
+    await supabase.storage.from(ADMIN_GENERATION_UPLOAD_BUCKET).remove([storagePath]);
+    throw err;
+  }
+  return storagePath;
 }
 
 export async function ensureAdminPinnedPhoto(
   supabase: SupabaseClient,
   req?: { headers: { get(name: string): string | null }; nextUrl?: { origin: string } },
-): Promise<void> {
-  if (await pinnedPhotoExists(supabase)) return;
+): Promise<string> {
+  const configuredPath = await getConfiguredPinnedPhotoPath(supabase);
+  if (configuredPath && (await pinnedPhotoExists(supabase, configuredPath))) {
+    return configuredPath;
+  }
+
+  if (await pinnedPhotoExists(supabase, ADMIN_PINNED_PHOTO_PATH)) {
+    await setConfiguredPinnedPhotoPath(supabase, ADMIN_PINNED_PHOTO_PATH);
+    return ADMIN_PINNED_PHOTO_PATH;
+  }
 
   let buffer: Buffer;
   try {
@@ -92,17 +150,32 @@ export async function ensureAdminPinnedPhoto(
     buffer = await resizeGenerationPhotoBuffer(Buffer.from(await res.arrayBuffer()));
   }
 
-  await uploadPinnedPhoto(supabase, buffer);
+  const { error } = await supabase.storage
+    .from(ADMIN_GENERATION_UPLOAD_BUCKET)
+    .upload(ADMIN_PINNED_PHOTO_PATH, buffer, {
+      contentType: "image/jpeg",
+      cacheControl: "31536000",
+      upsert: false,
+    });
+  if (error) {
+    throw new Error(`pinned_photo_seed_failed:${error.message}`);
+  }
+  await setConfiguredPinnedPhotoPath(supabase, ADMIN_PINNED_PHOTO_PATH);
+  return ADMIN_PINNED_PHOTO_PATH;
 }
 
 export async function getAdminPinnedPhotoSignedUrl(
   supabase: SupabaseClient,
+  storagePath: string,
 ): Promise<{ storagePath: string; signedUrl: string }> {
+  if (!isAllowedPinnedPhotoPath(storagePath)) {
+    throw new Error("invalid_pinned_photo_path");
+  }
   const { data, error } = await supabase.storage
     .from(ADMIN_GENERATION_UPLOAD_BUCKET)
-    .createSignedUrl(ADMIN_PINNED_PHOTO_PATH, ADMIN_PINNED_PHOTO_SIGNED_URL_TTL_SEC);
+    .createSignedUrl(storagePath, ADMIN_PINNED_PHOTO_SIGNED_URL_TTL_SEC);
   if (error || !data?.signedUrl) {
     throw new Error(`pinned_photo_signed_url_failed:${error?.message || "unknown"}`);
   }
-  return { storagePath: ADMIN_PINNED_PHOTO_PATH, signedUrl: data.signedUrl };
+  return { storagePath, signedUrl: data.signedUrl };
 }

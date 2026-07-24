@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAnalyticsAdmin } from "@/lib/analytics-admin";
 import {
-  ADMIN_PINNED_PHOTO_PATH,
   ensureAdminPinnedPhoto,
   resolveInternalSiteOrigin,
 } from "@/lib/admin-generation-photo";
@@ -66,9 +65,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const supabase = createSupabaseServer();
-    await ensureAdminPinnedPhoto(supabase, req);
+    const pinnedPhotoPath = await ensureAdminPinnedPhoto(supabase, req);
 
-    // landing_generations.user_id → landing_users; admin OAuth may lack a billing stub.
+    // Admin OAuth may lack the landing_users billing stub required by related generation flows.
     const resolved = await resolveImagepromptUserIdForApiWrite({
       jwtSub: gate.userId,
       jwtEmail: gate.email,
@@ -148,7 +147,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       aspect_ratio: ar,
       image_size: sz,
       credits_spent: 0,
-      input_photo_paths: [ADMIN_PINNED_PHOTO_PATH],
+      input_photo_paths: [pinnedPhotoPath],
       vibe_id: null,
       client_source: "admin",
     }));
@@ -159,12 +158,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .select("id");
 
     if (insertError || !gens?.length) {
+      const insertMsg = insertError?.message ?? null;
       console.error("[admin.generate] insert error", {
         adminEmail: gate.email,
         writerUserId,
-        insertError: insertError?.message ?? null,
+        insertError: insertMsg,
       });
-      return NextResponse.json({ error: "Failed to create generation" }, { status: 500 });
+      const fkHint =
+        typeof insertMsg === "string" &&
+        insertMsg.includes("landing_generations_user_id_fkey");
+      return NextResponse.json(
+        {
+          error: fkHint ? "landing_generations_user_id_fkey" : "Failed to create generation",
+          message: fkHint
+            ? "DB FK still points at auth.users. Apply docs/sql/03-07-landing-generations-user-id-fk-imageprompt-users.sql in Supabase SQL Editor."
+            : "Failed to create generation",
+        },
+        { status: 500 },
+      );
     }
 
     const baseUrl = resolveInternalSiteOrigin(req);
