@@ -268,7 +268,7 @@ export function AnalyzeHistoryList() {
                 <button
                   type="button"
                   onClick={() => setPromptModal({ id: item.id, prompt: item.prompt })}
-                  className="line-clamp-2 text-left text-xs leading-snug text-zinc-300 hover:text-zinc-100"
+                  className="line-clamp-1 text-left text-xs leading-snug text-zinc-300 hover:text-zinc-100 sm:line-clamp-2"
                 >
                   {item.prompt}
                 </button>
