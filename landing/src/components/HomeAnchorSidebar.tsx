@@ -95,7 +95,7 @@ function AnchorNavList({
             key={item.id}
             type="button"
             onClick={() => onNavigate(item.id)}
-            className={`rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-colors duration-200 ease-out ${
+            className={`min-h-11 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-colors duration-200 ease-out ${
               active
                 ? "bg-indigo-500/15 text-indigo-300"
                 : "text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"
@@ -177,7 +177,8 @@ export function HomeAnchorSidebar() {
                     <button
                       type="button"
                       onClick={() => setMobileOpen(false)}
-                      className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-800"
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-800"
+                      aria-label="Close navigation"
                     >
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

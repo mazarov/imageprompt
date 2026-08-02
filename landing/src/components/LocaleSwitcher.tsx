@@ -93,7 +93,7 @@ export function LocaleSwitcher() {
     // Render a minimal safe placeholder so the footer doesn't die.
     return (
       <div className="relative text-[11px] font-semibold">
-        <span className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-zinc-950/60 px-2.5 py-1 text-zinc-500">
+        <span className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-white/[0.08] bg-zinc-950/60 px-2.5 py-1 text-zinc-500">
           —
         </span>
       </div>
@@ -147,7 +147,7 @@ export function LocaleSwitcher() {
           setOpen((v) => !v);
           if (!open) setQuery("");
         }}
-        className="flex items-center gap-1 rounded-lg border border-white/[0.08] bg-zinc-950/60 px-2.5 py-1 text-zinc-200 transition hover:bg-zinc-900/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-indigo-500/50"
+        className="flex min-h-11 items-center gap-1 rounded-lg border border-white/[0.08] bg-zinc-950/60 px-2.5 py-1 text-zinc-200 transition hover:bg-zinc-900/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-indigo-500/50"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -163,7 +163,7 @@ export function LocaleSwitcher() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search language or code…"
-              className="w-full rounded-md border border-white/10 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500/40 focus:outline-none"
+              className="min-h-11 w-full rounded-md border border-white/10 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500/40 focus:outline-none"
               autoFocus
             />
           </div>
@@ -181,7 +181,7 @@ export function LocaleSwitcher() {
                   href={pathname}
                   locale={loc}
                   onClick={() => setOpen(false)}
-                  className={`flex w-full items-center justify-between px-3 py-1.5 text-left transition ${
+                  className={`flex min-h-11 w-full items-center justify-between px-3 py-1.5 text-left transition ${
                     isActive
                       ? "bg-indigo-500/15 text-indigo-200"
                       : "text-zinc-200 hover:bg-white/5"

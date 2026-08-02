@@ -17,7 +17,10 @@ export function FooterProductLinks() {
     <>
       {PRODUCTS.map((product) => (
         <li key={product.slug}>
-          <Link href={`/${product.slug}`} className="text-sm text-zinc-400 transition-colors hover:text-zinc-100">
+          <Link
+            href={`/${product.slug}`}
+            className="inline-flex min-h-11 items-center text-sm text-zinc-400 transition-colors hover:text-zinc-100"
+          >
             {labels[product.slug]}
           </Link>
         </li>

@@ -3,6 +3,7 @@
 import { useRef, useCallback, Component, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { CONTACT_EMAIL } from "@/content/extension-privacy-policy";
 import { LANDING_SURFACE_FOOTER } from "@/lib/landing-design-tokens";
 import { FooterProductLinks } from "./FooterProductLinks";
 import { SiteLogoMark } from "./SiteLogoMark";
@@ -57,7 +58,7 @@ export function Footer() {
             <button
               type="button"
               onClick={handleLogoClick}
-              className="flex items-center gap-2 text-base font-bold tracking-tight text-zinc-50 select-none"
+              className="flex min-h-11 items-center gap-2 text-base font-bold tracking-tight text-zinc-50 select-none"
             >
               <SiteLogoMark
                 size={24}
@@ -78,14 +79,23 @@ export function Footer() {
               <div className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">{t("companyTitle")}</div>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/" className="text-sm text-zinc-400 transition-colors hover:text-zinc-100">
+                  <Link href="/" className="inline-flex min-h-11 min-w-11 items-center text-sm text-zinc-400 transition-colors hover:text-zinc-100">
                     {tc("home")}
                   </Link>
                 </li>
                 <li>
-                  <Link href="/privacy" className="text-sm text-zinc-400 transition-colors hover:text-zinc-100">
+                  <Link href="/privacy" className="inline-flex min-h-11 items-center text-sm text-zinc-400 transition-colors hover:text-zinc-100">
                     {t("privacyLink")}
                   </Link>
+                </li>
+                <li>
+                  <a
+                    href={`mailto:${CONTACT_EMAIL}`}
+                    className="inline-flex min-h-11 items-center text-sm text-zinc-400 transition-colors hover:text-zinc-100"
+                    aria-label={`Contact ImagePrompt at ${CONTACT_EMAIL}`}
+                  >
+                    {CONTACT_EMAIL}
+                  </a>
                 </li>
               </ul>
             </div>

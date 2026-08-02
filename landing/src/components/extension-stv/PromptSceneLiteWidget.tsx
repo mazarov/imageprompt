@@ -509,7 +509,7 @@ export function PromptSceneLiteWidget() {
         <button
           type="button"
           onClick={() => setMainTab("analyze")}
-          className={`min-h-10 flex-1 rounded-md px-3 text-sm font-medium transition ${STV_FOCUS_RING} ${
+          className={`min-h-11 flex-1 rounded-md px-3 text-sm font-medium transition ${STV_FOCUS_RING} ${
             mainTab === "analyze"
               ? "bg-indigo-600 text-white shadow"
               : "border border-white/10 bg-zinc-950/60 text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"
@@ -520,7 +520,7 @@ export function PromptSceneLiteWidget() {
         <button
           type="button"
           onClick={() => setMainTab("history")}
-          className={`min-h-10 flex-1 rounded-md px-3 text-sm font-medium transition ${STV_FOCUS_RING} ${
+          className={`min-h-11 flex-1 rounded-md px-3 text-sm font-medium transition ${STV_FOCUS_RING} ${
             mainTab === "history"
               ? "bg-indigo-600 text-white shadow"
               : "border border-white/10 bg-zinc-950/60 text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"
@@ -562,14 +562,14 @@ export function PromptSceneLiteWidget() {
                       <button
                         type="button"
                         onClick={() => recognizeAgainFromHistory(entry)}
-                        className={`inline-flex min-h-9 items-center justify-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 ${STV_FOCUS_RING}`}
+                        className={`inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 ${STV_FOCUS_RING}`}
                       >
                         {t("historyRecognizeAgain")}
                       </button>
                       <button
                         type="button"
                         onClick={() => void copyHistoryPrompt(entry.prompt)}
-                        className={`inline-flex min-h-9 items-center justify-center rounded-lg px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
+                        className={`inline-flex min-h-11 items-center justify-center rounded-lg px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 ${LANDING_BORDER_INPUT} ${STV_FOCUS_RING}`}
                       >
                         {t("historyCopyPrompt")}
                       </button>

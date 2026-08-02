@@ -75,7 +75,7 @@ export function HeaderClient() {
           href="/"
           onClick={onBrandNavClick}
           title={t("siteBrand")}
-          className="-mx-2 flex items-center gap-2 rounded-xl px-2 py-1 text-lg font-bold tracking-tight text-zinc-50 transition hover:bg-zinc-900/55 lg:flex-shrink-0 select-none"
+          className="-mx-2 flex min-h-11 items-center gap-2 rounded-xl px-2 py-1 text-lg font-bold tracking-tight text-zinc-50 transition hover:bg-zinc-900/55 lg:flex-shrink-0 select-none"
         >
           <SiteLogoMark size={28} className="h-7 w-7 rounded-lg" />
           <span>{t("siteBrand")}</span>
@@ -84,7 +84,7 @@ export function HeaderClient() {
           type="button"
           disabled={authLoading}
           onClick={user ? () => void signOut() : signInWithGoogle}
-          className="absolute right-3 top-1/2 inline-flex min-h-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-zinc-950/60 px-3 text-xs font-semibold text-zinc-100 shadow-sm shadow-black/20 transition hover:border-white/15 hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 lg:right-5"
+          className="absolute right-3 top-1/2 inline-flex min-h-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-zinc-950/60 px-3 text-xs font-semibold text-zinc-100 shadow-sm shadow-black/20 transition hover:border-white/15 hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 lg:right-5"
         >
           {user ? t("signOut") : ta("signInShort")}
         </button>

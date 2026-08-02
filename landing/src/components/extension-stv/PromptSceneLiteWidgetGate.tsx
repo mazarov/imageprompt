@@ -19,7 +19,7 @@ export function PromptSceneLiteSkeleton() {
       <div className="space-y-4">
         <div className="h-3 w-24 rounded bg-zinc-800/90" />
         <div
-          className={`h-10 w-full max-w-xs rounded-lg ${LANDING_SURFACE_WIDGET_TAB_ROW} p-1 ${LANDING_RING_INSET_SOFT}`}
+          className={`h-11 w-full max-w-xs rounded-lg ${LANDING_SURFACE_WIDGET_TAB_ROW} p-1 ${LANDING_RING_INSET_SOFT}`}
           aria-hidden
         >
           <div className="flex h-full gap-0.5">
