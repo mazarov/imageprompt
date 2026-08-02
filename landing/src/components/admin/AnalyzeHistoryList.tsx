@@ -268,11 +268,11 @@ export function AnalyzeHistoryList() {
                 <button
                   type="button"
                   onClick={() => setPromptModal({ id: item.id, prompt: item.prompt })}
-                  className="line-clamp-1 text-left text-xs leading-snug text-zinc-300 hover:text-zinc-100 sm:line-clamp-2"
+                  className="line-clamp-1 text-left text-xs leading-snug text-zinc-300 hover:text-zinc-100"
                 >
                   {item.prompt}
                 </button>
-                <div className="mt-0.5 flex flex-wrap items-center gap-3">
+                <div className="mt-0.5 flex flex-nowrap items-center gap-2 overflow-x-auto whitespace-nowrap">
                   <button
                     type="button"
                     onClick={() => void copyPrompt(item.id, item.prompt)}
