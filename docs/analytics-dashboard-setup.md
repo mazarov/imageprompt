@@ -15,6 +15,7 @@
 7. `docs/sql/14-07-extension-rate-limit-reservations.sql` — колонка `pending`, RPC reserve/confirm/release (**обязательно перед деплоем landing с reserve flow**).
 8. `docs/sql/14-08-extension-events-outcome-and-client.sql` — таблица `extension_client_events`, колонки outcome в `extension_analyze_events`, вьюхи `analytics_extension_funnel` и `analytics_extension_outcomes_daily` (**обязательно перед деплоем блока Extension funnel / Backend outcomes в `/admin/analytics`**).
 9. `docs/sql/14-09-analyze-history.sql` — таблица `analyze_history`, private bucket `analyze-history` (**обязательно перед деплоем `/admin/analyze-history` и записи истории в analyze route**). См. [`analyze-history.md`](analyze-history.md).
+10. `docs/sql/14-12-analyze-history-publishing.sql` — связь анализов с публичными prompt-card (**обязательно перед деплоем кнопки публикации в `/admin/analyze-history`**).
 
 После применения 14-01 и 14-02 — деплоить код лендинга (иначе insert с `client_source` упадёт на отсутствующую колонку).
 
@@ -23,6 +24,8 @@
 После применения 14-08 — деплоить landing с обновлённым `/admin/analytics` (extension funnel + backend outcomes).
 
 После применения 14-09 — деплоить landing с `/admin/analyze-history` и `recordAnalyzeHistory` в analyze route.
+
+После применения 14-12 — можно деплоить публикацию выбранных фото из истории анализа.
 
 ## Структура данных
 

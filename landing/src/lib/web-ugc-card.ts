@@ -2,8 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const WEB_UGC_DATASET_SLUG = "web_generation_ugc";
 export const ADMIN_UGC_DATASET_SLUG = "admin_generation_ugc";
+export const ADMIN_ANALYZE_UGC_DATASET_SLUG = "admin_analyze_ugc";
 const WEB_UGC_CHANNEL = "Web generation UGC";
 const ADMIN_UGC_CHANNEL = "Admin generation UGC";
+const ADMIN_ANALYZE_UGC_CHANNEL = "Admin analyze UGC";
 
 function makeSourceMessageId(): number {
   const base = Date.now() * 1000;
@@ -274,6 +276,169 @@ export async function createUgcCardForCompletedGeneration(
       const { data: c } = await supabase.from("prompt_cards").select("id,slug").eq("id", existingId).maybeSingle();
       if (c?.id) {
         return { cardId: c.id as string, slug: (c.slug as string) ?? null };
+      }
+    }
+    return null;
+  }
+
+  return { cardId, slug: (createdCard.slug as string) ?? null };
+}
+
+/**
+ * Creates a draft catalog card from an analyzed user photo and links it to
+ * analyze_history. The source photo must already be copied to a public bucket.
+ */
+export async function createUgcCardForAnalyzeHistory(
+  supabase: SupabaseClient,
+  params: {
+    analyzeHistoryId: string;
+    promptText: string;
+    resultBucket: string;
+    resultPath: string;
+  },
+): Promise<{ cardId: string; slug: string | null } | null> {
+  const { analyzeHistoryId, promptText, resultBucket, resultPath } = params;
+
+  const { data: historyRow, error: historyError } = await supabase
+    .from("analyze_history")
+    .select("id,ugc_card_id")
+    .eq("id", analyzeHistoryId)
+    .maybeSingle();
+
+  if (historyError || !historyRow) return null;
+
+  if (historyRow.ugc_card_id) {
+    const { data: existingCard } = await supabase
+      .from("prompt_cards")
+      .select("id,slug")
+      .eq("id", historyRow.ugc_card_id)
+      .maybeSingle();
+    if (existingCard?.id) {
+      return {
+        cardId: existingCard.id as string,
+        slug: (existingCard.slug as string) ?? null,
+      };
+    }
+  }
+
+  const datasetId = await ensureUgcDataset(
+    supabase,
+    ADMIN_ANALYZE_UGC_DATASET_SLUG,
+    ADMIN_ANALYZE_UGC_CHANNEL,
+    "admin_analyze",
+  );
+  const { sourceGroupId, sourceMessageId } = await createSyntheticUgcSourceGroup(
+    supabase,
+    datasetId,
+    promptText,
+    analyzeHistoryId,
+    "admin_analyze",
+  );
+
+  const { data: createdCard, error: createCardError } = await supabase
+    .from("prompt_cards")
+    .insert({
+      source_group_id: sourceGroupId,
+      title_ru: buildUgcCardTitle(promptText),
+      title_en: null,
+      hashtags: [],
+      tags: [],
+      seo_tags: {},
+      seo_readiness_score: 0,
+      source_channel: "admin_analyze",
+      source_dataset_slug: ADMIN_ANALYZE_UGC_DATASET_SLUG,
+      source_message_id: sourceMessageId,
+      source_date: new Date().toISOString(),
+      parse_status: "parsed",
+      parse_warnings: [],
+      is_published: false,
+      author_user_id: null,
+    })
+    .select("id,slug")
+    .single();
+
+  if (createCardError || !createdCard?.id) {
+    console.error("[web-ugc-card] analyze prompt_cards insert failed", {
+      analyzeHistoryId,
+      error: createCardError?.message ?? null,
+    });
+    return null;
+  }
+
+  const cardId = createdCard.id as string;
+  const { error: mediaInsertError } = await supabase.from("prompt_card_media").insert({
+    card_id: cardId,
+    media_index: 0,
+    media_type: "photo",
+    storage_bucket: resultBucket,
+    storage_path: resultPath,
+    original_relative_path: resultPath,
+    is_primary: true,
+  });
+  if (mediaInsertError) {
+    console.error("[web-ugc-card] analyze media insert failed", {
+      analyzeHistoryId,
+      cardId,
+      error: mediaInsertError.message,
+    });
+    await supabase.from("prompt_cards").delete().eq("id", cardId);
+    return null;
+  }
+
+  const { error: variantInsertError } = await supabase.from("prompt_variants").insert({
+    card_id: cardId,
+    variant_index: 0,
+    label_raw: "analyze",
+    prompt_text_ru: promptText,
+    prompt_text_en: null,
+    match_strategy: "admin_analyze",
+  });
+  if (variantInsertError) {
+    console.error("[web-ugc-card] analyze variant insert failed", {
+      analyzeHistoryId,
+      cardId,
+      error: variantInsertError.message,
+    });
+    await supabase.from("prompt_cards").delete().eq("id", cardId);
+    return null;
+  }
+
+  const { data: linkedRows, error: linkError } = await supabase
+    .from("analyze_history")
+    .update({ ugc_card_id: cardId })
+    .eq("id", analyzeHistoryId)
+    .is("ugc_card_id", null)
+    .select("id");
+
+  if (linkError) {
+    console.error("[web-ugc-card] analyze history link failed", {
+      analyzeHistoryId,
+      cardId,
+      error: linkError.message,
+    });
+    await supabase.from("prompt_cards").delete().eq("id", cardId);
+    return null;
+  }
+
+  if (!linkedRows || linkedRows.length === 0) {
+    await supabase.from("prompt_cards").delete().eq("id", cardId);
+    const { data: other } = await supabase
+      .from("analyze_history")
+      .select("ugc_card_id")
+      .eq("id", analyzeHistoryId)
+      .maybeSingle();
+    const existingId = other?.ugc_card_id as string | undefined;
+    if (existingId) {
+      const { data: existingCard } = await supabase
+        .from("prompt_cards")
+        .select("id,slug")
+        .eq("id", existingId)
+        .maybeSingle();
+      if (existingCard?.id) {
+        return {
+          cardId: existingCard.id as string,
+          slug: (existingCard.slug as string) ?? null,
+        };
       }
     }
     return null;

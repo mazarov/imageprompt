@@ -6,7 +6,8 @@
 
 1. Применить [`docs/sql/14-09-analyze-history.sql`](sql/14-09-analyze-history.sql) в Supabase SQL Editor.
 2. Убедиться, что private bucket **`analyze-history`** существует (миграция создаёт его через `storage.buckets`; при необходимости — Dashboard → Storage → New bucket, **Public off**).
-3. Деплоить landing с кодом записи и админ-UI.
+3. Для публикации выбранных анализов применить [`docs/sql/14-12-analyze-history-publishing.sql`](sql/14-12-analyze-history-publishing.sql).
+4. Деплоить landing с кодом записи и админ-UI.
 
 Порядок: после **14-08**, см. также [`analytics-dashboard-setup.md`](analytics-dashboard-setup.md).
 
@@ -16,6 +17,7 @@
 |---|---|
 | `public.analyze_history` | Строка на каждый успешный analyze: source, prompt, metadata, `image_path` |
 | Storage bucket `analyze-history` | JPEG-превью (max 1024px long side), путь `YYYY/MM/DD/<uuid>.jpg` |
+| Storage bucket `web-generation-results` | Публичная копия только выбранного для публикации фото |
 
 Запись только при HTTP 200 и непустом промте (включая truncated). Ошибки storage/insert **не** влияют на ответ analyze.
 
@@ -31,6 +33,14 @@
 - URL: **`/admin/analyze-history`**
 - Авторизация: Google-сессия + allowlist **`ANALYTICS_ADMIN_EMAILS`** (тот же env, что у `/admin/analytics`).
 - API: `GET /api/admin/analyze-history?client_source=&cursor=&limit=30`
+- Публикация: `POST /api/admin/analyze-history/:id/publish`
+
+## Публикация
+
+Кнопка **«Опубликовать»** создаёт обычную публичную prompt-card из фото и промта
+анализа. Фото сначала копируется из приватного `analyze-history` в публичный
+`web-generation-results`, поэтому остальные неопубликованные фото остаются
+закрытыми. Повторный запрос идемпотентен и возвращает уже созданную карточку.
 
 Новых env-переменных не требуется.
 

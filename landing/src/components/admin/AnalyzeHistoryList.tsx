@@ -22,6 +22,8 @@ type HistoryItem = {
   locale: string | null;
   model: string | null;
   image_url: string | null;
+  is_published: boolean;
+  card_url: string | null;
 };
 
 function formatDate(iso: string): string {
@@ -55,6 +57,8 @@ export function AnalyzeHistoryList() {
   const [promptModal, setPromptModal] = useState<{ id: string; prompt: string } | null>(null);
   const [generateModal, setGenerateModal] = useState<{ id: string; prompt: string } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [publishErrorById, setPublishErrorById] = useState<Record<string, string>>({});
 
   const fetchPage = useCallback(
     async (opts: { cursor?: string | null; append?: boolean; source?: ClientSourceFilter }) => {
@@ -132,6 +136,58 @@ export function AnalyzeHistoryList() {
       window.setTimeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 2000);
     } catch {
       // ignore
+    }
+  };
+
+  const publishItem = async (id: string) => {
+    if (publishingId) return;
+    setPublishingId(id);
+    setPublishErrorById((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+    try {
+      const res = await fetch(
+        `/api/admin/analyze-history/${encodeURIComponent(id)}/publish`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail =
+          typeof body?.message === "string" && body.message
+            ? body.message
+            : typeof body?.code === "string" && body.code
+              ? body.code
+              : null;
+        setPublishErrorById((prev) => ({
+          ...prev,
+          [id]: detail
+            ? `${body?.error || "Не удалось опубликовать"}: ${detail}`
+            : body?.error || "Не удалось опубликовать",
+        }));
+        return;
+      }
+
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                is_published: true,
+                card_url: (body.cardUrl as string | null) ?? item.card_url,
+              }
+            : item,
+        ),
+      );
+    } catch {
+      setPublishErrorById((prev) => ({ ...prev, [id]: "Network error" }));
+    } finally {
+      setPublishingId(null);
     }
   };
 
@@ -272,6 +328,9 @@ export function AnalyzeHistoryList() {
                 >
                   {item.prompt}
                 </button>
+                {publishErrorById[item.id] ? (
+                  <p className="text-[11px] text-red-300">{publishErrorById[item.id]}</p>
+                ) : null}
                 <div className="mt-0.5 flex flex-nowrap items-center gap-2 overflow-x-auto whitespace-nowrap">
                   <button
                     type="button"
@@ -287,6 +346,30 @@ export function AnalyzeHistoryList() {
                   >
                     Сгенерировать
                   </button>
+                  {!item.is_published ? (
+                    <button
+                      type="button"
+                      disabled={publishingId !== null || !item.image_url}
+                      onClick={() => void publishItem(item.id)}
+                      className="text-[11px] font-semibold text-amber-300 transition hover:opacity-75 disabled:opacity-50"
+                    >
+                      {publishingId === item.id ? "Публикация…" : "Опубликовать"}
+                    </button>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-emerald-300">
+                      Опубликовано
+                    </span>
+                  )}
+                  {item.card_url ? (
+                    <a
+                      href={item.card_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-semibold text-sky-300 transition hover:opacity-75"
+                    >
+                      Открыть на сайте
+                    </a>
+                  ) : null}
                 </div>
               </div>
             </li>

@@ -38,6 +38,7 @@ export type AnalyzeHistoryRow = {
   locale: string | null;
   model: string | null;
   image_path: string | null;
+  ugc_card_id: string | null;
 };
 
 function utcDatePathParts(d = new Date()): { yyyy: string; mm: string; dd: string } {

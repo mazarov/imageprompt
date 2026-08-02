@@ -8,6 +8,7 @@ import {
   parseAnalyzeHistoryLimit,
   type AnalyzeHistoryRow,
 } from "@/lib/analyze-history";
+import { toPromptshotCardUrl } from "@/lib/promptshot-public-url";
 import { createSupabaseServer } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,8 @@ type HistoryItem = {
   locale: string | null;
   model: string | null;
   image_url: string | null;
+  is_published: boolean;
+  card_url: string | null;
 };
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -42,7 +45,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   let query = supabase
     .from("analyze_history")
-    .select("id, created_at, client_source, prompt, style, locale, model, image_path")
+    .select(
+      "id, created_at, client_source, prompt, style, locale, model, image_path, ugc_card_id",
+    )
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(limit + 1);
@@ -74,6 +79,29 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const rows = (data ?? []) as AnalyzeHistoryRow[];
   const hasMore = rows.length > limit;
   const pageRows = hasMore ? rows.slice(0, limit) : rows;
+  const cardIds = pageRows
+    .map((row) => row.ugc_card_id)
+    .filter((id): id is string => Boolean(id));
+  const cardsById = new Map<string, { slug: string | null; is_published: boolean }>();
+
+  if (cardIds.length > 0) {
+    const { data: cards, error: cardsError } = await supabase
+      .from("prompt_cards")
+      .select("id,slug,is_published")
+      .in("id", cardIds);
+    if (cardsError) {
+      console.warn("[admin.analyze-history] publication status fetch failed", {
+        message: cardsError.message,
+      });
+    } else {
+      for (const card of cards ?? []) {
+        cardsById.set(card.id as string, {
+          slug: (card.slug as string | null) ?? null,
+          is_published: Boolean(card.is_published),
+        });
+      }
+    }
+  }
 
   const items: HistoryItem[] = await Promise.all(
     pageRows.map(async (row) => {
@@ -91,6 +119,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           imageUrl = signed?.signedUrl ?? null;
         }
       }
+      const card = row.ugc_card_id ? cardsById.get(row.ugc_card_id) : null;
       return {
         id: row.id,
         created_at: row.created_at,
@@ -100,6 +129,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         locale: row.locale,
         model: row.model,
         image_url: imageUrl,
+        is_published: Boolean(card?.is_published),
+        card_url:
+          card?.is_published && card.slug ? toPromptshotCardUrl(card.slug) : null,
       };
     }),
   );
