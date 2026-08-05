@@ -38,6 +38,7 @@ type NewTagMeta = {
 type ClassifyResult = {
   seoTags: SeoTags;
   newTags: NewTagMeta[];
+  diagnostics: SeoTagDiagnostics;
 };
 
 const SLUG_LABELS = Object.fromEntries(
@@ -49,6 +50,19 @@ for (const dim of DIMENSIONS) {
   VALID_SLUGS_BY_DIM.set(dim, new Set(TAG_REGISTRY.filter((t) => t.dimension === dim).map((t) => t.slug)));
 }
 
+const KNOWN_DIM_BY_SLUG = new Map(TAG_REGISTRY.map((t) => [t.slug, t.dimension]));
+
+const MAX_TAGS_BY_DIMENSION: Record<Dimension, number> = {
+  audience_tag: 12,
+  style_tag: 15,
+  occasion_tag: 8,
+  object_tag: 20,
+  doc_task_tag: 6,
+};
+const MAX_TOTAL_TAGS = 30;
+const SUSPICIOUS_COVERAGE_RATIO = 0.5;
+const SUSPICIOUS_COVERAGE_MIN_TAGS = 10;
+
 const TAG_ALIASES: Record<string, string> = {
   chernо_beloe: "cherno_beloe",
   s_iphone: "iphone",
@@ -59,6 +73,86 @@ const TAG_ALIASES: Record<string, string> = {
 
 function normalizeTagSlug(slug: string): string {
   return TAG_ALIASES[slug] ?? slug;
+}
+
+export type SeoTagDiagnostics = {
+  acceptedByDimension: Record<Dimension, number>;
+  droppedByDimension: Record<Dimension, number>;
+  registryCoverageByDimension: Record<Dimension, number>;
+  totalAccepted: number;
+  suspiciousReasons: string[];
+};
+
+function emptyDimensionCounts(): Record<Dimension, number> {
+  return {
+    audience_tag: 0,
+    style_tag: 0,
+    occasion_tag: 0,
+    object_tag: 0,
+    doc_task_tag: 0,
+  };
+}
+
+/**
+ * Detects registry dumps and other implausibly broad classifier responses.
+ * Works for both fresh Gemini JSON and already persisted seo_tags.
+ */
+export function inspectSeoTagOutput(raw: unknown): SeoTagDiagnostics {
+  const obj =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  const acceptedByDimension = emptyDimensionCounts();
+  const droppedByDimension = emptyDimensionCounts();
+  const registryCoverageByDimension = emptyDimensionCounts();
+  const suspiciousReasons: string[] = [];
+
+  for (const dim of DIMENSIONS) {
+    const values = Array.isArray(obj[dim]) ? (obj[dim] as unknown[]) : [];
+    const unique = new Set(
+      values
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        .map((value) => normalizeTagSlug(value.trim())),
+    );
+    const validSet = VALID_SLUGS_BY_DIM.get(dim)!;
+    const accepted = [...unique].filter((slug) => validSet.has(slug)).length;
+    const dropped = unique.size - accepted;
+    const coverage = validSet.size > 0 ? accepted / validSet.size : 0;
+
+    acceptedByDimension[dim] = accepted;
+    droppedByDimension[dim] = dropped;
+    registryCoverageByDimension[dim] = coverage;
+
+    if (accepted > MAX_TAGS_BY_DIMENSION[dim]) {
+      suspiciousReasons.push(
+        `${dim}:accepted=${accepted}>max=${MAX_TAGS_BY_DIMENSION[dim]}`,
+      );
+    }
+    if (
+      accepted >= SUSPICIOUS_COVERAGE_MIN_TAGS &&
+      coverage >= SUSPICIOUS_COVERAGE_RATIO
+    ) {
+      suspiciousReasons.push(
+        `${dim}:registry_coverage=${coverage.toFixed(2)} accepted=${accepted}`,
+      );
+    }
+  }
+
+  const totalAccepted = Object.values(acceptedByDimension).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
+  if (totalAccepted > MAX_TOTAL_TAGS) {
+    suspiciousReasons.push(`total:accepted=${totalAccepted}>max=${MAX_TOTAL_TAGS}`);
+  }
+
+  return {
+    acceptedByDimension,
+    droppedByDimension,
+    registryCoverageByDimension,
+    totalAccepted,
+    suspiciousReasons,
+  };
 }
 
 function sleep(ms: number) {
@@ -334,7 +428,7 @@ function buildClassifyUserText(
     .join("\n\n");
 }
 
-function parseClassifyJson(rawText: string): ClassifyResult {
+export function parseClassifyJson(rawText: string): ClassifyResult {
   let jsonStr = rawText;
   const jsonStart = rawText.indexOf("{");
   const jsonEnd = rawText.lastIndexOf("}");
@@ -356,6 +450,21 @@ function parseClassifyJson(rawText: string): ClassifyResult {
   const seoResult = emptySeoTags();
   const newTagsMeta: NewTagMeta[] = [];
   const newTagSlugsRaw = new Map<string, NewTagMeta>();
+  const diagnostics = inspectSeoTagOutput(parsed);
+
+  if (diagnostics.suspiciousReasons.length > 0) {
+    throw new SeoTagsClassifyError(
+      "suspicious_tag_output",
+      "Gemini returned an implausibly broad SEO tag set",
+      {
+        acceptedByDimension: diagnostics.acceptedByDimension,
+        droppedByDimension: diagnostics.droppedByDimension,
+        registryCoverageByDimension: diagnostics.registryCoverageByDimension,
+        totalAccepted: diagnostics.totalAccepted,
+        reasons: diagnostics.suspiciousReasons,
+      },
+    );
+  }
 
   const rawNewTags = parsed["new_tags"];
   if (Array.isArray(rawNewTags)) {
@@ -386,11 +495,14 @@ function parseClassifyJson(rawText: string): ClassifyResult {
     const validSet = VALID_SLUGS_BY_DIM.get(dim)!;
     for (const slug of arr) {
       if (typeof slug !== "string" || !slug) continue;
-      const normalized = normalizeTagSlug(slug);
-      if (!seoResult[dim].includes(normalized)) {
+      const normalized = normalizeTagSlug(slug.trim());
+      if (!normalized) continue;
+      if (validSet.has(normalized) && !seoResult[dim].includes(normalized)) {
         seoResult[dim].push(normalized);
       }
       if (!validSet.has(normalized)) {
+        // A known slug in the wrong dimension is invalid, not a new-tag suggestion.
+        if (KNOWN_DIM_BY_SLUG.has(normalized)) continue;
         const meta =
           newTagSlugsRaw.get(`${dim}:${slug}`) ?? newTagSlugsRaw.get(`${dim}:${normalized}`);
         if (meta) {
@@ -408,7 +520,7 @@ function parseClassifyJson(rawText: string): ClassifyResult {
   }
 
   fillLabels(seoResult);
-  return { seoTags: seoResult, newTags: newTagsMeta };
+  return { seoTags: seoResult, newTags: newTagsMeta, diagnostics };
 }
 
 async function classifyWithLlm(
@@ -420,6 +532,12 @@ async function classifyWithLlm(
   const userText = buildClassifyUserText(title, promptTexts, opts);
   const out = await geminiChatJson(supabase, userText);
   const result = parseClassifyJson(out.text);
+  console.log("[seo-tags-classify] parsed_output", {
+    acceptedByDimension: result.diagnostics.acceptedByDimension,
+    droppedByDimension: result.diagnostics.droppedByDimension,
+    registryCoverageByDimension: result.diagnostics.registryCoverageByDimension,
+    totalAccepted: result.diagnostics.totalAccepted,
+  });
   return { result, viaProxy: out.viaProxy };
 }
 
