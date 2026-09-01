@@ -2,7 +2,7 @@
 
 > Доработка существующей фичи: после получения промпта (из картинки) пользователь описывает изменение в свободной форме («убери фон, сделай улыбку») и получает обновлённый промпт — модель сама определяет какие секции менять, расширение локально вклеивает только изменённые блоки без повторной загрузки картинки.
 > Бэкенд-эндпоинт `POST /api/extension/remix` реализован в `landing/src/app/api/extension/remix/route.ts`. UI в `extension-lite/` — auto remix composer (без выбора секции).
-> Дата: 18.06.2026 (обновлено 02.07.2026 — auto mode / section_diff; 02.07.2026 — two-step classifier + scoped rewriter).
+> Дата: 18.06.2026 (обновлено 02.07.2026 — auto mode / section_diff; 02.07.2026 — two-step classifier + scoped rewriter; 01.09.2026 — daily cap 15).
 
 ## 1. Идея
 
@@ -56,9 +56,9 @@ E. **Пустой ответ модели.** Если модель вернул�
     { "label": "Scene", "text": "Scene:\n…" },
     { "label": "Mood", "text": "Mood:\n…" }
   ],
-  "remaining": 27,
+  "remaining": 12,
   "count": 3,
-  "max": 30
+  "max": 15
 }
 ```
 

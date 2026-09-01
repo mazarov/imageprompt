@@ -8,7 +8,8 @@ import { extensionLog } from "@/lib/extension-pipeline-log";
 import { createSupabaseServer } from "@/lib/supabase";
 import { getSupabaseUserForApiRoute } from "@/lib/supabase-route-auth";
 
-const RATE_LIMIT_PER_DAY_DEFAULT = 30;
+/** Fallback if `aiid_app_config.extension_rate_limit_per_day` is missing. */
+export const RATE_LIMIT_PER_DAY_DEFAULT = 15;
 const CONFIG_CACHE_TTL_MS = parseConfigCacheTtlMs();
 
 type SupabaseServer = ReturnType<typeof createSupabaseServer>;
