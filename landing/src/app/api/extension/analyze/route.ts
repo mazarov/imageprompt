@@ -21,6 +21,17 @@ import { summarizeGeminiApiResponse } from "@/lib/gemini-vibe-debug-log";
 import { createSupabaseServer } from "@/lib/supabase";
 import { buildExtractPrompt } from "@/lib/extension-prompt-sections";
 import {
+  buildRouterExtractPrompt,
+  isAnalyzePatternRouterFlagValue,
+  normalizeAnalyzeLayout,
+  parseAnalyzeDraft,
+  patternCriticalRules,
+  rejectionSuffix,
+  validateAnalyzeDraft,
+  type AnalyzeMedium,
+  type AnalyzePattern,
+} from "@/lib/analyze-pattern";
+import {
   inferAspectRatioFromDimensions,
   type ExtensionImageSettings,
 } from "@/lib/extension-image-settings";
@@ -86,6 +97,39 @@ async function getGeminiBaseUrl(supabase: ReturnType<typeof createSupabaseServer
   return GEMINI_DIRECT_BASE_URL;
 }
 const GEMINI_TIMEOUT_MS = 30_000;
+/** Pattern router: two attempts must fit the same ~45s client budget as one legacy call. */
+const ANALYZE_ROUTER_ATTEMPTS = 2;
+const ANALYZE_ROUTER_ATTEMPT_TIMEOUT_MS = 22_000;
+const ANALYZE_PATTERN_ROUTER_FLAG_KEY = "analyze_pattern_router_enabled";
+
+/**
+ * Feature flag lives in `landing_generation_config` (shared Supabase project with
+ * promptshot.ru). Missing row, non-"true" value, or DB error → legacy 12-section prompt.
+ */
+async function isAnalyzePatternRouterEnabled(
+  supabase: ReturnType<typeof createSupabaseServer>,
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from("landing_generation_config")
+      .select("value")
+      .eq("key", ANALYZE_PATTERN_ROUTER_FLAG_KEY)
+      .maybeSingle();
+    if (error) {
+      extensionLog("analyze.pattern_flag_failed", { message: error.message });
+      return false;
+    }
+    return isAnalyzePatternRouterFlagValue(data?.value);
+  } catch (err) {
+    extensionLog("analyze.pattern_flag_failed", {
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return false;
+  }
+}
+
+type RoutedAnalyzeDraft = { pattern: AnalyzePattern; medium: AnalyzeMedium; body: string };
+
 
 type Style = "photoreal" | "midjourney" | "sd" | "flux" | "nano" | "dalle";
 const VALID_STYLES: Style[] = ["photoreal", "midjourney", "sd", "flux", "nano", "dalle"];
@@ -411,8 +455,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   })();
   const viaProxy = baseUrl !== GEMINI_DIRECT_BASE_URL;
-  const systemPromptText = systemPrompt(style, locale);
   const imageSettingsPromise = readImageSettingsFromBase64(parsed.data);
+  const routerEnabled = await isAnalyzePatternRouterEnabled(supabase);
+  const maxAttempts = routerEnabled ? ANALYZE_ROUTER_ATTEMPTS : 1;
+  const geminiStartedAt = Date.now();
+  let geminiRes!: Response;
+  let geminiData!: {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    error?: { message?: string };
+  };
+  let rawText = "";
+  let rejectReasons: string[] = [];
+  let routed: RoutedAnalyzeDraft | null = null;
+  let attemptsUsed = 0;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+  attemptsUsed = attempt;
+  const basePrompt = routerEnabled ? buildRouterExtractPrompt(locale) : systemPrompt(style, locale);
+  const systemPromptText = rejectReasons.length
+    ? `${basePrompt}\n\n${rejectionSuffix(rejectReasons, false)}`
+    : basePrompt;
   // gemini-2.5-flash counts thinking tokens against maxOutputTokens. Large dynamic
   // thinking previously consumed ~1900 tokens and truncated visible output
   // (finishReason MAX_TOKENS, missing sections). Keep a small fixed budget as a
@@ -422,7 +484,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const generationConfig = {
     temperature: 0.3,
     maxOutputTokens: 4096,
-    thinkingConfig: { thinkingBudget: 256 },
+    // Router prompt is validated and retried; thinking 0 mirrors promptshot.ru.
+    thinkingConfig: { thinkingBudget: routerEnabled ? 0 : 256 },
   };
   const geminiBody = {
     contents: [
@@ -451,8 +514,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     geminiBody,
   });
 
-  let geminiRes: Response;
-  const geminiStartedAt = Date.now();
   try {
     geminiRes = await fetch(geminiUrl, {
       method: "POST",
@@ -461,7 +522,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         "x-goog-api-key": apiKey,
       },
       body: JSON.stringify(geminiBody),
-      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+      signal: AbortSignal.timeout(routerEnabled ? ANALYZE_ROUTER_ATTEMPT_TIMEOUT_MS : GEMINI_TIMEOUT_MS),
     });
   } catch (err) {
     console.error("[extension.analyze] gemini_fetch_failed", {
@@ -534,10 +595,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  let geminiData: {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    error?: { message?: string };
-  };
   try {
     geminiData = (await geminiRes.json()) as typeof geminiData;
   } catch {
@@ -564,7 +621,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+  rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
   if (!rawText) {
     console.error("[extension.analyze] gemini_empty_response", {
       analyzeRequestId,
@@ -594,8 +651,68 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Every style produces the photoreal base, so the CRITICAL RULES block is always appended.
-  const promptText = `${rawText}\n\n${criticalRulesBlock(locale)}`;
+  if (!routerEnabled) break;
+
+  const draft = parseAnalyzeDraft(rawText);
+  if (!draft.pattern || !draft.medium) {
+    rejectReasons = [
+      draft.patternLineInvalid || !draft.pattern ? "Pattern line missing or invalid" : "",
+      draft.mediumLineInvalid || !draft.medium ? "Medium line missing or invalid" : "",
+    ].filter(Boolean);
+    extensionLog("analyze.pattern_rejected", { analyzeRequestId, attempt, reasons: rejectReasons });
+    continue;
+  }
+  const body = normalizeAnalyzeLayout(draft.body);
+  const validation = validateAnalyzeDraft({ pattern: draft.pattern, medium: draft.medium, body });
+  if (!validation.ok) {
+    rejectReasons = validation.reasons;
+    extensionLog("analyze.pattern_rejected", {
+      analyzeRequestId,
+      attempt,
+      pattern: draft.pattern,
+      medium: draft.medium,
+      reasons: rejectReasons,
+    });
+    continue;
+  }
+  routed = { pattern: draft.pattern, medium: draft.medium, body };
+  break;
+  }
+
+  if (routerEnabled && !routed) {
+    console.error("[extension.analyze] pattern_router_exhausted", {
+      analyzeRequestId,
+      attempts: attemptsUsed,
+      reasons: rejectReasons,
+    });
+    if (session && reserved) {
+      await releaseExtensionRateLimitOnFailure(supabase, session);
+    }
+    recordExtensionRateLimitEvent(
+      supabase,
+      req,
+      "analyze",
+      extensionRateLimitCheckFromSession(session, reservedCheck),
+      false,
+      {
+        ...outcomeBase,
+        outcome: "upstream_error",
+        errorCode: "bad_response",
+        httpStatus: 502,
+        latencyMs: Date.now() - geminiStartedAt,
+      },
+    );
+    return NextResponse.json(
+      { error: "upstream_failed", message: "Something went wrong. Please try another image." },
+      { status: 502 }
+    );
+  }
+
+  // Legacy: every style produces the photoreal base, CRITICAL RULES always appended.
+  // Router: pattern-specific rules, no face-lock for object / layout / scene.
+  const promptText = routed
+    ? `${routed.body}\n\n${patternCriticalRules(routed.pattern, routed.medium, locale)}`
+    : `${rawText}\n\n${criticalRulesBlock(locale)}`;
 
   logExtensionAnalyzeGeminiResponse({
     analyzeRequestId,
@@ -608,12 +725,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     rawText,
     promptText,
     criticalRulesAppended: true,
+    pattern: routed?.pattern ?? null,
+    medium: routed?.medium ?? null,
+    attempts: attemptsUsed,
   });
 
   const imageSettings = await imageSettingsPromise;
 
   const finishReason = summarizeGeminiApiResponse(geminiData).finishReason;
-  const diagnostics = analyzePromptDiagnostics(style, rawText, finishReason);
+  // Routed drafts passed validateAnalyzeDraft, so every pattern section is present.
+  const diagnostics: { likelyTruncated: boolean; missingSections: string[] } = routed
+    ? { missingSections: [], likelyTruncated: finishReason === "MAX_TOKENS" }
+    : analyzePromptDiagnostics(style, rawText, finishReason);
 
   const rateLimitResult = session
     ? await confirmExtensionRateLimitOnSuccess(supabase, session)
@@ -648,11 +771,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ipHash: finalCheck?.ipHash ?? null,
       correlationId: req.headers.get("x-correlation-id"),
       authenticated: finalCheck?.authenticated ?? false,
+      analyzePattern: routed?.pattern ?? null,
+      analyzeMedium: routed?.medium ?? null,
     });
   }
 
   return NextResponse.json({
     prompt: promptText,
+    ...(routed ? { pattern: routed.pattern, medium: routed.medium } : {}),
     ...(imageSettings ? { imageSettings } : {}),
     ...extensionRateLimitQuotaFields(finalCheck),
   });

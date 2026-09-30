@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSectionSpec, SECTION_SPEC_ORDER } from "@/lib/extension-prompt-sections";
+import { getSectionSpec } from "@/lib/extension-prompt-sections";
 import {
   beginExtensionRateLimit,
   confirmExtensionRateLimitOnSuccess,
@@ -25,6 +25,7 @@ import {
   normalizeClassifierLabels,
   parseAvailablePromptSections,
   pickSectionsByLabels,
+  REMIX_KNOWN_HEADINGS,
   type ParsedPromptSection,
 } from "@/lib/extension-remix-sections";
 import { summarizeGeminiApiResponse } from "@/lib/gemini-vibe-debug-log";
@@ -42,7 +43,7 @@ const MAX_SECTION_LABEL_LEN = 64;
 
 type Style = "photoreal" | "midjourney" | "sd" | "flux" | "nano" | "dalle";
 const VALID_STYLES: Style[] = ["photoreal", "midjourney", "sd", "flux", "nano", "dalle"];
-const VALID_AUTO_LABELS = new Set<string>([...SECTION_SPEC_ORDER, "CRITICAL RULES", "Prompt"]);
+const VALID_AUTO_LABELS = new Set<string>([...REMIX_KNOWN_HEADINGS, "CRITICAL RULES", "Prompt"]);
 
 /**
  * Disable Gemini's content blocking for the remix rewrite.

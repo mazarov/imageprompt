@@ -180,6 +180,9 @@ export function logExtensionAnalyzeGeminiResponse(fields: {
   rawText: string;
   promptText: string;
   criticalRulesAppended: boolean;
+  pattern?: string | null;
+  medium?: string | null;
+  attempts?: number;
 }): void {
   const responseSummary = summarizeGeminiApiResponse(fields.geminiData);
   const finishReason = responseSummary.finishReason;
@@ -200,6 +203,9 @@ export function logExtensionAnalyzeGeminiResponse(fields: {
     rawTextChars: fields.rawText.length,
     promptTextChars: fields.promptText.length,
     criticalRulesAppended: fields.criticalRulesAppended,
+    pattern: fields.pattern ?? null,
+    medium: fields.medium ?? null,
+    attempts: fields.attempts ?? 1,
     rawTextHead,
     ...(rawTextTail ? { rawTextTail } : {}),
     promptTextHead,

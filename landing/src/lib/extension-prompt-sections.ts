@@ -4,6 +4,8 @@
  * remix/route.ts (to inject per-section contracts into the rewrite instruction).
  */
 
+import { SECTION_SPECS as ANALYZE_PATTERN_SECTION_SPECS } from "@/lib/analyze-pattern";
+
 export const SECTION_SPEC_ORDER = [
   "Visual Hook",
   "Scene",
@@ -185,7 +187,11 @@ export const CRITICAL_RULES_SPEC =
  */
 export function getSectionSpec(label: string): string | null {
   if (label === "CRITICAL RULES") return CRITICAL_RULES_SPEC;
-  return (SECTION_SPECS as Record<string, string>)[label] ?? null;
+  return (
+    (SECTION_SPECS as Record<string, string>)[label] ??
+    ANALYZE_PATTERN_SECTION_SPECS[label] ??
+    null
+  );
 }
 
 /**

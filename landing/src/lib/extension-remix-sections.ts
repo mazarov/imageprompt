@@ -1,4 +1,10 @@
 import { SECTION_SPEC_ORDER } from "@/lib/extension-prompt-sections";
+import { ALL_ANALYZE_HEADINGS } from "@/lib/analyze-pattern";
+
+/** Legacy 12 photoreal headings + pattern-router headings (Appearance, Object, Regions, …). */
+export const REMIX_KNOWN_HEADINGS: readonly string[] = [
+  ...new Set<string>([...SECTION_SPEC_ORDER, ...ALL_ANALYZE_HEADINGS]),
+];
 
 export type ParsedPromptSection = {
   label: string;
@@ -14,7 +20,7 @@ const AUTO_CLASSIFIER_FALLBACK_LABELS = [
 ] as const;
 
 const SECTION_DEFS: Array<{ label: string; re: RegExp }> = [
-  ...SECTION_SPEC_ORDER.map((label) => ({
+  ...REMIX_KNOWN_HEADINGS.map((label) => ({
     label,
     re: new RegExp(`^${escapeRegex(label)}\\s*:$`, "i"),
   })),

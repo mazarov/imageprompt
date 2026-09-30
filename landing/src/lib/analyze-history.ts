@@ -27,6 +27,8 @@ export type AnalyzeHistoryInput = {
   correlationId?: string | null;
   clientSource?: ClientSource;
   authenticated?: boolean;
+  analyzePattern?: string | null;
+  analyzeMedium?: string | null;
 };
 
 export type AnalyzeHistoryRow = {
@@ -103,6 +105,8 @@ async function persistAnalyzeHistory(
     user_id: input.userId ?? null,
     ip_hash: input.ipHash ?? null,
     correlation_id: input.correlationId ?? null,
+    analyze_pattern: input.analyzePattern ?? null,
+    analyze_medium: input.analyzeMedium ?? null,
   });
 
   if (insertError) {
