@@ -33,6 +33,12 @@
   (`Appearance`, `Object`, `Regions`, `Environment`, …) и берёт для них спеки из
   `analyze-pattern.ts`.
 
+## Промт v3 (2026-11-08, секция Rendering во всех паттернах)
+
+- `Rendering` добавлена в `PERSON_SECTIONS`, `OBJECT_SECTIONS`, `SCENE_SECTIONS` сразу после `Genre`.
+- `SECTION_SPECS.Rendering` — 2–3 предложения под `Medium`: для `illustration | graphic | 3d` — точная техника (импасто масло/акрил, акварель, тушь, сел-шейдинг, вектор, 3D-шейдер), видимость мазка/штриха, жёсткость граней светотени vs лепка плоскостями, зерно холста/бумаги и степень стилизации/карикатурности пропорций; для `photo` — характер оптики и микротекстуры кожи/зерна.
+- `SECTION_SPECS.Appearance`, `Color`, `Avoid` и `patternCriticalRules` синхронизированы с `aiphoto`.
+
 ## Проверка после деплоя
 
 ```bash
