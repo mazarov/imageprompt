@@ -39,3 +39,25 @@ docker build -f landing/Dockerfile ./landing
 ## Переменные окружения
 
 Шаблон: `landing/.env.example`. Секреты не коммитить.
+
+## Cursor MCP: Semrush
+
+Проектный MCP-конфиг лежит в `.cursor/mcp.json` и подключает официальный Semrush MCP endpoint:
+
+```json
+{
+  "mcpServers": {
+    "semrush": {
+      "url": "https://mcp.semrush.com/v2/mcp"
+    }
+  }
+}
+```
+
+После открытия репозитория в Cursor:
+
+1. Открой `Cursor Settings -> Tools & MCP`.
+2. Убедись, что сервер `semrush` появился в списке.
+3. Нажми `Authenticate` и пройди OAuth-авторизацию в Semrush.
+
+API-ключ Semrush в репозиторий не добавляем: официальный MCP-сервер Cursor использует OAuth и хранит авторизацию локально в клиенте.
